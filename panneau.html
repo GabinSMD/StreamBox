@@ -73,6 +73,20 @@
         <button class="btn ghost" data-send="minuteur" data-args="reprendre">Reprendre</button></div>
     </section>
 
+    <section class="box pn-card"><h3>🔢 Compteurs</h3>
+      <div class="pn-row"><input type="text" id="ctid" value="mort" placeholder="commande (mort)" style="max-width:140px">
+        <button class="btn ghost" data-send="compteurs" data-args-fn="ctplus">+1</button>
+        <button class="btn ghost" data-send="compteurs" data-args-fn="ctminus">−1</button>
+        <button class="btn ghost" data-send="compteurs" data-args-fn="ctreset">Remettre à zéro</button></div>
+    </section>
+
+    <section class="box pn-card"><h3>🔉 Sons et écran de fin</h3>
+      <div class="pn-row"><input type="text" id="sndname" value="tada" placeholder="nom du son" style="max-width:140px">
+        <button class="btn ghost" data-send="sons" data-args-fn="sound">Jouer</button>
+        <button class="btn ghost" data-send="qrdons" data-args="">📱 Montrer le QR code</button>
+        <button class="btn ghost" data-send="generique" data-args="">🎬 Relancer le générique</button></div>
+    </section>
+
     <section class="box pn-card"><h3>⏪ Rewind</h3>
       <div class="pn-row"><button class="btn" data-send="rewind" data-args="clip">📸 Marquer un temps fort</button>
         <button class="btn ghost" data-send="rewind" data-args="">Lancer le condensé</button>
@@ -94,6 +108,10 @@ let obs = null;
 try { const s = JSON.parse(localStorage.getItem('sb-panel') || '{}'); if (s.url) $('obsurl').value = s.url; if (s.pass) $('obspass').value = s.pass; } catch (e) { /* ignore */ }
 
 const ARGS = {
+  ctplus: () => { const id = $('ctid').value.trim().replace(/^!/, ''); return id ? id + ' +' : (toast('Écris la commande du compteur'), null); },
+  ctminus: () => { const id = $('ctid').value.trim().replace(/^!/, ''); return id ? id + ' -' : (toast('Écris la commande du compteur'), null); },
+  ctreset: () => { const id = $('ctid').value.trim().replace(/^!/, ''); return id ? id + ' reset' : (toast('Écris la commande du compteur'), null); },
+  sound: () => $('sndname').value.trim() || (toast('Écris le nom du son'), null),
   poll: () => {
     const q = $('pq').value.trim(); if (!q) { toast('Écris une question'); return null; }
     const opts = $('po').value.split(',').map((x) => x.trim()).filter(Boolean);

@@ -8,6 +8,7 @@ const addHtmlish = (s, file) => { // chaîne JS qui contient du HTML (innerHTML)
   visit(frag);
 };
 const add = (s, file, fromHtml) => {
+  if (!fromHtml && /\n/.test(s)) s.split('\n').forEach((l) => add(l, file)); // valeur sur plusieurs lignes : traduite ligne par ligne
   if (/<[a-z][\s\S]*>/i.test(s) && /<\/?(div|p|span|a|b|i|small|button|label|h\d|li|ul|summary|details|strong|em|code|br|img)\b/i.test(s)) return addHtmlish(s, file); s = s.replace(/\s+/g, ' ').trim(); if (!keep(s) && !word(s, fromHtml)) return; if (!out.has(s)) out.set(s, new Set()); out.get(s).add(file); };
 const WORD = /[A-Za-zÀ-ÿœ]{2,}/;
 // Un mot seul : texte s'il vient du HTML, ou s'il commence par une majuscule dans le JavaScript (« Copier », « Alertes »)
@@ -55,7 +56,7 @@ function js(src, rel) {
   });
 }
 const files = [];
-const scan = (d) => fs.readdirSync(d, { withFileTypes: true }).forEach((e) => { const f = path.join(d, e.name); if (e.isDirectory()) { if (!['node_modules', '.git', 'i18n', '.github'].includes(e.name)) scan(f); } else files.push(f); });
+const scan = (d) => fs.readdirSync(d, { withFileTypes: true }).forEach((e) => { const f = path.join(d, e.name); if (e.isDirectory()) { if (!['node_modules', '.git', 'i18n', '.github', 'vendor'].includes(e.name)) scan(f); } else files.push(f); });
 scan(ROOT);
 for (const f of files) {
   if (f.endsWith('.html')) html(f);

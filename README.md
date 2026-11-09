@@ -24,6 +24,11 @@ Une boîte à outils gratuite pour streamers. Elle regroupe dans un seul site ce
 | 📣 Annonces Discord : début du live, récap de fin, gagnant du giveaway, `!discord` | Source OBS invisible | Bots d’annonce |
 | 🧩 Extension « Musiques des redifs » (VOD Twitch et rediffusions YouTube) | Extension navigateur | |
 | 🔊 Lecture à voix haute : `!tts`, cheers, dons, points de chaîne ; voix du navigateur ou voix française du relais | Overlay OBS | TTS StreamElements / Streamlabs |
+| 🎬 Générique de fin : abos, abos offerts, bits, dons, raids, follows et chatteurs du live qui défilent | Overlay OBS + relais | Crédits Streamer.bot |
+| 🔢 Compteurs (morts, victoires…) pilotés par `!mort +` dans le chat ou depuis le panneau | Overlay OBS | Compteurs StreamElements / Nightbot |
+| 🔉 Sons des viewers : commande, points de chaîne ou bits, sons intégrés ou tes fichiers | Overlay OBS | SoundAlerts |
+| 📱 QR code de dons (Ko-fi, PayPal, Tipeee…), généré sans service extérieur | Overlay OBS | TipStreams |
+| 🎬 `!clip` : le bot crée un clip et le poste sur Discord | Bot (relais) | — |
 | 📊 Statistiques des lives : viewers minute par minute, chat, follows, abos, bits, raids, dons, catégories ; tendances et export CSV | Page web + relais | TwitchTracker, StreamsCharts |
 | 🛡️ Panneau de modération : sanctions en un clic, fiche viewer, AutoMod, journal de l’équipe, débans, modes du chat, annonces, titre et raid ; chaque modo avec son compte Twitch | Page web (dock OBS) | Mod View de Twitch |
 | 🎲 Mini-jeux du chat : points virtuels gagnés en discutant, duels, prédictions, quiz, classement (aucune valeur réelle) | Page web + relais + overlay | Loyalty de StreamElements / Streamlabs |

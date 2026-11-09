@@ -68,6 +68,8 @@
     return null;
   }
   function t(s, vars) {
+    // Texte sur plusieurs lignes (valeurs par défaut : cases de la roue, compteurs…) : ligne par ligne, retours à la ligne gardés
+    if (typeof s === 'string' && s.includes('\n')) return s.split('\n').map((l) => t(l, vars)).join('\n');
     let out = (typeof s === 'string' && translate(s, 0)) || s;
     if (vars) out = String(out).replace(/\{(\w+)\}/g, (all, n) => (n in vars ? vars[n] : all));
     return out;

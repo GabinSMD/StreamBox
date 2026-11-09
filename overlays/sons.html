@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>StreamBox · Sons des viewers</title>
+<link rel="stylesheet" href="../css/overlay.css">
+<script src="../js/i18n.js"></script>
+</head>
+<body>
+<div class="snd" id="bubble"><span class="snd-n" id="name"></span><span class="snd-by" id="by"></span></div>
+<script src="../js/config.js"></script>
+<script src="../js/sb.js"></script>
+<script src="../js/eventsub.js"></script>
+<script>
+/* Les viewers jouent des sons sur le stream : commande du chat, récompense de points de chaîne ou bits.
+ * Sons : une ligne par son, « nom | lien vers un fichier mp3/ogg/wav », ou un son intégré (tada, bip, tambour, klaxon, applaudissements).
+ * Le son passe par OBS : coche « Contrôler l'audio via OBS » dans les propriétés de la source. */
+const c = SB.params({
+  channel: '', token: '', sounds: 'tada | tada\nklaxon | klaxon\ntambour | tambour\nbip | bip',
+  cmd: '!son', level: 'everyone', cooldown: 60, globalcd: 10, bits: 0, reward: '', volume: 0.6, maxlen: 10, show: true,
+  size: 22, font: 'Inter', accent: '#9b5cff', demo: false,
+});
+SB.loadFont(c.font); SB.setAccent(c.accent);
+document.documentElement.style.setProperty('--size', c.size + 'px');
+const LEVEL = { everyone: 0, sub: 1, vip: 2, mod: 3 };
+const level = (m) => (m.isBroadcaster ? 4 : m.isMod ? 3 : m.isVip ? 2 : m.isSub ? 1 : 0);
+const norm = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+
+/* ---------- Sons intégrés (synthétisés, aucun fichier) ---------- */
+function ctx() { return SB._ctx || (SB._ctx = new (window.AudioContext || window.webkitAudioContext)()); }
+function tone(f, t0, dur, type = 'sine', vol = 1, f2) {
+  const a = ctx(), o = a.createOscillator(), g = a.createGain();
+  o.type = type; o.frequency.setValueAtTime(f, a.currentTime + t0); if (f2) o.frequency.exponentialRampToValueAtTime(f2, a.currentTime + t0 + dur);
+  g.gain.setValueAtTime(0.0001, a.currentTime + t0); g.gain.exponentialRampToValueAtTime(vol * c.volume, a.currentTime + t0 + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + t0 + dur);
+  o.connect(g).connect(a.destination); o.start(a.currentTime + t0); o.stop(a.currentTime + t0 + dur + 0.05);
+}
+function noise(t0, dur, vol = 0.6) {
+  const a = ctx(), b = a.createBuffer(1, a.sampleRate * dur, a.sampleRate), d = b.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
+  const s = a.createBufferSource(), g = a.createGain(); s.buffer = b; g.gain.value = vol * c.volume; s.connect(g).connect(a.destination); s.start(a.currentTime + t0);
+}
+const BUILTIN = {
+  tada: () => { [523, 659, 784, 1047].forEach((f, i) => tone(f, i * 0.09, i === 3 ? 0.7 : 0.15, 'triangle', 0.5)); return 1.1; },
+  bip: () => { tone(880, 0, 0.12, 'square', 0.25); tone(1320, 0.14, 0.18, 'square', 0.25); return 0.4; },
+  klaxon: () => { [0, 0.35].forEach((t) => { tone(370, t, 0.3, 'sawtooth', 0.35); tone(466, t, 0.3, 'sawtooth', 0.25); }); return 0.8; },
+  tambour: () => { for (let i = 0; i < 18; i++) noise(i * 0.06, 0.05, 0.25 + i * 0.02); noise(1.15, 0.5, 0.9); tone(110, 1.15, 0.5, 'sine', 0.9, 50); return 1.8; },
+  applaudissements: () => { for (let i = 0; i < 40; i++) noise(Math.random() * 1.8, 0.03, 0.4); return 2; },
+};
+const sounds = new Map(); // nom → son (lien https ou son intégré)
+c.sounds.split('\n').forEach((l) => { const [n, src] = l.split('|').map((x) => (x || '').trim()); if (n && src && (/^https:\/\//.test(src) || BUILTIN[src])) sounds.set(norm(n), { name: n, src }); });
+
+/* ---------- File de lecture (un son à la fois) ---------- */
+const queue = [], lastUser = new Map();
+let busy = false, lastPlay = 0, audio = null;
+function show(s, by) {
+  document.body.classList.toggle('snd-on', !!s && c.show);
+  if (s) { document.getElementById('name').textContent = '🔊 ' + s.name; document.getElementById('by').textContent = by ? SB.t('par {0}', [by]) : ''; }
+}
+function next() {
+  const it = queue.shift();
+  if (!it) { busy = false; show(null); return; }
+  busy = true; lastPlay = Date.now(); show(it.s, it.by);
+  const done = () => { if (audio) { audio.pause(); audio = null; } setTimeout(next, 300); };
+  if (BUILTIN[it.s.src]) { const d = BUILTIN[it.s.src](); return setTimeout(done, d * 1000 + 200); }
+  audio = new Audio(it.s.src); audio.volume = Math.max(0, Math.min(1, c.volume));
+  audio.onended = done; audio.onerror = done;
+  audio.play().catch(done);
+  setTimeout(() => { if (busy && audio) done(); }, c.maxlen * 1000); // un son trop long est coupé
+}
+function play(name, by, force) {
+  const s = sounds.get(norm(name));
+  if (!s) return false;
+  if (!force && Date.now() - lastPlay < c.globalcd * 1000) return false;
+  if (queue.length >= 5) return false;
+  queue.push({ s, by }); if (!busy) next();
+  return true;
+}
+
+/* ---------- Déclencheurs ---------- */
+function onMessage(m) {
+  const a = SB.command(m, c.cmd);
+  if (a === null) return;
+  const lv = level(m);
+  if (lv < LEVEL[c.level] || !a.trim()) return;
+  const now = Date.now();
+  if (lv < 3 && now - (lastUser.get(m.login) || 0) < c.cooldown * 1000) return;
+  if (play(a, m.name, lv >= 3)) lastUser.set(m.login, now);
+}
+const chat = new SB.TwitchChat(c.channel);
+chat.on('message', onMessage)
+  .on('cheer', (m) => { if (!c.bits || m.bits < c.bits) return; const w = (m.text || '').match(new RegExp(c.cmd.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s+(.+)$', 'i')); if (w) play(w[1].replace(/\bcheer\d+\b/gi, '').trim(), m.name, true); })
+  .connect();
+if (c.reward || c.token) SB.twitchEvents(c, ['points']).on('points', (e) => {
+  // récompense « Jouer un son » (le viewer écrit le nom du son), ou une récompense qui porte le nom d'un son
+  if (c.reward && norm(e.reward) === norm(c.reward)) play(e.input, e.name, true);
+  else if (sounds.has(norm(e.reward))) play(e.reward, e.name, true);
+});
+SB.remote('sons', '', (m) => play(m.text.trim(), '', true));
+if (c.demo) { const names = [...sounds.values()].map((s) => s.name); let i = 0; setInterval(() => { if (!busy && names.length) { show(sounds.get(norm(names[i % names.length])), 'Pixelmaud'); i++; setTimeout(() => show(null), 1800); } }, 3000); }
+SB.hintIfNoChannel(c);
+</script>
+</body>
+</html>

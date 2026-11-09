@@ -277,7 +277,7 @@ const NEEDS = {
   sondage: ['obspass'], minuteur: ['obspass'], roue: ['obspass'], giveaway: ['obspass', 'webhook'],
   rewind: ['token', 'obspass'],
   musique: ['token', 'spotifycid', 'lastfm', 'lfmkey'], // Spotify : jeton à jour fourni par /o/:id/spotify-token
-  lecteur: [], jeux: [],
+  lecteur: [], jeux: [], generique: [], qrdons: [], compteurs: ['obspass'], sons: ['token', 'obspass'],
   tts: ['token', 'sejwt', 'sltoken', 'kofi', 'obspass'],
   discord: ['token', 'webhook'],
 };
@@ -359,6 +359,10 @@ async function accountRoutes(req, env, url, p) {
     if (p[2] === 'tts' && req.method === 'POST') { // overlay Lecture à voix haute : voix du relais
       const d = await req.json().catch(() => ({}));
       const r = await stub('user:' + idx.user_id).fetch('https://acc/ov-tts', { method: 'POST', body: JSON.stringify({ ov: p[1], text: d.text, lang: d.lang }) });
+      return withCors(new Response(r.body, { status: r.status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } }));
+    }
+    if (p[2] === 'credits' && req.method === 'GET') { // overlay Générique de fin
+      const r = await stub('user:' + idx.user_id).fetch('https://acc/ov-credits', { method: 'POST', body: JSON.stringify({ ov: p[1] }) });
       return withCors(new Response(r.body, { status: r.status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } }));
     }
     if (p[2] === 'jeux' && req.method === 'GET') { // overlay Mini-jeux : état public des jeux
@@ -555,6 +559,16 @@ export class Account {
       if (!d.id) return err('identifiant du don manquant');
       return ok(await this.subDon({ source: clean(d.source || 'Streamlabs', 30), id: 'ov-' + clean(d.id, 80), name: clean(d.name, 60), amount: parseFloat(d.amount) || 0, currency: clean(d.currency || 'EUR', 5), message: clean(d.message, 300) }, profile, await secrets(), E));
     }
+    if (path === '/ov-credits') {
+      const o = ((await st.get('overlays')) || {})[body.ov];
+      if (!o || o.tool !== 'generique') return err('overlay non autorisé', 403);
+      const cfg = (await st.get('stats')) || {};
+      const L = await st.get('statlive');
+      if (L) return ok(Object.assign({ live: true, enabled: !!cfg.enabled }, STATS.credits(STATS.finish(L, Date.now()))));
+      const last = ((await st.get('statidx')) || [])[0];
+      const r = last && Date.now() - last.endedAt < 12 * 3600000 ? await st.get('stat:' + String(last.startedAt).padStart(15, '0')) : null; // dernier live, s'il date de moins de 12 h
+      return ok(r ? Object.assign({ live: false, enabled: !!cfg.enabled }, STATS.credits(r)) : { live: false, enabled: !!cfg.enabled, empty: true });
+    }
     if (path.startsWith('/stats-')) return this.statsRoute(path, body, profile, ok, err);
     if (path.startsWith('/jeux-') || path === '/ov-jeux') return this.jeuxRoute(path, body, profile, await secrets(), E, ok, err);
     if (path.startsWith('/bot-')) return this.botRoute(path, body, profile, await secrets(), E, ok, err);
@@ -697,6 +711,16 @@ export class Account {
       async channel(id) { return ((await (await helix('channels?broadcaster_id=' + (id || bid))).json()).data || [])[0]; },
       async user(login) { return ((await (await helix('users?login=' + encodeURIComponent(login))).json()).data || [])[0]; },
       async followedAt(uid) { const d = await (await helix(`channels/followers?broadcaster_id=${bid}&user_id=${uid}`, {}, await self.twitchAccess(secrets, E))).json(); return d.data && d.data[0] ? d.data[0].followed_at : null; },
+      async clip() { // créé avec le compte du streamer (permission clips:edit)
+        const r = await helix('clips?broadcaster_id=' + bid, { method: 'POST' }, await self.twitchAccess(secrets, E));
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(r.status === 404 ? 'le live est hors ligne' : r.status === 401 || r.status === 403 ? 'reconnecte-toi sur StreamBox (permission clips)' : d.message || 'erreur ' + r.status);
+        return (d.data || [])[0];
+      },
+      async discord(text) { // webhook Discord enregistré dans « Mon compte »
+        if (!/^https:\/\/(?:\w+\.)?discord(?:app)?\.com\/api\/webhooks\/\d+\/[\w-]+$/.test(secrets.webhook || '')) return;
+        await fetch(secrets.webhook, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: tr(text, profile.lang), allowed_mentions: { parse: [] } }) });
+      },
       changed() { ctx.changed = true; },
     };
   }
@@ -709,6 +733,8 @@ export class Account {
       async channel() { return { game_name: '(jeu en cours)', title: '(titre du live)' }; },
       async user(login) { return { id: '0', login: login.toLowerCase(), display_name: login }; },
       async followedAt() { return new Date(Date.now() - 400 * 86400000).toISOString(); },
+      async clip() { out.push({ type: 'clip' }); return { id: 'ClipDeTest' }; },
+      async discord(text) { out.push({ type: 'discord', text }); },
       changed() {},
     };
   }
@@ -1219,7 +1245,7 @@ export class Account {
     }
     if (S) await st.put('substate', S);
     const L = await st.get('statlive');
-    if (L) { STATS.don(L, amount, d.currency); await st.put('statlive', L); }
+    if (L) { STATS.don(L, amount, d.currency, d.name); await st.put('statlive', L); }
     const bot = await st.get('bot');
     if (bot && bot.enabled && bot.events.don && bot.events.don.on) {
       const state = (await st.get('botstate')) || {}, ctx = { state, changed: false };
