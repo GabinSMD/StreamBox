@@ -459,3 +459,13 @@ ol.sx-list { counter-reset: sx; } ol.sx-list li span::before { counter-increment
 .au-block > select { max-width: 420px; }
 .au-block > .btn { align-self: flex-start; }
 #app > .bt-save { position: sticky; bottom: 12px; z-index: 5; }
+
+/* ---------- Sous-titres (page de capture) ---------- */
+.st-grid { display: grid; grid-template-columns: 240px 1fr; gap: 16px; }
+@media (max-width: 700px) { .st-grid { grid-template-columns: 1fr; } }
+.st-targets { display: flex; flex-wrap: wrap; gap: 8px; }
+.st-chip { display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--line); border-radius: 99px; padding: 4px 10px; font-size: 14px; background: var(--bg2); cursor: pointer; }
+.st-live { display: flex; flex-direction: column; gap: 10px; max-height: 50vh; overflow-y: auto; }
+.st-line { border-left: 3px solid #9b5cff; padding-left: 10px; }
+.st-o { margin: 0; font-weight: 700; }
+.st-tr p { margin: 2px 0 0; color: var(--muted); font-size: 14px; }

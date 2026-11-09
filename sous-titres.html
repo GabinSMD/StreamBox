@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sous-titres en direct · StreamBox</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="css/site.css">
+<script src="js/i18n.js"></script>
+</head>
+<body>
+<main class="wrap sx-page">
+  <h2 class="sec" style="margin-top:36px">💬 Sous-titres en direct</h2>
+  <p class="sec">Ta voix transcrite et traduite à l’écran, en direct. Laisse cette page ouverte dans Chrome ou Edge pendant ton live (pas dans OBS : une source OBS n’a pas accès au micro) ; les sous-titres s’affichent dans l’overlay « Sous-titres » de ta scène.</p>
+  <div id="need" class="box" hidden></div>
+
+  <div id="app" hidden>
+    <div class="note" id="unsupported" hidden>Ce navigateur ne sait pas reconnaître la voix. Ouvre cette page dans <b>Google Chrome</b> ou <b>Microsoft Edge</b> sur ton ordinateur.</div>
+    <section class="box">
+      <div class="st-grid">
+        <label class="bt-f"><span>Langue que tu parles</span><select id="spoken"></select></label>
+        <div class="bt-f"><span>Traduire en</span><div id="targets" class="st-targets"></div></div>
+      </div>
+      <div class="pn-row" style="margin-top:14px">
+        <button class="btn" id="go" type="button">🎙️ Démarrer les sous-titres</button>
+        <span class="flag" id="st">arrêtés</span>
+        <span class="bt-help" id="trInfo"></span>
+      </div>
+    </section>
+
+    <section class="box">
+      <h3 class="bt-h">En direct</h3>
+      <div class="st-live" id="live" data-i18n-skip><p class="bt-help">Les phrases reconnues s’afficheront ici.</p></div>
+    </section>
+
+    <section class="box">
+      <h3 class="bt-h">L’overlay dans OBS</h3>
+      <p class="bt-help">Configure l’overlay « Sous-titres » (langues affichées, style, taille), enregistre-le dans ton compte et ajoute son lien comme source navigateur dans OBS.</p>
+      <a class="btn ghost small" href="outil.html?id=soustitres">Configurer l’overlay Sous-titres</a>
+    </section>
+  </div>
+</main>
+<script src="js/config.js"></script>
+<script src="js/account.js"></script>
+<script src="js/site.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+const LANGS = [['fr', 'fr-FR', 'Français'], ['en', 'en-US', 'English'], ['es', 'es-ES', 'Español'], ['de', 'de-DE', 'Deutsch'], ['it', 'it-IT', 'Italiano'], ['pt', 'pt-BR', 'Português'], ['nl', 'nl-NL', 'Nederlands'], ['pl', 'pl-PL', 'Polski'], ['ja', 'ja-JP', '日本語'], ['ko', 'ko-KR', '한국어']];
+const Rec = window.SpeechRecognition || window.webkitSpeechRecognition;
+const store = { get: (k, d) => { try { return JSON.parse(localStorage.getItem('sb-st-' + k)) ?? d; } catch (e) { return d; } }, set: (k, v) => { try { localStorage.setItem('sb-st-' + k, JSON.stringify(v)); } catch (e) { /* ignore */ } } };
+let running = false, rec = null, ws = null, seq = 0, lastInterim = 0, translators = {}, aiLangs = [];
+
+/* ---------- Réglages ---------- */
+LANGS.forEach(([c, tag, name]) => { const o = el('option', null, name); o.value = c; $('spoken').appendChild(o); });
+$('spoken').value = store.get('spoken', (window.SB_LANG || 'fr'));
+const chosen = new Set(store.get('targets', ['en']));
+function renderTargets() {
+  $('targets').replaceChildren(...LANGS.filter(([c]) => c !== $('spoken').value).map(([c, , name]) => {
+    const l = el('label', 'st-chip'); const cb = el('input'); cb.type = 'checkbox'; cb.checked = chosen.has(c);
+    cb.onchange = () => { cb.checked ? chosen.add(c) : chosen.delete(c); store.set('targets', [...chosen]); if (running) prepareTranslators(); };
+    l.append(cb, ' ' + name); return l;
+  }));
+}
+$('spoken').onchange = () => { store.set('spoken', $('spoken').value); renderTargets(); if (running) { stop(); start(); } };
+renderTargets();
+const targets = () => [...chosen].filter((c) => c !== $('spoken').value);
+
+/* ---------- Traduction : dans le navigateur si possible (Chrome), sinon par le relais ---------- */
+async function prepareTranslators() {
+  translators = {}; aiLangs = [];
+  const src = $('spoken').value, info = [];
+  for (const t of targets()) {
+    let ok = false;
+    if ('Translator' in self) {
+      try {
+        const a = await Translator.availability({ sourceLanguage: src, targetLanguage: t });
+        if (a !== 'unavailable') { translators[t] = await Translator.create({ sourceLanguage: src, targetLanguage: t }); ok = true; }
+      } catch (e) { /* pas disponible : le relais traduira */ }
+    }
+    if (!ok) aiLangs.push(t);
+    info.push(`${t.toUpperCase()} : ${ok ? SB.t('dans le navigateur') : SB.t('par le relais')}`);
+  }
+  $('trInfo').textContent = info.length ? SB.t('Traduction') + ' — ' + info.join(' · ') : '';
+}
+async function translateLocal(text) {
+  const tr = {};
+  await Promise.all(Object.entries(translators).map(async ([l, t]) => { try { tr[l] = await t.translate(text); } catch (e) { /* ignore */ } }));
+  return tr;
+}
+
+/* ---------- Liaison avec le relais (WebSocket, ticket à usage unique) ---------- */
+async function connect() {
+  if (ws && ws.readyState <= 1) return;
+  try {
+    const { ticket, userId } = await SBA.api('POST', '/me/captions/ticket');
+    ws = new WebSocket(SBA.relay().replace(/^http/, 'ws') + `/captions/${userId}?t=${ticket}`);
+    ws.onopen = () => status();
+    ws.onmessage = (e) => { let m; try { m = JSON.parse(e.data); } catch (err) { return; } if (m.type === 'caption-tr') showTr(m.id, m.tr); if (m.type === 'error') toast(m.error); };
+    ws.onclose = () => { status(); if (running) setTimeout(connect, 3000); };
+  } catch (e) { toast(SB.t('Relais injoignable : {0}', [e.message])); if (running) setTimeout(connect, 5000); }
+}
+const send = (o) => { if (ws && ws.readyState === 1) ws.send(JSON.stringify(o)); };
+setInterval(() => send({ type: 'ping' }), 30000);
+function status() { $('st').textContent = !running ? SB.t('arrêtés') : ws && ws.readyState === 1 ? SB.t('🔴 en direct') : SB.t('connexion au relais…'); }
+
+/* ---------- Reconnaissance de la voix ---------- */
+const lines = new Map();
+function line(id) {
+  let l = lines.get(id);
+  if (!l) { l = el('div', 'st-line'); l.append(el('p', 'st-o'), el('div', 'st-tr')); $('live').prepend(l); lines.set(id, l); while ($('live').children.length > 12) $('live').lastChild.remove(); if ($('live').querySelector('.bt-help')) $('live').querySelector('.bt-help').remove(); }
+  return l;
+}
+function showTr(id, tr) { const l = lines.get(id); if (!l) return; Object.entries(tr).forEach(([k, v]) => { let d = l.querySelector(`[data-l="${k}"]`); if (!d) { d = el('p'); d.dataset.l = k; l.lastChild.appendChild(d); } d.textContent = `${k.toUpperCase()} · ${v}`; }); }
+function start() {
+  if (!Rec) return;
+  running = true; $('go').textContent = SB.t('⏹ Arrêter les sous-titres'); status();
+  connect(); prepareTranslators();
+  const tag = (LANGS.find(([c]) => c === $('spoken').value) || LANGS[0])[1];
+  rec = new Rec(); rec.lang = tag; rec.continuous = true; rec.interimResults = true;
+  let cur = 'c' + ++seq;
+  rec.onresult = async (e) => {
+    let interim = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      const r = e.results[i], text = r[0].transcript.trim();
+      if (r.isFinal) {
+        if (!text) continue;
+        const id = cur; cur = 'c' + ++seq;
+        line(id).firstChild.textContent = text;
+        const tr = await translateLocal(text); showTr(id, tr);
+        send({ type: 'caption', id, text, final: true, lang: $('spoken').value, tr, ai: aiLangs });
+      } else interim += text + ' ';
+    }
+    interim = interim.trim();
+    if (interim && Date.now() - lastInterim > 300) { // texte provisoire : envoyé au plus 3 fois par seconde
+      lastInterim = Date.now(); line(cur).firstChild.textContent = interim + '…';
+      send({ type: 'caption', id: cur, text: interim, final: false, lang: $('spoken').value });
+    }
+  };
+  rec.onerror = (e) => {
+    if (e.error === 'not-allowed' || e.error === 'service-not-allowed') { toast(SB.t('Autorise le micro pour ce site, puis recommence.')); stop(); }
+    else if (e.error !== 'no-speech' && e.error !== 'aborted') console.warn('reconnaissance :', e.error);
+  };
+  rec.onend = () => { if (running) { try { rec.start(); } catch (err) { setTimeout(() => running && rec.start(), 500); } } }; // Chrome s'arrête après un silence : on relance
+  rec.start();
+}
+function stop() { running = false; if (rec) { rec.onend = null; rec.stop(); } $('go').textContent = SB.t('🎙️ Démarrer les sous-titres'); status(); }
+$('go').onclick = () => (running ? stop() : start());
+addEventListener('beforeunload', (e) => { if (running) { e.preventDefault(); e.returnValue = ''; } });
+
+(async () => {
+  if (!SBA.enabled() || !SBA.loggedIn()) {
+    $('need').hidden = false; $('need').append(el('p', 'lead', 'Les sous-titres passent par ton compte StreamBox : connecte-toi avec Twitch.'));
+    const b = el('button', 'btn', 'Se connecter avec Twitch'); b.onclick = () => SBA.login('sous-titres.html'); $('need').appendChild(b); return;
+  }
+  $('app').hidden = false;
+  if (!Rec) { $('unsupported').hidden = false; $('go').disabled = true; }
+})();
+</script>
+</body>
+</html>

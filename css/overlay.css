@@ -347,3 +347,15 @@ img.emote { height: 1.6em; vertical-align: middle; margin: -0.3em 0.1em; }
 .au { position: absolute; inset: 8px; font-size: 13px; background: rgba(16, 12, 26, .92); color: #fff; border-radius: 12px; padding: 10px 12px; overflow: hidden; font-family: Inter, system-ui, sans-serif; }
 .au-head { margin-bottom: 6px; } .au-head span { opacity: .7; }
 .au-line { padding: 3px 0; border-bottom: 1px solid rgba(255,255,255,.08); overflow-wrap: anywhere; }
+
+/* ---------- Sous-titres ---------- */
+.sub { position: absolute; left: 4%; right: 4%; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
+.sub-bas .sub { bottom: 5%; } .sub-haut .sub { top: 5%; }
+.sub-item { display: flex; flex-direction: column; gap: 2px; transition: opacity .5s; max-width: 100%; }
+.sub-item.out { opacity: 0; }
+.sub-bande .sub-item { background: rgba(var(--panel-rgb, 0, 0, 0), var(--panel-a, .72)); border-radius: var(--radius, 10px); padding: .25em .7em; }
+.sub-texte .sub-item { text-shadow: 0 0 4px #000, 0 2px 6px rgba(0,0,0,.9), 0 0 2px #000; }
+.sub-o { font-weight: 800; overflow-wrap: anywhere; }
+.sub-o.interim { opacity: .75; }
+.sub-t { font-weight: 600; font-size: .82em; overflow-wrap: anywhere; }
+.sub-lang { font-size: .6em; background: var(--accent); color: #fff; border-radius: 4px; padding: 0 .35em; vertical-align: .2em; text-shadow: none; }

@@ -61,6 +61,10 @@ Rien à configurer. Le relais trouve le salon de chat d'une chaîne Kick (`/kick
 
 Activées depuis la page Statistiques. Pendant le live, l'alarme du compte relève chaque minute les viewers, le titre et la catégorie (API Twitch, jeton d'application) ; hors live, elle vérifie toutes les 5 minutes si le live a commencé. Avec `EVENTSUB_SECRET`, les follows, abos, bits, raids et messages du chat sont aussi comptés (le chat demande les permissions du bot). Les 200 derniers lives sont gardés ; seuls le nombre de chatteurs et le top 10 sont conservés, pas la liste complète.
 
+### Sous-titres en direct
+
+La page Sous-titres (Chrome ou Edge) reconnaît la voix et envoie chaque phrase au relais par un WebSocket, ouvert avec un ticket d'une minute à usage unique (`POST /me/captions/ticket`, puis `GET /captions/:userId?t=…`). Le relais transmet les phrases aux overlays « soustitres » du compte. La traduction est faite par le navigateur quand Chrome le permet, sinon par Workers AI (`@cf/meta/m2m100-1.2b`, binding `AI` déjà déclaré), pour les phrases finies seulement, 60 par minute au plus.
+
 ### Automatisations
 
 Les règles sont enregistrées comme réglages d'un overlay `automatisations` (18 Ko au plus). La source invisible dans OBS les exécute ; pour les messages du chat ou de Discord, elle passe par `POST /o/:id/say { text, to: chat | discord }` (20 messages par minute au plus, permissions du bot pour le chat, webhook de Mon compte pour Discord).

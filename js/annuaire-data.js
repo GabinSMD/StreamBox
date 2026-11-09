@@ -17,7 +17,7 @@ window.SB_DIRECTORY = [
   { cat: 'Widgets', name: 'SoundAlerts', url: 'https://soundalerts.com/', alt: 'sons', flags: [], desc: 'Les viewers jouent des sons sur ton stream avec des bits.' },
   { cat: 'Widgets', name: 'StreamElements', url: 'https://streamelements.com/', alt: 'alertes', flags: [], desc: 'Suite complète de widgets : chat, alertes de dons, objectifs…' },
   { cat: 'Widgets', name: 'Streamlabs', url: 'https://streamlabs.com/', alt: 'alertes', flags: [], desc: 'Suite complète de widgets : chat, alertes de dons, objectifs…' },
-  { cat: 'Widgets', name: 'StreamTranslate', url: 'https://streamtranslate.live', flags: [], desc: 'Sous-titres traduits en temps réel via une source navigateur.' },
+  { cat: 'Widgets', name: 'StreamTranslate', url: 'https://streamtranslate.live', alt: 'sous-titres', flags: [], desc: 'Sous-titres traduits en temps réel via une source navigateur.' },
   { cat: 'Widgets', name: 'TipStreams', url: 'https://tipstreams.com/widget/', alt: 'qrdons', flags: ['Gratuit'], desc: 'QR code de dons unique (crypto, PayPal, Ko-fi…) en overlay.' },
   { cat: 'Widgets', name: 'Vizz.fm', url: 'https://vizz.fm', flags: [], desc: 'Visualiseur musical personnalisable, utilisable comme source OBS.' },
   { cat: 'Widgets', name: 'Kloot', url: 'https://kloot.gg', alt: 'giveaway', flags: [], desc: 'Tableau de contrôle : giveaways, sondages, bandeaux et effets de hype, pilotables depuis le téléphone.' },
