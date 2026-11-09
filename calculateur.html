@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Calculateur de revenus · StreamBox</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="css/site.css">
+</head>
+<body>
+<main class="wrap">
+  <h2 class="sec" style="margin-top:36px">💰 Calculateur de revenus Twitch</h2>
+  <p class="sec">Une estimation mensuelle, avant impôts. Les prix des abonnements dépendent du pays des viewers : modifie-les si besoin.</p>
+  <div class="calc">
+    <form class="box" id="form" autocomplete="off">
+      <div class="field"><label for="t1">Abonnés palier 1</label><input type="number" id="t1" min="0" value="50"></div>
+      <div class="field"><label for="prime">Abonnés Prime</label><input type="number" id="prime" min="0" value="10"></div>
+      <div class="field"><label for="t2">Abonnés palier 2</label><input type="number" id="t2" min="0" value="2"></div>
+      <div class="field"><label for="t3">Abonnés palier 3</label><input type="number" id="t3" min="0" value="1"></div>
+      <div class="field"><label for="bits">Bits reçus par mois</label><input type="number" id="bits" min="0" value="5000"></div>
+      <div class="field"><label for="split">Ta part des abonnements (%)</label>
+        <select id="split"><option value="50">50 % (standard)</option><option value="60">60 %</option><option value="70">70 % (Plus Program)</option></select></div>
+      <details class="more"><summary>Prix des abonnements</summary>
+        <div class="field"><label for="p1">Prix palier 1 / Prime</label><input type="number" id="p1" step="0.01" value="4.99"></div>
+        <div class="field"><label for="p2">Prix palier 2</label><input type="number" id="p2" step="0.01" value="9.99"></div>
+        <div class="field"><label for="p3">Prix palier 3</label><input type="number" id="p3" step="0.01" value="24.99"></div>
+        <div class="field"><label for="cur">Devise</label><select id="cur"><option value="USD">Dollar ($)</option><option value="EUR">Euro (€)</option></select></div>
+      </details>
+    </form>
+    <section class="box">
+      <div class="lead" style="margin:0">Estimation par mois</div>
+      <div class="result" id="total"></div>
+      <div class="breakdown" id="bd"></div>
+      <p class="breakdown" style="margin-top:14px">Un bit rapporte 0,01 $ au streamer. Les revenus de publicité ne sont pas comptés : ils dépendent trop du pays et de la saison.</p>
+    </section>
+  </div>
+</main>
+<script src="js/site.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const n = (id) => Math.max(0, parseFloat($(id).value) || 0);
+function calc() {
+  const cur = $('cur').value;
+  const fmt = (v) => v.toLocaleString('fr-FR', { style: 'currency', currency: cur });
+  const share = n('split') / 100;
+  const subs = { 'Palier 1': (n('t1')) * n('p1'), 'Prime': n('prime') * n('p1'), 'Palier 2': n('t2') * n('p2'), 'Palier 3': n('t3') * n('p3') };
+  const bits = n('bits') * 0.01;
+  const rows = Object.entries(subs).map(([k, v]) => [k, v * share]);
+  rows.push(['Bits', bits]);
+  const total = rows.reduce((s, [, v]) => s + v, 0);
+  $('total').innerHTML = '';
+  $('total').append(fmt(total), Object.assign(document.createElement('small'), { textContent: ' / mois' }));
+  $('bd').replaceChildren(...rows.map(([k, v]) => {
+    const d = document.createElement('div');
+    d.append(Object.assign(document.createElement('span'), { textContent: k }), Object.assign(document.createElement('span'), { textContent: fmt(v) }));
+    return d;
+  }));
+}
+$('form').addEventListener('input', calc);
+calc();
+</script>
+</body>
+</html>

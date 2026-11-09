@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>StreamBox, configurer un overlay</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Roboto+Mono&display=swap">
+<link rel="stylesheet" href="css/site.css">
+</head>
+<body>
+<main class="wrap">
+  <div class="cfg">
+    <section class="box">
+      <h1 id="name"></h1>
+      <p class="lead" id="tagline"></p>
+      <form id="form" autocomplete="off"></form>
+      <button class="btn ghost" type="button" id="reset">Réglages par défaut</button>
+    </section>
+    <section>
+      <div class="box">
+        <div class="urlbar">
+          <input type="text" id="url" readonly aria-label="Lien de l’overlay">
+          <button class="btn" type="button" id="copy">Copier</button>
+        </div>
+        <div class="preview game" id="preview"><div class="stage" id="stage"><iframe id="frame" title="Aperçu"></iframe></div></div>
+        <div class="ptools">
+          <label><input type="checkbox" id="demo" checked> Aperçu avec de faux messages</label>
+          <label><input type="checkbox" id="gamebg" checked> Fond de jeu</label>
+          <span id="dims"></span>
+        </div>
+        <ol class="steps">
+          <li>Dans OBS : <b>Sources → + → Navigateur</b>.</li>
+          <li>Colle le lien copié dans <b>URL</b> et règle la taille sur <b id="sizehint"></b>.</li>
+          <li id="audiohint" hidden>Pour entendre le son, coche <b>Contrôler l’audio via OBS</b>.</li>
+          <li>Pour modifier un réglage plus tard, reviens ici et recopie le nouveau lien.</li>
+        </ol>
+      </div>
+      <div class="box" id="cmdbox" style="margin-top:16px" hidden>
+        <h1 style="font-size:17px">Commandes de chat <span class="flag">streamer et modos</span></h1>
+        <table class="cmds" id="cmds"></table>
+      </div>
+      <div class="note" id="note" hidden></div>
+    </section>
+  </div>
+</main>
+<script src="js/tools.js"></script>
+<script src="js/site.js"></script>
+<script>
+(function () {
+  const id = new URLSearchParams(location.search).get('id');
+  const tool = SB_TOOLS.find((t) => t.id === id) || SB_TOOLS[0];
+  const KEY = 'sb-cfg-' + tool.id;
+  const $ = (x) => document.getElementById(x);
+  document.title = tool.name + ' · StreamBox';
+  $('name').textContent = tool.icon + ' ' + tool.name;
+  $('tagline').textContent = tool.tagline;
+  $('sizehint').textContent = tool.size[0] + ' × ' + tool.size[1];
+  $('dims').textContent = 'Taille conseillée : ' + tool.size[0] + ' × ' + tool.size[1];
+  if (tool.fields.some((f) => f.key === 'sound')) $('audiohint').hidden = false;
+  if (tool.note) { $('note').hidden = false; $('note').textContent = tool.note; }
+  if (tool.commands) {
+    $('cmdbox').hidden = false;
+    tool.commands.forEach(([cmd, desc]) => {
+      const tr = $('cmds').insertRow();
+      const a = tr.insertCell(); const code = document.createElement('code'); code.textContent = cmd; a.appendChild(code);
+      tr.insertCell().textContent = desc;
+    });
+  }
+
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) { saved = {}; }
+
+  /* ----- Formulaire ----- */
+  const form = $('form');
+  const VISIBLE = 5;
+  let more = null;
+  tool.fields.forEach((f, i) => {
+    const wrap = document.createElement('div');
+    wrap.className = 'field' + (f.type === 'checkbox' ? ' check' : '');
+    const inputId = 'f-' + f.key;
+    let input;
+    if (f.type === 'select') {
+      input = document.createElement('select');
+      f.options.forEach((o) => {
+        const [v, l] = Array.isArray(o) ? o : [o, o];
+        const opt = document.createElement('option'); opt.value = v; opt.textContent = l; input.appendChild(opt);
+      });
+    } else {
+      input = document.createElement('input');
+      input.type = f.type;
+      if (f.placeholder) input.placeholder = f.placeholder;
+      ['min', 'max', 'step'].forEach((k) => f[k] != null && (input[k] = f[k]));
+    }
+    input.id = inputId; input.name = f.key;
+    const v = f.key in saved ? saved[f.key] : f.default;
+    if (f.type === 'checkbox') input.checked = !!v; else input.value = v;
+    const label = document.createElement('label'); label.htmlFor = inputId;
+    if (f.type === 'checkbox') { label.appendChild(input); label.append(f.label); wrap.appendChild(label); }
+    else { label.textContent = f.label; wrap.append(label, input); }
+    if (f.help) { const s = document.createElement('small'); s.textContent = f.help; wrap.appendChild(s); }
+    if (i < VISIBLE) form.appendChild(wrap);
+    else {
+      if (!more) { more = document.createElement('details'); more.className = 'more'; more.innerHTML = '<summary>Plus de réglages</summary>'; form.appendChild(more); }
+      more.appendChild(wrap);
+    }
+  });
+
+  function values() {
+    const out = {};
+    tool.fields.forEach((f) => {
+      const el = form.elements[f.key];
+      out[f.key] = f.type === 'checkbox' ? el.checked : f.type === 'number' ? (el.value === '' ? f.default : parseFloat(el.value)) : el.value.trim();
+    });
+    return out;
+  }
+
+  function overlayUrl(vals, extra) {
+    const u = new URL(tool.overlay, location.href);
+    tool.fields.forEach((f) => {
+      const v = vals[f.key];
+      if (v === f.default || (f.type === 'checkbox' && !!v === !!f.default)) return;
+      u.searchParams.set(f.key, f.type === 'checkbox' ? (v ? '1' : '0') : String(v));
+    });
+    Object.entries(extra || {}).forEach(([k, v]) => u.searchParams.set(k, v));
+    return u.toString();
+  }
+
+  /* ----- Aperçu ----- */
+  const frame = $('frame'), stage = $('stage'), preview = $('preview');
+  frame.width = tool.size[0]; frame.height = tool.size[1];
+  function fit() {
+    const cw = preview.clientWidth;
+    const s = Math.min(1, cw / tool.size[0], 520 / tool.size[1]);
+    stage.style.transform = `scale(${s})`;
+    stage.style.left = Math.max(0, (cw - tool.size[0] * s) / 2) + 'px';
+    preview.style.height = tool.size[1] * s + 'px';
+  }
+  addEventListener('resize', fit);
+
+  let timer, lastSrc = '';
+  function update() {
+    const vals = values();
+    try { localStorage.setItem(KEY, JSON.stringify(vals)); } catch (e) { /* stockage indisponible */ }
+    $('url').value = overlayUrl(vals);
+    const useDemo = $('demo').checked || !vals.channel;
+    const src = overlayUrl(useDemo ? Object.assign({}, vals, { channel: '' }) : vals, useDemo ? { demo: '1' } : {});
+    clearTimeout(timer);
+    timer = setTimeout(() => { if (src !== lastSrc) { frame.src = src; lastSrc = src; } }, 350);
+  }
+  form.addEventListener('input', update);
+  form.addEventListener('change', update);
+  $('demo').addEventListener('change', update);
+  $('gamebg').addEventListener('change', () => preview.classList.toggle('game', $('gamebg').checked));
+  $('reset').addEventListener('click', () => {
+    tool.fields.forEach((f) => { const el = form.elements[f.key]; if (f.key === 'channel') return; if (f.type === 'checkbox') el.checked = f.default; else el.value = f.default; });
+    update();
+  });
+  $('copy').addEventListener('click', async () => {
+    const v = values();
+    if (!v.channel && tool.fields[0].key === 'channel' && !/optionnel/i.test(tool.fields[0].label)) {
+      form.elements.channel.focus(); toast('Indique d’abord le nom de ta chaîne'); return;
+    }
+    try { await navigator.clipboard.writeText($('url').value); }
+    catch (e) { $('url').select(); document.execCommand('copy'); }
+    toast('Lien copié, colle-le dans OBS');
+  });
+  fit(); update();
+})();
+</script>
+</body>
+</html>

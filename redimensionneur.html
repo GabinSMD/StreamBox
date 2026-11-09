@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Redimensionneur d’emotes · StreamBox</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="css/site.css">
+</head>
+<body>
+<main class="wrap">
+  <h2 class="sec" style="margin-top:36px">🖼️ Redimensionneur d’emotes et de badges</h2>
+  <p class="sec">Dépose une image (PNG ou JPG, carrée de préférence, au moins 112 px). Tout se passe dans ton navigateur : l’image n’est envoyée nulle part.</p>
+  <label class="drop" id="drop">
+    <b>Glisse ton image ici ou clique pour la choisir</b>
+    <span>PNG, JPG ou WebP. Les GIF animés seront convertis en image fixe.</span>
+    <input type="file" id="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
+  </label>
+  <div class="ptools" style="justify-content:flex-start">
+    <label>Cadrage :
+      <select id="fit" style="width:auto">
+        <option value="contain">Ajuster (bords transparents)</option>
+        <option value="cover">Remplir (rogner)</option>
+      </select>
+    </label>
+    <button class="btn ghost" type="button" id="all" hidden>Tout télécharger</button>
+  </div>
+  <div class="outs" id="outs"></div>
+</main>
+<script src="js/site.js"></script>
+<script>
+const PRESETS = [
+  { name: 'Emote Twitch', file: 'twitch_emote', sizes: [112, 56, 28] },
+  { name: 'Badge d’abonné / de bits Twitch', file: 'twitch_badge', sizes: [72, 36, 18] },
+  { name: 'Emoji Discord', file: 'discord_emoji', sizes: [128] },
+  { name: 'Sticker Discord', file: 'discord_sticker', sizes: [320] },
+  { name: '7TV / BetterTTV', file: '7tv_bttv', sizes: [128, 112] },
+  { name: 'FrankerFaceZ', file: 'ffz', sizes: [128, 64, 32] },
+];
+let source = null, baseName = 'emote';
+const $ = (id) => document.getElementById(id);
+
+function resize(img, size, mode) {
+  // Réduction par paliers successifs (÷2) pour un résultat net
+  let w = img.naturalWidth, h = img.naturalHeight;
+  let src = img;
+  const target = Math.max(size, 1);
+  const scale = mode === 'cover' ? Math.max(target / w, target / h) : Math.min(target / w, target / h);
+  let tw = w * scale, th = h * scale;
+  while (w / 2 > tw && h / 2 > th) {
+    const c = document.createElement('canvas');
+    c.width = Math.round(w / 2); c.height = Math.round(h / 2);
+    const x = c.getContext('2d'); x.imageSmoothingQuality = 'high'; x.drawImage(src, 0, 0, c.width, c.height);
+    src = c; w = c.width; h = c.height;
+  }
+  const out = document.createElement('canvas');
+  out.width = out.height = target;
+  const ctx = out.getContext('2d');
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(src, (target - tw) / 2, (target - th) / 2, tw, th);
+  return out;
+}
+
+function render() {
+  if (!source) return;
+  const outs = $('outs'); outs.replaceChildren();
+  PRESETS.forEach((p) => {
+    const box = document.createElement('div'); box.className = 'out';
+    const h = document.createElement('h3'); h.textContent = p.name; box.appendChild(h);
+    const row = document.createElement('div'); row.className = 'sizes';
+    p.sizes.forEach((s) => {
+      const canvas = resize(source, s, $('fit').value);
+      const a = document.createElement('a');
+      a.download = `${baseName}_${p.file}_${s}.png`;
+      a.href = canvas.toDataURL('image/png');
+      const img = document.createElement('img'); img.src = a.href; img.width = Math.min(s, 112); img.height = Math.min(s, 112); img.alt = s + ' px';
+      a.append(img, s + ' px ⬇');
+      row.appendChild(a);
+    });
+    box.appendChild(row); outs.appendChild(box);
+  });
+  $('all').hidden = false;
+}
+
+function load(file) {
+  if (!file || !file.type.startsWith('image/')) { toast('Ce fichier n’est pas une image'); return; }
+  baseName = file.name.replace(/\.[^.]+$/, '').replace(/[^\w-]+/g, '_') || 'emote';
+  const img = new Image();
+  img.onload = () => {
+    source = img; render();
+    if (img.naturalWidth < 112 || img.naturalHeight < 112) toast('Image petite : le résultat risque d’être flou');
+  };
+  img.src = URL.createObjectURL(file);
+}
+
+$('file').addEventListener('change', (e) => load(e.target.files[0]));
+$('fit').addEventListener('change', render);
+const drop = $('drop');
+['dragenter', 'dragover'].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add('over'); }));
+['dragleave', 'drop'].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove('over'); }));
+drop.addEventListener('drop', (e) => load(e.dataTransfer.files[0]));
+$('all').addEventListener('click', () => {
+  [...document.querySelectorAll('.sizes a')].forEach((a, i) => setTimeout(() => a.click(), i * 250));
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>StreamBox · Giveaway</title>
+<link rel="stylesheet" href="../css/overlay.css">
+</head>
+<body>
+<div class="panel hidden" id="panel">
+  <div class="kicker" id="kicker">Giveaway</div>
+  <h1 id="title"></h1>
+  <div id="open">
+    <div class="ga-count" id="count">0</div>
+    <div style="opacity:.8;font-weight:600" id="countLabel">participant</div>
+    <div class="ga-recent" id="recent"></div>
+  </div>
+  <div id="draw" hidden>
+    <div class="ga-roll" id="roll"></div>
+    <div class="ga-msgs" id="winmsgs"></div>
+  </div>
+  <div class="foot"><span id="hint"></span><span id="extra"></span></div>
+</div>
+<script src="../js/sb.js"></script>
+<script>
+const c = SB.params({
+  channel: '', cmd: '!giveaway', keyword: '!participer', title: 'Giveaway', subonly: false, subluck: 1,
+  size: 20, font: 'Inter', accent: '#9b5cff', demo: false,
+});
+SB.loadFont(c.font); SB.setAccent(c.accent);
+document.documentElement.style.setProperty('--size', c.size + 'px');
+const $ = (id) => document.getElementById(id);
+
+let state = 'idle';            // idle | open | closed | drawing | won
+let keyword = c.keyword;
+const people = new Map();      // login -> { name, weight }
+let winner = null;
+
+function show() { $('panel').classList.remove('hidden'); }
+function hide() { $('panel').classList.add('hidden'); }
+
+function renderOpen() {
+  $('open').hidden = false; $('draw').hidden = true;
+  $('title').textContent = c.title;
+  $('count').textContent = people.size;
+  $('countLabel').textContent = people.size > 1 ? 'participants' : 'participant';
+  $('kicker').textContent = state === 'open' ? 'Inscriptions ouvertes' : 'Inscriptions fermées';
+  $('hint').textContent = state === 'open' ? `Tape ${keyword} dans le chat pour participer` : 'Tirage imminent…';
+  $('extra').textContent = c.subonly ? 'Réservé aux abonnés' : (c.subluck > 1 ? `Abonnés ×${c.subluck} chances` : '');
+}
+
+function open(kw) {
+  if (kw) keyword = kw.split(/\s+/)[0];
+  if (state === 'idle' || state === 'won') { people.clear(); $('recent').replaceChildren(); }
+  state = 'open'; winner = null;
+  renderOpen(); show();
+}
+
+function close() { if (state === 'open') { state = 'closed'; renderOpen(); } }
+
+function pickWeighted() {
+  const arr = [...people.entries()];
+  const total = arr.reduce((s, [, p]) => s + p.weight, 0);
+  let r = SB.random() * total;
+  for (const [login, p] of arr) { if ((r -= p.weight) < 0) return login; }
+  return arr[arr.length - 1][0];
+}
+
+function draw() {
+  if (!people.size || state === 'drawing') return;
+  state = 'drawing';
+  const login = pickWeighted();
+  const names = [...people.values()].map((p) => p.name);
+  $('open').hidden = true; $('draw').hidden = false;
+  $('kicker').textContent = 'Tirage au sort';
+  $('hint').textContent = `${people.size} participant${people.size > 1 ? 's' : ''}`;
+  $('extra').textContent = '';
+  $('winmsgs').replaceChildren();
+  const roll = $('roll'); roll.classList.remove('final');
+  let delay = 50, elapsed = 0;
+  const step = () => {
+    roll.textContent = names[Math.floor(SB.random() * names.length)];
+    elapsed += delay; delay *= 1.09;
+    if (elapsed < 4200) return setTimeout(step, delay);
+    winner = { login, name: people.get(login).name };
+    people.delete(login); // un nouveau tirage choisira quelqu'un d'autre
+    roll.textContent = '🎉 ' + winner.name + ' 🎉';
+    roll.classList.add('final');
+    $('kicker').textContent = 'Gagnant·e !';
+    $('hint').textContent = 'Messages du gagnant ci-dessus';
+    state = 'won';
+  };
+  step();
+}
+
+function onMessage(m) {
+  const args = SB.command(m, c.cmd);
+  if (args !== null && m.isMod) {
+    const [sub, ...rest] = args.split(/\s+/);
+    switch ((sub || '').toLowerCase()) {
+      case '': case 'start': case 'ouvrir': open(rest.join(' ')); break;
+      case 'stop': case 'fermer': close(); break;
+      case 'tirage': case 'draw': case 'tirer': if (state === 'open') state = 'closed'; draw(); break;
+      case 'reset': state = 'idle'; people.clear(); hide(); break;
+      case 'cacher': case 'hide': hide(); break;
+      default: open(args); // !giveaway <mot-clé>
+    }
+    return;
+  }
+  if (state === 'won' && winner && m.login === winner.login) {
+    const d = SB.el('div');
+    d.appendChild(SB.el('b', null, winner.name + ' : '));
+    SB.messageNodes(m, null).forEach((n) => d.appendChild(n));
+    $('winmsgs').appendChild(d);
+    while ($('winmsgs').children.length > 3) $('winmsgs').firstElementChild.remove();
+    return;
+  }
+  if (state !== 'open') return;
+  if (m.text.trim().split(/\s+/)[0].toLowerCase() !== keyword.toLowerCase()) return;
+  if (c.subonly && !m.isSub && !m.isBroadcaster) return;
+  if (people.has(m.login)) return;
+  people.set(m.login, { name: m.name, weight: m.isSub ? Math.max(1, c.subluck) : 1 });
+  const chip = SB.el('span', null, m.name);
+  $('recent').appendChild(chip);
+  while ($('recent').children.length > 6) $('recent').firstElementChild.remove();
+  renderOpen();
+}
+
+const chat = new SB.TwitchChat(c.channel);
+chat.on('message', onMessage).connect();
+
+if (c.demo) {
+  const cycle = () => {
+    chat.inject(SB.fake({ user: SB.demoBroadcaster, text: c.cmd + ' start' }));
+    let k = 0;
+    const iv = setInterval(() => {
+      const u = k < SB.demoUsers.length ? SB.demoUsers[k] : { login: 'viewer_' + k, sub: Math.random() < .3 };
+      chat.inject(SB.fake({ user: u, text: keyword })); k++;
+    }, 400);
+    setTimeout(() => { clearInterval(iv); chat.inject(SB.fake({ user: SB.demoBroadcaster, text: c.cmd + ' tirage' })); }, 7000);
+    setTimeout(() => winner && chat.inject(SB.fake({ user: { login: winner.name }, text: 'OMG merci beaucoup !! HeyGuys' })), 12500);
+  };
+  cycle(); setInterval(cycle, 20000);
+}
+SB.hintIfNoChannel(c);
+</script>
+</body>
+</html>

@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>StreamBox · Alertes</title>
+<link rel="stylesheet" href="../css/overlay.css">
+</head>
+<body>
+<div id="alert"></div>
+<script src="../js/sb.js"></script>
+<script>
+const c = SB.params({
+  channel: '', duration: 7, sound: true, volume: 0.4, size: 22, font: 'Inter', accent: '#9b5cff',
+  subs: true, gifts: true, raids: true, bits: true, minbits: 1, minraid: 1,
+  tsub: '{name} vient de s’abonner !', tresub: '{name} est abonné·e depuis {months} mois !',
+  tgift: '{name} offre {count} abonnement(s) !', traid: 'RAID ! {name} arrive avec {count} viewers !',
+  tbits: '{name} envoie {count} bits !', test: '!testalerte', demo: false,
+});
+SB.loadFont(c.font); SB.setAccent(c.accent);
+document.documentElement.style.setProperty('--size', c.size + 'px');
+const emotes = new SB.EmoteStore();
+const queue = [];
+let busy = false;
+
+function fill(tpl, v) {
+  // Construit le titre : les valeurs dynamiques sont en <b>, le reste en texte brut (pas d'innerHTML).
+  const frag = document.createDocumentFragment();
+  tpl.split(/(\{\w+\})/).forEach((part) => {
+    const k = part.match(/^\{(\w+)\}$/);
+    if (k && v[k[1]] != null) frag.appendChild(SB.el('b', null, String(v[k[1]])));
+    else frag.appendChild(document.createTextNode(part));
+  });
+  return frag;
+}
+
+function push(a) { queue.push(a); if (!busy) next(); }
+
+function next() {
+  const a = queue.shift();
+  const box = document.getElementById('alert');
+  if (!a) { busy = false; return; }
+  busy = true;
+  const card = SB.el('div', 'alert-card');
+  card.appendChild(SB.el('div', 'icon', a.icon));
+  const t = SB.el('div', 'title'); t.appendChild(fill(a.tpl, a.vars)); card.appendChild(t);
+  if (a.msg && a.msg.text) {
+    const s = SB.el('div', 'sub');
+    SB.messageNodes(a.msg, emotes).forEach((n) => s.appendChild(n));
+    card.appendChild(s);
+  }
+  box.replaceChildren(card);
+  if (c.sound) SB.chime(c.volume);
+  setTimeout(() => {
+    card.classList.add('leave');
+    setTimeout(() => { card.remove(); setTimeout(next, 400); }, 500);
+  }, c.duration * 1000);
+}
+
+function stripCheers(m) {
+  const text = m.text.split(' ').filter((w) => !/^[a-z]+\d+$/i.test(w)).join(' ').trim();
+  return Object.assign({}, m, { text, emotes: [] });
+}
+
+function onNotice(n) {
+  switch (n.type) {
+    case 'sub':
+      if (c.subs) push({ icon: '⭐', tpl: c.tsub, vars: { name: n.name, months: n.months || 1 }, msg: n });
+      break;
+    case 'resub':
+      if (c.subs) push({ icon: '⭐', tpl: c.tresub, vars: { name: n.name, months: n.months }, msg: n });
+      break;
+    case 'subgift': case 'anonsubgift':
+      if (c.gifts && !n.isCommunityGift) push({ icon: '🎁', tpl: c.tgift, vars: { name: n.name || 'Anonyme', count: 1, recipient: n.recipient } });
+      break;
+    case 'submysterygift': case 'anonsubmysterygift':
+      if (c.gifts) push({ icon: '🎁', tpl: c.tgift, vars: { name: n.name || 'Anonyme', count: n.giftCount } });
+      break;
+    case 'raid':
+      if (c.raids && n.viewers >= c.minraid) push({ icon: '🚀', tpl: c.traid, vars: { name: n.name, count: n.viewers } });
+      break;
+  }
+}
+
+function testAlerts() {
+  const u = SB.demoUsers;
+  const f = (i, text) => Object.assign(SB.fake({ user: u[i], text }), {});
+  onNotice(Object.assign(f(0, 'Je kiffe trop tes streams HeyGuys'), { type: 'resub', months: 14 }));
+  push({ icon: '💎', tpl: c.tbits, vars: { name: u[3].login, count: 500 }, msg: f(3, 'Allez on y croit Kreygasm') });
+  onNotice(Object.assign(f(6, ''), { type: 'submysterygift', giftCount: 5 }));
+  onNotice(Object.assign(f(4, ''), { type: 'raid', viewers: 87 }));
+}
+
+const chat = new SB.TwitchChat(c.channel);
+chat.on('room', (id) => emotes.load(id))
+  .on('usernotice', onNotice)
+  .on('cheer', (m) => { if (c.bits && m.bits >= c.minbits) push({ icon: '💎', tpl: c.tbits, vars: { name: m.name, count: m.bits }, msg: stripCheers(m) }); })
+  .on('message', (m) => { if (m.isMod && SB.command(m, c.test) !== null) testAlerts(); })
+  .connect();
+
+if (c.demo) { testAlerts(); setInterval(() => { if (!busy) testAlerts(); }, 2000); }
+SB.hintIfNoChannel(c);
+</script>
+</body>
+</html>

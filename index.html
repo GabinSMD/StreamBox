@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>StreamBox, la boîte à outils des streamers</title>
+<meta name="description" content="Chat en overlay, alertes, sondages, giveaways, emotes, compte à rebours… Tous les outils du streamer au même endroit, gratuits et sans installation.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="css/site.css">
+</head>
+<body>
+<main class="wrap">
+  <section class="hero">
+    <h1>Tous tes outils de stream.<br><span>Un seul site.</span></h1>
+    <p>Chat en overlay, alertes, sondages, giveaways, emotes, écran d’attente… Configure, copie le lien dans OBS, et c’est prêt. Rien à installer, aucun compte à connecter.</p>
+    <div class="pills">
+      <span class="pill"><b>✓</b> Gratuit</span>
+      <span class="pill"><b>✓</b> Sans installation</span>
+      <span class="pill"><b>✓</b> Sans compte ni mot de passe</span>
+      <span class="pill"><b>✓</b> Emotes 7TV · BTTV · FFZ</span>
+    </div>
+  </section>
+
+  <h2 class="sec">Overlays pour OBS</h2>
+  <p class="sec">À ajouter comme « Source navigateur » dans OBS, Streamlabs Desktop ou Meld.</p>
+  <div class="grid" id="overlays"></div>
+
+  <h2 class="sec">Outils</h2>
+  <p class="sec">Utilitaires qui fonctionnent directement dans ton navigateur.</p>
+  <div class="grid" id="pages"></div>
+
+  <h2 class="sec" id="comment">Comment ça marche</h2>
+  <p class="sec">Trois étapes, aucune installation.</p>
+  <div class="how">
+    <div><span class="num">1</span><b>Choisis un outil</b><span>Indique le nom de ta chaîne et règle le style. L’aperçu se met à jour en direct.</span></div>
+    <div><span class="num">2</span><b>Copie le lien</b><span>Chaque overlay a son lien. Tes réglages sont enregistrés dans le lien lui-même.</span></div>
+    <div><span class="num">3</span><b>Colle-le dans OBS</b><span>Sources → + → Navigateur → colle l’URL. Tes modos pilotent ensuite sondages, giveaways et minuteur depuis le chat.</span></div>
+  </div>
+</main>
+<script src="js/tools.js"></script>
+<script src="js/site.js"></script>
+<script>
+function card(t, href) {
+  const a = document.createElement('a');
+  a.className = 'tool'; a.href = href;
+  a.innerHTML = '<span class="ic"></span><h3></h3><p></p>';
+  a.querySelector('.ic').textContent = t.icon;
+  a.querySelector('h3').textContent = t.name;
+  a.querySelector('p').textContent = t.tagline;
+  if (t.replaces && t.replaces.length) {
+    const r = document.createElement('div'); r.className = 'rep';
+    r.append('Remplace : '); const b = document.createElement('b'); b.textContent = t.replaces.join(', '); r.append(b);
+    a.appendChild(r);
+  }
+  return a;
+}
+SB_TOOLS.forEach((t) => document.getElementById('overlays').appendChild(card(t, 'outil.html?id=' + t.id)));
+SB_PAGES.forEach((t) => document.getElementById('pages').appendChild(card(t, t.href)));
+</script>
+</body>
+</html>

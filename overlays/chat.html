@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>StreamBox · Chat</title>
+<link rel="stylesheet" href="../css/overlay.css">
+</head>
+<body>
+<div id="chat"></div>
+<script src="../js/sb.js"></script>
+<script>
+const c = SB.params({
+  channel: '', theme: 'bulles', size: 18, fade: 0, max: 25, hidebots: true, hidecmd: false,
+  bots: '', align: 'left', badges: true, font: 'Inter', accent: '#9b5cff', anim: true,
+  seventv: true, bttv: true, ffz: true, demo: false,
+});
+SB.loadFont(c.font); SB.setAccent(c.accent);
+document.body.classList.add('t-' + c.theme);
+document.documentElement.style.setProperty('--size', c.size + 'px');
+const box = document.getElementById('chat');
+if (c.align === 'right') box.classList.add('right');
+
+const BOTS = new Set(['nightbot', 'streamelements', 'streamlabs', 'moobot', 'fossabot', 'wizebot', 'soundalerts', 'sery_bot', 'botrixoficial']);
+const extraBots = new Set(c.bots.split(/[\s,]+/).filter(Boolean).map((s) => s.toLowerCase()));
+const emotes = new SB.EmoteStore();
+
+function badgeEls(m) {
+  const out = [];
+  const add = (cls, letter, title) => { const b = SB.el('span', 'badge ' + cls, letter); b.title = title; out.push(b); };
+  if (m.isBroadcaster) add('b', '▶', 'Streamer');
+  else if (m.isMod) add('m', '⚔', 'Modérateur');
+  if (m.isVip) add('v', '◆', 'VIP');
+  if (m.isSub) add('s', '★', 'Abonné');
+  return out;
+}
+
+function addMessage(m) {
+  if (c.hidebots && BOTS.has(m.login)) return;
+  if (extraBots.has(m.login)) return;
+  if (c.hidecmd && m.text.startsWith('!')) return;
+
+  const row = SB.el('div', 'msg' + (c.anim ? ' anim' : '') + (m.action ? ' action' : ''));
+  row.dataset.id = m.id || '';
+  row.dataset.login = m.login;
+  const meta = SB.el('span', 'meta');
+  if (c.badges) badgeEls(m).forEach((b) => meta.appendChild(b));
+  const name = SB.el('span', 'name', m.name);
+  name.style.color = SB.nameColor(m);
+  meta.appendChild(name);
+  if (c.theme !== 'bulles') meta.appendChild(SB.el('span', 'sep', m.action ? '' : ':'));
+  const text = SB.el('span', 'text');
+  if (m.action) text.style.color = SB.nameColor(m);
+  SB.messageNodes(m, emotes).forEach((n) => text.appendChild(n));
+  row.append(meta, ' ', text);
+  box.appendChild(row);
+
+  while (box.children.length > c.max) box.firstElementChild.remove();
+  if (c.fade > 0) setTimeout(() => { row.classList.add('out'); setTimeout(() => row.remove(), 600); }, c.fade * 1000);
+}
+
+const chat = new SB.TwitchChat(c.channel);
+chat.on('room', (id) => emotes.load(id, c))
+    .on('message', addMessage)
+    .on('clearchat', (e) => box.querySelectorAll(e.login ? `.msg[data-login="${CSS.escape(e.login)}"]` : '.msg').forEach((n) => n.remove()))
+    .on('clearmsg', (id) => box.querySelectorAll(`.msg[data-id="${CSS.escape(id)}"]`).forEach((n) => n.remove()))
+    .connect();
+
+if (c.demo) {
+  emotes.load(null, c);
+  const tick = () => { chat.inject(SB.fake({})); setTimeout(tick, 900 + Math.random() * 1600); };
+  tick();
+}
+SB.hintIfNoChannel(c);
+</script>
+</body>
+</html>

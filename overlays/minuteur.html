@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>StreamBox · Compte à rebours</title>
+<link rel="stylesheet" href="../css/overlay.css">
+</head>
+<body>
+<div class="timer-wrap">
+  <div class="timer-box">
+    <div class="timer-title" id="title"></div>
+    <div class="timer-time" id="time">--:--</div>
+    <div class="timer-sub" id="sub"></div>
+  </div>
+</div>
+<script src="../js/sb.js"></script>
+<script>
+const c = SB.params({
+  channel: '', mode: 'duree', minutes: 10, heure: '20:00', title: 'Le stream commence bientôt',
+  subtitle: '', end: 'C’est parti !', style: 'carte', tsize: 110, font: 'Inter', accent: '#9b5cff',
+  cmd: '!timer', demo: false,
+});
+SB.loadFont(c.font); SB.setAccent(c.accent);
+document.body.classList.add('s-' + c.style);
+document.documentElement.style.setProperty('--tsize', c.tsize + 'px');
+const $ = (id) => document.getElementById(id);
+$('title').textContent = c.title;
+$('sub').textContent = c.subtitle;
+
+if (c.style === 'scene') {
+  [['8%', '10%', '#9b5cff', '120px', '80px'], ['60%', '50%', c.accent, '-140px', '-60px'], ['20%', '65%', '#ff5ca8', '100px', '-90px'], ['70%', '5%', '#3cc8ff', '-80px', '120px']]
+    .forEach(([l, t, col, dx, dy], i) => {
+      const b = SB.el('div', 'blob');
+      Object.assign(b.style, { left: l, top: t, width: '42vw', height: '42vw', background: col, animationDelay: -i * 4 + 's' });
+      b.style.setProperty('--dx', dx); b.style.setProperty('--dy', dy);
+      document.body.prepend(b);
+    });
+}
+
+let target;
+if (c.mode === 'heure') {
+  const [h, m] = c.heure.split(':').map(Number);
+  const d = new Date(); d.setHours(h || 0, m || 0, 0, 0);
+  if (d < new Date()) d.setDate(d.getDate() + 1);
+  target = d.getTime();
+} else {
+  target = Date.now() + c.minutes * 60000;
+}
+let paused = null; // ms restantes quand en pause
+
+function fmt(ms) {
+  const s = Math.max(0, Math.ceil(ms / 1000));
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+  const p = (n) => String(n).padStart(2, '0');
+  return h ? `${h}:${p(m)}:${p(sec)}` : `${p(m)}:${p(sec)}`;
+}
+
+function tick() {
+  const left = paused != null ? paused : target - Date.now();
+  if (left <= 0) { $('time').textContent = c.end; document.body.classList.add('timer-done'); }
+  else { $('time').textContent = fmt(left); document.body.classList.remove('timer-done'); }
+}
+setInterval(tick, 200); tick();
+
+// Contrôle par le chat (modos) : !timer 15 | !timer +5 | !timer -2 | !timer pause | !timer reprendre
+const chat = new SB.TwitchChat(c.channel);
+chat.on('message', (m) => {
+  const a = SB.command(m, c.cmd);
+  if (a === null || !m.isMod) return;
+  const left = paused != null ? paused : target - Date.now();
+  let r;
+  if (/^pause$/i.test(a)) { if (paused == null) paused = Math.max(0, left); }
+  else if (/^(reprendre|play|go)$/i.test(a)) { if (paused != null) { target = Date.now() + paused; paused = null; } }
+  else if ((r = a.match(/^([+-])\s*(\d+(?:[.,]\d+)?)$/))) {
+    const delta = (r[1] === '-' ? -1 : 1) * parseFloat(r[2].replace(',', '.')) * 60000;
+    if (paused != null) paused = Math.max(0, paused + delta); else target = Math.max(Date.now(), target) + delta;
+  } else if ((r = a.match(/^(\d+(?:[.,]\d+)?)$/))) {
+    const ms = parseFloat(r[1].replace(',', '.')) * 60000;
+    if (paused != null) paused = ms; else target = Date.now() + ms;
+  }
+  tick();
+}).connect();
+</script>
+</body>
+</html>

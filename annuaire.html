@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Annuaire des outils · StreamBox</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="css/site.css">
+</head>
+<body>
+<main class="wrap">
+  <h2 class="sec" style="margin-top:36px">Annuaire des outils pour streamers</h2>
+  <p class="sec">Ce que StreamBox ne fait pas (encore) : clips, bots, statistiques, clients de chat… Quand un outil a une <span style="color:var(--ok);font-weight:600">alternative intégrée</span>, tu peux l’utiliser ici sans rien installer.</p>
+  <div class="filters" id="filters">
+    <input type="text" id="q" placeholder="Rechercher un outil…" aria-label="Rechercher">
+  </div>
+  <div class="dir" id="dir"></div>
+</main>
+<script src="js/tools.js"></script>
+<script src="js/annuaire-data.js"></script>
+<script src="js/site.js"></script>
+<script>
+const all = [...SB_TOOLS, ...SB_PAGES];
+const cats = ['Tout', 'Alternative intégrée', ...new Set(SB_DIRECTORY.map((e) => e.cat))];
+let cat = 'Tout';
+const f = document.getElementById('filters');
+cats.forEach((c) => {
+  const b = document.createElement('button');
+  b.className = 'chip' + (c === cat ? ' on' : ''); b.textContent = c; b.type = 'button';
+  b.onclick = () => { cat = c; f.querySelectorAll('.chip').forEach((x) => x.classList.toggle('on', x === b)); render(); };
+  f.appendChild(b);
+});
+document.getElementById('q').addEventListener('input', render);
+
+function render() {
+  const q = document.getElementById('q').value.trim().toLowerCase();
+  const dir = document.getElementById('dir');
+  dir.replaceChildren();
+  SB_DIRECTORY.filter((e) => (cat === 'Tout' || e.cat === cat || (cat === 'Alternative intégrée' && e.alt)) &&
+    (!q || (e.name + ' ' + e.desc + ' ' + e.cat).toLowerCase().includes(q))).forEach((e) => {
+    const d = document.createElement('div'); d.className = 'entry';
+    const h = document.createElement('h3');
+    const a = document.createElement('a'); a.href = e.url; a.target = '_blank'; a.rel = 'noopener'; a.textContent = e.name + ' ↗';
+    h.appendChild(a);
+    e.flags.forEach((fl) => { const s = document.createElement('span'); s.className = 'flag'; s.textContent = fl; h.appendChild(s); });
+    const catEl = document.createElement('div'); catEl.className = 'cat'; catEl.textContent = e.cat;
+    const p = document.createElement('p'); p.textContent = e.desc;
+    d.append(catEl, h, p);
+    const t = e.alt && all.find((x) => x.id === e.alt);
+    if (t) {
+      const l = document.createElement('a'); l.className = 'alt';
+      l.href = t.href || 'outil.html?id=' + t.id;
+      l.textContent = '✓ Alternative intégrée : ' + t.icon + ' ' + t.name + ' →';
+      d.appendChild(l);
+    }
+    dir.appendChild(d);
+  });
+  if (!dir.children.length) dir.textContent = 'Aucun outil ne correspond.';
+}
+render();
+</script>
+</body>
+</html>

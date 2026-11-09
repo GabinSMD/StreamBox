@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>StreamBox · Sondage</title>
+<link rel="stylesheet" href="../css/overlay.css">
+</head>
+<body>
+<div class="panel hidden" id="panel">
+  <div class="kicker" id="kicker">Sondage</div>
+  <h1 id="question"></h1>
+  <div id="opts"></div>
+  <div class="foot"><span id="hint"></span><span id="time"></span></div>
+</div>
+<script src="../js/sb.js"></script>
+<script>
+const c = SB.params({ channel: '', cmd: '!sondage', duration: 60, linger: 15, size: 20, font: 'Inter', accent: '#9b5cff', demo: false });
+SB.loadFont(c.font); SB.setAccent(c.accent);
+document.documentElement.style.setProperty('--size', c.size + 'px');
+const $ = (id) => document.getElementById(id);
+let poll = null, hideTimer = null;
+
+function start(args) {
+  let duration = c.duration;
+  const m = args.match(/^(\d+)\s+(.*)$/);
+  if (m) { duration = +m[1]; args = m[2]; }
+  const parts = args.split('|').map((s) => s.trim()).filter(Boolean);
+  const question = parts.shift() || 'Sondage';
+  const options = parts.length >= 2 ? parts.slice(0, 9) : ['Oui', 'Non'];
+  clearTimeout(hideTimer);
+  poll = { question, options, votes: new Map(), endsAt: Date.now() + duration * 1000, open: true };
+  $('question').textContent = question;
+  $('kicker').textContent = 'Sondage en cours';
+  $('opts').replaceChildren(...options.map((o, i) => {
+    const d = SB.el('div', 'opt');
+    d.innerHTML = '<div class="bar"></div><div class="row"><span class="num"></span><span class="label"></span><span class="pct"></span></div>';
+    d.querySelector('.num').textContent = i + 1;
+    d.querySelector('.label').textContent = o;
+    return d;
+  }));
+  $('hint').textContent = 'Tape ' + options.map((_, i) => i + 1).join(', ') + ' dans le chat';
+  $('panel').classList.remove('hidden');
+  render();
+}
+
+function end() {
+  if (!poll || !poll.open) return;
+  poll.open = false;
+  $('kicker').textContent = 'Résultats';
+  $('hint').textContent = 'Sondage terminé';
+  render();
+  hideTimer = setTimeout(hide, c.linger * 1000);
+}
+function hide() { $('panel').classList.add('hidden'); }
+
+function counts() {
+  const n = poll.options.map(() => 0);
+  poll.votes.forEach((i) => n[i]++);
+  return n;
+}
+
+function render() {
+  if (!poll) return;
+  const n = counts();
+  const total = n.reduce((a, b) => a + b, 0);
+  const max = Math.max(...n);
+  [...$('opts').children].forEach((d, i) => {
+    const pct = total ? Math.round((n[i] / total) * 100) : 0;
+    d.querySelector('.bar').style.width = pct + '%';
+    d.querySelector('.pct').textContent = pct + '% · ' + n[i];
+    d.classList.toggle('win', !poll.open && total > 0 && n[i] === max);
+  });
+  const left = Math.max(0, Math.ceil((poll.endsAt - Date.now()) / 1000));
+  $('time').textContent = poll.open
+    ? `${total} vote${total > 1 ? 's' : ''} · ${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`
+    : `${total} vote${total > 1 ? 's' : ''}`;
+}
+
+function onMessage(m) {
+  const args = SB.command(m, c.cmd);
+  if (args !== null && m.isMod) {
+    const a = args.toLowerCase();
+    if (a === 'fin' || a === 'stop' || a === 'end') end();
+    else if (a === 'cacher' || a === 'hide') hide();
+    else if (args) start(args);
+    return;
+  }
+  if (!poll || !poll.open) return;
+  const t = m.text.trim();
+  let idx = -1;
+  if (/^\d$/.test(t)) idx = +t - 1;
+  else idx = poll.options.findIndex((o) => o.toLowerCase() === t.toLowerCase());
+  if (idx >= 0 && idx < poll.options.length) { poll.votes.set(m.login, idx); render(); }
+}
+
+setInterval(() => { if (poll && poll.open) { if (Date.now() >= poll.endsAt) end(); else render(); } }, 250);
+
+const chat = new SB.TwitchChat(c.channel);
+chat.on('message', onMessage).connect();
+
+if (c.demo) {
+  const run = () => {
+    chat.inject(SB.fake({ user: SB.demoBroadcaster, text: c.cmd + ' 15 On lance quel jeu ensuite ? | Minecraft | Elden Ring | Mario Kart' }));
+    let k = 0;
+    const iv = setInterval(() => {
+      const w = [0.3, 0.45, 0.25]; const r = Math.random();
+      const v = r < w[0] ? 1 : r < w[0] + w[1] ? 2 : 3;
+      chat.inject(SB.fake({ user: { login: 'viewer' + k++ }, text: String(v) }));
+      if (!poll.open) clearInterval(iv);
+    }, 250);
+  };
+  run();
+  setInterval(run, (15 + c.linger + 3) * 1000);
+}
+SB.hintIfNoChannel(c);
+</script>
+</body>
+</html>

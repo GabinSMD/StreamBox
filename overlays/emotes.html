@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>StreamBox · Emotes à l'écran</title>
+<link rel="stylesheet" href="../css/overlay.css">
+</head>
+<body>
+<script src="../js/sb.js"></script>
+<script>
+const c = SB.params({
+  channel: '', cmd: '!showemote', duration: 5, size: 200, cooldown: 15, modsonly: false,
+  rain: false, rainmax: 4, rainsize: 80, seventv: true, bttv: true, ffz: true, demo: false,
+});
+const emotes = new SB.EmoteStore();
+const lastUse = new Map();
+
+function showBig(url) {
+  const img = document.createElement('img');
+  img.src = url; img.className = 'big-emote';
+  img.style.width = c.size + 'px';
+  img.style.left = Math.max(0, SB.random() * (innerWidth - c.size)) + 'px';
+  img.style.top = Math.max(0, SB.random() * (innerHeight - c.size)) + 'px';
+  img.style.setProperty('--dur', c.duration + 's');
+  document.body.appendChild(img);
+  setTimeout(() => img.remove(), c.duration * 1000 + 100);
+}
+
+function rain(url) {
+  const img = document.createElement('img');
+  img.src = url; img.className = 'rain-emote';
+  const s = c.rainsize * (0.7 + SB.random() * 0.6);
+  img.style.width = s + 'px';
+  img.style.left = SB.random() * (innerWidth - s) + 'px';
+  const dur = 3 + SB.random() * 3;
+  img.style.setProperty('--dur', dur + 's');
+  img.style.setProperty('--rot', (SB.random() * 720 - 360) + 'deg');
+  document.body.appendChild(img);
+  setTimeout(() => img.remove(), dur * 1000 + 100);
+}
+
+function onMessage(m) {
+  const arg = SB.command(m, c.cmd);
+  if (arg !== null) {
+    if (c.modsonly && !m.isMod) return;
+    const now = Date.now();
+    if (!m.isMod && now - (lastUse.get(m.login) || 0) < c.cooldown * 1000) return;
+    const found = SB.extractEmotes(m, emotes);
+    if (!found.length) return;
+    lastUse.set(m.login, now);
+    showBig(found[0].url);
+    return;
+  }
+  if (c.rain) SB.extractEmotes(m, emotes).slice(0, c.rainmax).forEach((e, i) => setTimeout(() => rain(e.url), i * 120));
+}
+
+const chat = new SB.TwitchChat(c.channel);
+chat.on('room', (id) => emotes.load(id, c)).on('message', onMessage).connect();
+
+if (c.demo) {
+  emotes.load(null, c);
+  const names = ['Kappa', 'LUL', 'HeyGuys', 'Kreygasm', 'SeemsGood', 'VoHiYo', 'CoolCat'];
+  const pick = () => names[Math.floor(Math.random() * names.length)];
+  setInterval(() => chat.inject(SB.fake({ user: SB.demoBroadcaster, text: c.cmd + ' ' + pick() })), 2500);
+  if (c.rain) setInterval(() => chat.inject(SB.fake({ text: pick() + ' ' + pick() + ' trop drôle' })), 900);
+}
+SB.hintIfNoChannel(c);
+</script>
+</body>
+</html>
