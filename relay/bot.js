@@ -25,6 +25,7 @@ export const DEFAULT_BOT = {
     gift: { on: true, msg: '{user} offre {count} abonnement(s) ! Merci 🎁' },
     raid: { on: true, msg: 'Bienvenue aux {viewers} raiders de {user} ! 🚀', shoutout: true },
     cheer: { on: false, msg: 'Merci {user} pour les {bits} bits ! 💎', min: 100 },
+    don: { on: false, msg: 'Merci {user} pour le don de {amount} ! 💸' },
   },
 };
 
@@ -88,8 +89,8 @@ function fmtSince(iso) {
 export async function render(tpl, v, api, st) {
   let out = String(tpl || '');
   out = out.replace(/\{random:(\d{1,6})-(\d{1,6})\}/g, (_, a, b) => { const lo = Math.min(+a, +b), hi = Math.max(+a, +b); return String(lo + Math.floor(Math.random() * (hi - lo + 1))); });
-  const simple = { user: v.user, touser: v.touser || v.user, args: v.args || '', channel: v.channel, count: v.count, months: v.months, viewers: v.viewers, bits: v.bits, tier: v.tier };
-  out = out.replace(/\{(user|touser|args|channel|count|months|viewers|bits|tier)\}/g, (_, k) => (simple[k] != null ? String(simple[k]) : ''));
+  const simple = { user: v.user, touser: v.touser || v.user, args: v.args || '', channel: v.channel, count: v.count, months: v.months, viewers: v.viewers, bits: v.bits, tier: v.tier, amount: v.amount };
+  out = out.replace(/\{(user|touser|args|channel|count|months|viewers|bits|tier|amount)\}/g, (_, k) => (simple[k] != null ? String(simple[k]) : ''));
   if (/\{uptime\}/.test(out)) out = out.replace(/\{uptime\}/g, st.live && st.startedAt ? fmtDur(Date.now() - st.startedAt) : 'hors ligne');
   if (/\{(game|title)\}/.test(out)) {
     const ch = await api.channel().catch(() => null) || {};
@@ -219,6 +220,7 @@ export async function onEvent(cfg, st, type, e, api, channel) {
   if (type === 'channel.subscription.message' && E.resub.on) return api.say(await render(E.resub.msg, { user: e.user_name, months: e.cumulative_months, tier: tier(e.tier), channel }, api, st));
   if (type === 'channel.subscription.gift' && E.gift.on) return api.say(await render(E.gift.msg, { user: e.is_anonymous ? 'Anonyme' : e.user_name, count: e.total, tier: tier(e.tier), channel }, api, st));
   if (type === 'channel.cheer' && E.cheer.on && e.bits >= E.cheer.min) return api.say(await render(E.cheer.msg, { user: e.is_anonymous ? 'Anonyme' : e.user_name, bits: e.bits, channel }, api, st));
+  if (type === 'don' && E.don && E.don.on) return api.say(await render(E.don.msg, { user: e.user_name, amount: e.amount, channel }, api, st));
   if (type === 'channel.raid' && E.raid.on) {
     await api.say(await render(E.raid.msg, { user: e.from_broadcaster_user_name, viewers: e.viewers, channel }, api, st));
     if (E.raid.shoutout) await api.shoutout(e.from_broadcaster_user_id).catch(() => {});

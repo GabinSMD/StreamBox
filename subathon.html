@@ -32,6 +32,7 @@
         <input type="text" id="setTo" placeholder="3h30" style="max-width:90px"><button class="btn ghost small" id="setBtn" type="button">Régler le timer</button>
       </div>
       <div class="pn-row"><span class="bt-help">Page publique pour tes viewers :</span><input type="text" id="pubLink" readonly style="flex:1;min-width:200px"><button class="btn small" id="copyPub" type="button">Copier</button><a class="btn ghost small" id="openPub" target="_blank" rel="noopener">Ouvrir</a></div>
+      <div class="sg-dons" id="dons"></div>
       <div class="note" id="scopes" hidden></div>
       <p class="bt-help">Dans le chat : <code>!subathon start</code>, <code>pause</code>, <code>+10</code>, <code>-5</code>, <code>set 3h</code>, <code>don 15 Pseudo</code>, <code>happy 2 30m</code> (modos). Tout le monde : <code>!subathon</code> (temps restant), <code>!idee …</code>, <code>!vote 3</code>.</p>
     </section>
@@ -78,9 +79,24 @@ function field(obj, key, label, type, opts = {}) {
   e.addEventListener(type === 'select' || type === 'check' ? 'change' : 'input', () => { obj[key] = type === 'check' ? e.checked : type === 'number' ? +e.value : e.value; mark(); });
   l.append(el('span', null, label), e); return l;
 }
-function apply(d) { cfg = d.cfg; state = d.state; ideas = d.ideas; base = Date.now(); renderAll(); }
+function apply(d) { cfg = d.cfg; state = d.state; ideas = d.ideas; dons = d.dons; base = Date.now(); renderAll(); }
+let dons = null;
+function renderDons() {
+  if (!dons) return;
+  const ago = (t) => { const m = Math.round((Date.now() - t) / 60000); return m < 1 ? 'à l’instant' : `il y a ${m} min`; };
+  const rows = [
+    ['☕ Ko-fi', dons.kofi ? '✅ automatique, instantané' : 'à configurer dans Mon compte (clé Ko-fi)', dons.kofi],
+    ['⚡ StreamElements', dons.streamelements ? (dons.seError ? '⚠️ ' + dons.seError : '✅ vérifié chaque minute pendant le subathon' + (dons.seLastPoll ? ` (dernière vérification ${ago(dons.seLastPoll)})` : '')) : 'à configurer dans Mon compte (jeton JWT)', dons.streamelements && !dons.seError],
+    ['🔷 Streamlabs', dons.streamlabs ? '✅ transmis par l’overlay du subathon dans OBS (mode « relais », lien de ton compte) : OBS doit être ouvert' : 'à configurer dans Mon compte (jeton Socket API)', dons.streamlabs],
+    ['✍️ Autres (Tipeee, PayPal…)', 'bouton « Ajouter le don » ou !subathon don 15 Pseudo', true],
+  ];
+  const box = $('dons'); box.replaceChildren(el('b', null, '💸 Dons automatiques : ' + cfg.rules.don + ' min par € (autres monnaies comptées 1 pour 1)'));
+  rows.forEach(([n, t, okk]) => { const r = el('div', 'sg-don' + (okk ? ' ok' : '')); r.append(el('span', null, n), el('small', null, t)); box.appendChild(r); });
+  const a = el('a', 'btn ghost small', 'Gérer dans Mon compte'); a.href = 'compte.html'; box.appendChild(a);
+}
 function remaining() { return state.status === 'running' ? Math.max(0, state.remaining - (Date.now() - base)) : state.remaining; }
 function renderStatus() {
+  renderDons();
   $('enabled').checked = cfg.enabled; $('enabledLabel').textContent = cfg.enabled ? 'Subathon activé' : 'Subathon désactivé';
   $('st').textContent = { idle: 'pas encore lancé', running: '🔴 en cours', paused: '⏸ en pause', ended: 'terminé' }[state.status];
   const t = state.totals;
@@ -126,7 +142,7 @@ $('save').onclick = save;
 $('copyPub').onclick = async () => { await navigator.clipboard.writeText($('pubLink').value).catch(() => {}); toast('Lien copié : partage-le dans ton chat ou ton Discord'); };
 addEventListener('beforeunload', (e) => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
 setInterval(() => { if (state) $('time').textContent = state.status === 'ended' ? 'Terminé' : fmt(remaining()); }, 250);
-setInterval(async () => { if (!dirty && SBA.loggedIn()) { try { const d = await SBA.api('GET', '/me/subathon'); state = d.state; ideas = d.ideas; base = Date.now(); renderStatus(); } catch (e) { /* ignore */ } } }, 5000);
+setInterval(async () => { if (!dirty && SBA.loggedIn()) { try { const d = await SBA.api('GET', '/me/subathon'); state = d.state; ideas = d.ideas; dons = d.dons; base = Date.now(); renderStatus(); } catch (e) { /* ignore */ } } }, 5000);
 
 (async () => {
   if (!SBA.enabled() || !SBA.loggedIn()) {

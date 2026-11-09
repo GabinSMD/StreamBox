@@ -73,6 +73,19 @@ Sans compte, tout fonctionne comme avant, avec les réglages dans le lien.
 
 Toutes les clés publiques (Client ID Twitch et Spotify, clé API Last.fm, adresse du relais) se règlent dans `js/config.js`.
 
+## Dons automatiques du subathon
+
+Les dons comptent tout seuls dans le subathon du relais, et chacun n'est compté qu'une fois :
+
+| Source | Comment | Délai | OBS fermé |
+|---|---|---|---|
+| Ko-fi et tout webhook (Tipeee via Zapier…) | webhook vers le relais (clé Ko-fi de Mon compte) | instantané | ✅ |
+| StreamElements | le relais lit les derniers dons chaque minute pendant le subathon (jeton JWT) | ≤ 1 min | ✅ |
+| Streamlabs | l'overlay du subathon (mode « relais », lien de compte) transmet le don au relais | instantané | ❌ |
+| Autres | `!subathon don 15 Pseudo` ou le bouton de la page de gestion | — | ✅ |
+
+Le bot peut aussi remercier chaque donateur dans le chat (événement « Don »).
+
 ## Panneau de contrôle
 
 `panneau.html` se connecte au serveur WebSocket d’OBS et envoie des `BroadcastCustomEvent`. Chaque overlay où « Contrôlable depuis le panneau » est coché les reçoit, et les traite comme la commande de chat correspondante, tapée par le streamer. On peut l’ouvrir dans un navigateur sur le PC du stream, ou comme dock OBS (Docks → Docks de navigateur personnalisés). La roue utilise le même canal pour ajouter ou retirer du temps au subathon.

@@ -36,6 +36,9 @@
  *   GET/PUT /me/subathon · POST /me/subathon/action { args } · PUT /me/subathon/ideas/:id { status }
  *   GET     /public/:login/subathon      état public (timer, paliers, idées) ; session facultative (votes du viewer)
  *   POST    /public/:login/ideas         { text } (session viewer) · POST /public/:login/ideas/:id/vote
+ *   POST    /o/:id/don                   don reçu par un overlay (Streamlabs) → subathon du relais
+ * Dons automatiques du subathon : Ko-fi et webhooks (instantané), StreamElements (vérifié chaque minute),
+ *   Streamlabs (transmis par l'overlay OBS). Chaque don n'est compté qu'une fois.
  *
  * Secrets (wrangler secret put …) : TWITCH_CLIENT_ID, TWITCH_CLIENT_SECRET, ENCRYPTION_KEY (32 octets en base64),
  *   EVENTSUB_SECRET (10 à 100 caractères, pour signer les webhooks), BOT_LOGIN (facultatif : compte bot du site).
@@ -70,13 +73,15 @@ export default {
         if (d.is_public === false) d.from_name = 'Anonyme';
         const don = { kind: 'don', source: 'Ko-fi', id: 'kofi-' + clean(d.kofi_transaction_id || d.message_id, 80), name: clean(d.from_name, 60), amount: parseFloat(d.amount) || 0, currency: clean(d.currency || 'EUR', 5), message: d.is_public === false ? '' : clean(d.message), type: clean(d.type, 30) };
         await room('key:' + p[1]).fetch('https://room/broadcast', { method: 'POST', body: JSON.stringify(don) });
+        await donToOwner(env, p[1], don);
         return json({ ok: true });
       }
       if (req.method === 'POST' && p[0] === 'hook' && KEY_RE.test(p[1] || '')) {
         const d = await req.json().catch(() => null);
         if (!d) return json({ error: 'JSON attendu' }, 400);
-        const don = { kind: 'don', source: clean(d.source || 'Webhook', 30), name: clean(d.name, 60), amount: parseFloat(d.amount) || 0, currency: clean(d.currency || 'EUR', 5), message: clean(d.message) };
+        const don = { kind: 'don', source: clean(d.source || 'Webhook', 30), id: d.id ? 'hook-' + clean(d.id, 80) : undefined, name: clean(d.name, 60), amount: parseFloat(d.amount) || 0, currency: clean(d.currency || 'EUR', 5), message: clean(d.message) };
         await room('key:' + p[1]).fetch('https://room/broadcast', { method: 'POST', body: JSON.stringify(don) });
+        await donToOwner(env, p[1], don);
         return json({ ok: true });
       }
       if (p[0] === 'ws' && KEY_RE.test(p[1] || '')) {
@@ -124,6 +129,15 @@ export default {
     }
   },
 };
+
+/* Un don arrivé par la clé Ko-fi / webhook d'un streamer va aussi dans son subathon (si la clé est enregistrée dans son compte) */
+async function donToOwner(env, key, don) {
+  if (!env.ACCOUNT) return;
+  const r = await env.ACCOUNT.get(env.ACCOUNT.idFromName('kofikey:' + key)).fetch('https://acc/index', { method: 'POST', body: '{}' });
+  if (!r.ok) return;
+  const { user_id } = await r.json();
+  if (user_id) await env.ACCOUNT.get(env.ACCOUNT.idFromName('user:' + user_id)).fetch('https://acc/don', { method: 'POST', body: JSON.stringify({ don }) });
+}
 
 function withCors(r) { const h = new Headers(r.headers); Object.entries(CORS).forEach(([k, v]) => h.set(k, v)); return new Response(r.body, { status: r.status, headers: h }); }
 
@@ -298,6 +312,11 @@ async function accountRoutes(req, env, url, p) {
       if (req.headers.get('Upgrade') !== 'websocket') return json({ error: 'WebSocket attendu' }, 426);
       return stub('user:' + idx.user_id).fetch('https://acc/ws?ov=' + p[1], req);
     }
+    if (p[2] === 'don' && req.method === 'POST') { // l'overlay transmet un don Streamlabs reçu en direct
+      const d = await req.json().catch(() => ({}));
+      const r = await stub('user:' + idx.user_id).fetch('https://acc/overlay-don', { method: 'POST', body: JSON.stringify({ ov: p[1], don: d }) });
+      return withCors(new Response(r.body, { status: r.status, headers: { 'Content-Type': 'application/json' } }));
+    }
     const r = await stub('user:' + idx.user_id).fetch('https://acc/overlay-config?ov=' + p[1], { headers: { 'X-Env': JSON.stringify({ cid: env.TWITCH_CLIENT_ID, secret: env.TWITCH_CLIENT_SECRET, key: env.ENCRYPTION_KEY || '' }) } });
     return withCors(new Response(r.body, { status: r.status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } }));
   }
@@ -422,6 +441,14 @@ export class Account {
       const s = await secrets();
       return ok({ user_id: profile.user_id, login: profile.login, access: await this.twitchAccess(s, E) });
     }
+    if (path === '/don') return ok(await this.subDon(body.don || {}, profile, await secrets(), E));
+    if (path === '/overlay-don') {
+      const o = ((await st.get('overlays')) || {})[body.ov];
+      if (!o || !['subathon', 'alertes', 'objectifs'].includes(o.tool)) return err('overlay non autorisé', 403);
+      const d = body.don || {};
+      if (!d.id) return err('identifiant du don manquant');
+      return ok(await this.subDon({ source: clean(d.source || 'Streamlabs', 30), id: 'ov-' + clean(d.id, 80), name: clean(d.name, 60), amount: parseFloat(d.amount) || 0, currency: clean(d.currency || 'EUR', 5), message: clean(d.message, 300) }, profile, await secrets(), E));
+    }
     if (path.startsWith('/bot-')) return this.botRoute(path, body, profile, await secrets(), E, ok, err);
     if (path.startsWith('/sub-') || path.startsWith('/public-')) return this.subRoute(path, body, profile, E, ok, err);
 
@@ -432,8 +459,15 @@ export class Account {
     }
     if (path === '/secrets') {
       const s = await secrets();
+      const oldKofi = s.kofi;
       for (const [k, v] of Object.entries(body)) { if (!SECRET_KEYS.includes(k)) continue; if (v == null || v === '') delete s[k]; else s[k] = clean(v, 2000); }
       await saveSecrets(s);
+      if ('kofi' in body && this.env.ACCOUNT && oldKofi !== s.kofi) { // relie la clé Ko-fi à ce compte (dons → subathon)
+        const idx = (k) => this.env.ACCOUNT.get(this.env.ACCOUNT.idFromName('kofikey:' + k));
+        if (oldKofi) await idx(oldKofi).fetch('https://acc/index-delete', { method: 'POST', body: '{}' });
+        if (s.kofi) await idx(s.kofi).fetch('https://acc/index-set', { method: 'POST', body: JSON.stringify({ user_id: profile.user_id }) });
+      }
+      if ('sejwt' in body) { const sub = await st.get('sub'); if (sub && sub.enabled) await this.armAlarm(); }
       this.broadcastAll();
       return ok({ ok: true, secrets: Object.fromEntries(SECRET_KEYS.map((k) => [k, !!s[k]])) });
     }
@@ -669,6 +703,7 @@ export class Account {
       }
     }
     await st.put('substate', S); await st.put('ideas', ideas);
+    if (S.status === 'running') await this.armAlarm(); // vérification des dons StreamElements
     if (reply) await api.say(reply);
     return true;
   }
@@ -678,7 +713,10 @@ export class Account {
     let sub = (await st.get('sub')) || SUBA.sanitizeSub({}, null);
     const S = (await st.get('substate')) || SUBA.freshState(sub);
     const ideas = (await st.get('ideas')) || { seq: 0, items: [] };
-    const full = () => ({ cfg: sub, state: Object.assign({}, S, { remaining: SUBA.remaining(S, now), elapsed: SUBA.elapsed(S, now), now }), ideas: ideas.items.map((x) => Object.assign({}, x, { votes: x.voters.length, voters: undefined })), login: profile.login });
+    const se = (await st.get('se')) || {};
+    const sec = await unseal(await st.get('secrets'), E.key).catch(() => ({}));
+    const full = () => ({ cfg: sub, state: Object.assign({}, S, { remaining: SUBA.remaining(S, now), elapsed: SUBA.elapsed(S, now), now }), ideas: ideas.items.map((x) => Object.assign({}, x, { votes: x.voters.length, voters: undefined })), login: profile.login,
+      dons: { kofi: !!sec.kofi, streamelements: !!sec.sejwt, streamlabs: !!sec.sltoken, seLastPoll: se.lastPoll || null, seError: se.error || null } });
     if (path === '/sub-get') { SUBA.tick(S, now); return ok(full()); }
     if (path === '/sub-save') {
       const prev = sub;
@@ -697,6 +735,7 @@ export class Account {
     if (path === '/sub-action') {
       const msg = SUBA.command(sub, S, String(body.args || ''), profile.login, now);
       await st.put('substate', S);
+      if (S.status === 'running') await this.armAlarm();
       return ok(Object.assign(full(), { message: msg }));
     }
     if (path === '/sub-idea') {
@@ -718,15 +757,83 @@ export class Account {
     return err('?', 404);
   }
 
-  async alarm() { // messages automatiques, chaque minute pendant le live
+  /* Un don (Ko-fi, webhook, StreamElements, Streamlabs) : ajouté au subathon une seule fois, remercié par le bot si activé */
+  async subDon(d, profile, secrets, E) {
+    const st = this.ctx.storage, now = Date.now();
+    const amount = Math.max(0, Math.round((parseFloat(d.amount) || 0) * 100) / 100);
+    if (!amount) return { ignored: 'montant nul' };
+    const sub = await st.get('sub');
+    const S = sub ? (await st.get('substate')) || SUBA.freshState(sub) : null;
+    // Doublons (Ko-fi et Twitch peuvent renvoyer un même événement) : vérifiés pour le subathon ET les remerciements du bot
+    const seen = (await st.get('donseen')) || [];
+    const id = d.id || `${d.source}|${d.name}|${amount}|${Math.floor(now / 10000)}`;
+    if (seen.includes(id)) return { duplicate: true };
+    seen.push(id); if (seen.length > 500) seen.shift();
+    await st.put('donseen', seen);
+    let added = 0;
+    if (sub && sub.enabled && S && (S.status === 'running' || S.status === 'paused')) {
+      S.totals.don = Math.round((S.totals.don + amount) * 100) / 100;
+      const money = `${amount} ${d.currency && d.currency !== 'EUR' ? d.currency : '€'}`;
+      added = SUBA.addTime(sub, S, amount * sub.rules.don, `don de ${money} de ${d.name || 'Anonyme'} (${d.source || 'don'})`, 'don', now);
+    }
+    if (S) await st.put('substate', S);
+    const bot = await st.get('bot');
+    if (bot && bot.enabled && bot.events.don && bot.events.don.on) {
+      const state = (await st.get('botstate')) || {}, ctx = { state, changed: false };
+      await onEvent(bot, state, 'don', { user_name: d.name || 'Anonyme', amount: `${amount} ${d.currency === 'EUR' || !d.currency ? '€' : d.currency}` }, this.makeApi(bot, profile, secrets, E, ctx), profile.login);
+      await st.put('botstate', state);
+    }
+    return { ok: true, added };
+  }
+
+  async armAlarm() { const st = this.ctx.storage; if (!(await st.getAlarm())) await st.setAlarm(Date.now() + 60000); }
+
+  /* StreamElements : pas de webhook public, on lit les derniers dons chaque minute pendant le subathon */
+  async pollStreamElements(sub, S, profile, secrets, E) {
+    const st = this.ctx.storage;
+    const se = (await st.get('se')) || { seen: [] };
+    const h = { Authorization: 'Bearer ' + secrets.sejwt, Accept: 'application/json' };
+    try {
+      if (!se.channel) {
+        const me = await (await fetch('https://api.streamelements.com/kappa/v2/channels/me', { headers: h })).json();
+        if (!me._id) throw new Error('jeton StreamElements refusé');
+        se.channel = me._id;
+      }
+      const r = await fetch(`https://api.streamelements.com/kappa/v2/tips/${se.channel}?limit=25&sort=-createdAt`, { headers: h });
+      if (!r.ok) throw new Error('StreamElements : erreur ' + r.status);
+      const d = await r.json();
+      const since = S.startedAt || Date.now();
+      for (const t of (d.docs || d.data || []).slice().reverse()) {
+        const at = Date.parse(t.createdAt || t.updatedAt || 0);
+        if (!t._id || at < since || se.seen.includes(t._id)) continue;
+        se.seen.push(t._id); if (se.seen.length > 500) se.seen.shift();
+        const don = t.donation || {};
+        await this.subDon({ source: 'StreamElements', id: 'se-' + t._id, name: (don.user || {}).username, amount: don.amount, currency: don.currency, message: don.message }, profile, secrets, E);
+      }
+      se.lastPoll = Date.now(); se.error = null;
+    } catch (e) { se.error = e.message; se.lastPoll = Date.now(); }
+    await st.put('se', se);
+  }
+
+  async alarm() { // chaque minute : messages automatiques du bot (en live) et dons StreamElements (subathon en cours)
     const st = this.ctx.storage;
     const cfg = await st.get('bot'), state = (await st.get('botstate')) || {}, profile = await st.get('profile');
-    if (!cfg || !cfg.enabled || !state.live || !profile) return;
+    if (!profile) return;
     const secrets = await unseal(await st.get('secrets'), this.E.key).catch(() => ({}));
-    const ctx = { state, changed: false };
-    await onTick(cfg, state, this.makeApi(cfg, profile, secrets, this.E, ctx), profile.login);
-    await st.put('botstate', state);
-    await st.setAlarm(Date.now() + 60000);
+    let again = false;
+    if (cfg && cfg.enabled && state.live) {
+      const ctx = { state, changed: false };
+      await onTick(cfg, state, this.makeApi(cfg, profile, secrets, this.E, ctx), profile.login);
+      await st.put('botstate', state);
+      again = true;
+    }
+    const sub = await st.get('sub');
+    const S = sub && (await st.get('substate'));
+    if (sub && sub.enabled && S && (S.status === 'running' || S.status === 'paused') && secrets.sejwt) {
+      await this.pollStreamElements(sub, S, profile, secrets, this.E);
+      again = true;
+    }
+    if (again) await st.setAlarm(Date.now() + 60000);
   }
 
   broadcast(id, type = 'update') { this.ctx.getWebSockets('ov:' + id).forEach((ws) => { try { ws.send(JSON.stringify({ type })); } catch (e) { /* parti */ } }); }
