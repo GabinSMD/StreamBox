@@ -55,6 +55,8 @@
  * Sous-titres en direct (voix reconnue par le navigateur du streamer, traduite) :
  *   POST /me/captions/ticket → ticket d'une minute · GET /captions/:userId?t=ticket (WebSocket de la page Sous-titres)
  *   → chaque phrase est relayée aux overlays « soustitres » (WebSocket /o/:id/ws), traduite par Workers AI si demandé
+ * Images du compte (avatars du PNGTuber…) : POST /me/assets { type, data base64 } · GET /me/assets · DELETE /me/assets/:id
+ *   GET /a/:userId/:id  image publique (PNG, GIF, WebP, JPEG ; 500 Ko et 12 images au plus par compte)
  * Mini-jeux du chat (points virtuels, duels, prédictions, quiz) :
  *   GET/PUT /me/jeux · POST /me/jeux/action { args } (commande lancée au nom du streamer) · GET /o/:id/jeux (overlay)
  *   Secrets facultatifs : YOUTUBE_API_KEY (recherche par titre et durée), SPOTIFY_CLIENT_ID.
@@ -137,6 +139,10 @@ export default {
           if (!t.title) return json({ error: 'titre manquant' }, 400);
           return room('chan:' + login).fetch('https://room/tracks', { method: 'POST', body: JSON.stringify(t) }).then(withCors);
         }
+      }
+      /* ---- Images du compte (publiques, adresse impossible à deviner) ---- */
+      if (req.method === 'GET' && p[0] === 'a' && /^\d{1,20}$/.test(p[1] || '') && /^[a-z0-9]{16,32}$/.test(p[2] || '')) {
+        return env.ACCOUNT.get(env.ACCOUNT.idFromName('user:' + p[1])).fetch('https://acc/asset-get?id=' + p[2]);
       }
       /* ---- Sous-titres : WebSocket de la page Sous-titres (ticket à usage unique) ---- */
       if (p[0] === 'captions' && /^\d{1,20}$/.test(p[1] || '')) {
@@ -285,7 +291,7 @@ const NEEDS = {
   sondage: ['obspass'], minuteur: ['obspass'], roue: ['obspass'], giveaway: ['obspass', 'webhook'],
   rewind: ['token', 'obspass'],
   musique: ['token', 'spotifycid', 'lastfm', 'lfmkey'], // Spotify : jeton à jour fourni par /o/:id/spotify-token
-  lecteur: [], jeux: [], generique: [], soustitres: [], automatisations: ['token', 'sejwt', 'sltoken', 'kofi', 'obspass'], qrdons: [], compteurs: ['obspass'], sons: ['token', 'obspass'],
+  lecteur: [], jeux: [], generique: [], soustitres: [], pngtuber: ['obspass'], automatisations: ['token', 'sejwt', 'sltoken', 'kofi', 'obspass'], qrdons: [], compteurs: ['obspass'], sons: ['token', 'obspass'],
   tts: ['token', 'sejwt', 'sltoken', 'kofi', 'obspass'],
   discord: ['token', 'webhook'],
 };
@@ -427,6 +433,11 @@ async function accountRoutes(req, env, url, p) {
     if (p[2] === 'action' && req.method === 'POST') return fwd('/sr-action', 'POST', body);
   }
   if (p[1] === 'captions' && p[2] === 'ticket' && req.method === 'POST') return fwd('/cap-ticket', 'POST', {});
+  if (p[1] === 'assets') {
+    if (p.length === 2 && req.method === 'POST') return fwd('/asset-add', 'POST', body);
+    if (p.length === 2 && req.method === 'GET') return fwd('/asset-list', 'POST', {});
+    if (/^[a-z0-9]{16,32}$/.test(p[2] || '') && req.method === 'DELETE') return fwd('/asset-del', 'POST', { id: p[2] });
+  }
   if (p[1] === 'stats') {
     if (p.length === 2 && req.method === 'GET') return fwd('/stats-get', 'POST', {});
     if (p.length === 2 && req.method === 'PUT') return fwd('/stats-save', 'POST', body);
@@ -539,6 +550,29 @@ export class Account {
     if (path === '/bot-token') { // compte bot du site
       const s = await secrets();
       return ok({ user_id: profile.user_id, login: profile.login, access: await this.twitchAccess(s, E) });
+    }
+    if (path === '/asset-get') {
+      const a = await st.get('asset:' + url.searchParams.get('id'));
+      if (!a) return new Response('introuvable', { status: 404, headers: CORS });
+      return new Response(b64.dec(a.data), { headers: Object.assign({ 'Content-Type': a.type, 'Cache-Control': 'public, max-age=31536000, immutable', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'" }, CORS) });
+    }
+    if (path === '/asset-list' || path === '/asset-add' || path === '/asset-del') {
+      let list = (await st.get('assets')) || [];
+      const origin = (await st.get('origin')) || '';
+      const view = () => list.map((a) => Object.assign({ url: `${origin}/a/${profile.user_id}/${a.id}` }, a));
+      if (path === '/asset-del') { await st.delete('asset:' + body.id); list = list.filter((a) => a.id !== body.id); await st.put('assets', list); return ok({ assets: view() }); }
+      if (path === '/asset-list') return ok({ assets: view() });
+      const TYPES = { 'image/png': [0x89, 0x50, 0x4e, 0x47], 'image/gif': [0x47, 0x49, 0x46, 0x38], 'image/jpeg': [0xff, 0xd8, 0xff], 'image/webp': [0x52, 0x49, 0x46, 0x46] };
+      if (!TYPES[body.type]) return err('format accepté : PNG, GIF, WebP ou JPEG');
+      let bytes; try { bytes = b64.dec(String(body.data || '')); } catch (e) { return err('image illisible'); }
+      if (!bytes.length || bytes.length > 512 * 1024) return err('image trop lourde : 500 Ko maximum');
+      // le contenu doit vraiment être une image du format annoncé (pas une page HTML déguisée)
+      if (!TYPES[body.type].every((v, i) => bytes[i] === v) || (body.type === 'image/webp' && String.fromCharCode(...bytes.slice(8, 12)) !== 'WEBP')) return err('ce fichier n’est pas une image ' + body.type.split('/')[1].toUpperCase());
+      if (list.length >= 12) return err('12 images maximum : supprimes-en une dans Mon compte');
+      const id = rand(20).slice(0, 24).toLowerCase().replace(/[^a-z0-9]/g, '0').padEnd(16, '0');
+      await st.put('asset:' + id, { type: body.type, data: String(body.data).replace(/\s+/g, '') }); // le base64 reçu (déjà vérifié)
+      list.push({ id, type: body.type, size: bytes.length, at: Date.now() }); await st.put('assets', list);
+      return ok({ id, url: `${origin}/a/${profile.user_id}/${id}`, assets: view() });
     }
     if (path === '/cap-ticket') { // ticket d'une minute pour ouvrir le WebSocket des sous-titres (pas de session dans l'URL)
       const t = rand(32); await st.put('capticket', { t, exp: Date.now() + 60000 });

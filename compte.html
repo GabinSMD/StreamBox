@@ -29,6 +29,10 @@
     <p class="sec">Renseignées une fois, utilisées par tous tes overlays. Les jetons sont chiffrés sur le relais, et chaque overlay ne reçoit que ceux dont il a besoin. Une fois enregistrés, ils ne sont plus jamais affichés.</p>
     <div class="grid" id="secrets"></div>
 
+    <h2 class="sec">🖼️ Mes images</h2>
+    <p class="sec">Images envoyées depuis les réglages des overlays (avatar du PNGTuber…) : 12 au plus. Une image supprimée disparaît des overlays qui l’utilisent.</p>
+    <div class="asset-list" id="assets"></div>
+
     <section class="box danger-zone">
       <h2>🗑️ Supprimer mon compte</h2>
       <p class="bt-help">Efface définitivement ton compte StreamBox : réglages, overlays et leurs liens, intégrations et jetons, bot, subathon, idées, demandes de musique. Tes abonnements Twitch sont supprimés et l’accès de StreamBox à ton compte Twitch est révoqué. Tes overlays dans OBS cesseront de fonctionner.</p>
@@ -72,7 +76,24 @@ async function load() {
     try { localStorage.removeItem('sb-spotify'); } catch (e) { /* ignore */ }
     me = await SBA.api('GET', '/me'); toast2('Spotify connecté ✓');
   }
-  renderOverlays(); renderSecrets();
+  renderOverlays(); renderSecrets(); renderAssets();
+}
+async function renderAssets() {
+  const box = $('assets');
+  try {
+    const { assets } = await SBA.api('GET', '/me/assets');
+    if (!assets.length) { box.replaceChildren(Object.assign(document.createElement('p'), { className: 'bt-help', textContent: 'Aucune image pour l’instant.' })); return; }
+    box.replaceChildren(...assets.map((a) => {
+      const card = document.createElement('div'); card.className = 'asset';
+      const img = document.createElement('img'); img.src = a.url; img.alt = ''; img.loading = 'lazy';
+      const copy = document.createElement('button'); copy.type = 'button'; copy.className = 'btn ghost small'; copy.textContent = 'Copier le lien';
+      copy.onclick = () => { navigator.clipboard.writeText(a.url).catch(() => {}); toast2('Lien copié'); };
+      const del = document.createElement('button'); del.type = 'button'; del.className = 'btn ghost small'; del.textContent = 'Supprimer';
+      del.onclick = async () => { if (!confirm('Supprimer cette image ? Elle disparaîtra des overlays qui l’utilisent.')) return; try { await SBA.api('DELETE', '/me/assets/' + a.id); renderAssets(); } catch (e) { toast2('Erreur : ' + e.message); } };
+      const meta = document.createElement('small'); meta.textContent = `${a.type.split('/')[1].toUpperCase()} · ${Math.round(a.size / 1024)} Ko`;
+      card.append(img, meta, copy, del); return card;
+    }));
+  } catch (e) { box.textContent = 'Erreur : ' + e.message; }
 }
 
 function renderOverlays() {

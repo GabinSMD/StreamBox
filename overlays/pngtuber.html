@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>StreamBox · PNGTuber</title>
+<link rel="stylesheet" href="../css/overlay.css">
+<script src="../js/i18n.js"></script>
+</head>
+<body>
+<div class="pt" id="wrap"><img id="av" alt=""></div>
+<div class="pt-debug" id="debug" hidden><div class="pt-meter"><i id="lvl"></i><b id="thr"></b></div><span id="st"></span></div>
+<script src="../js/config.js"></script>
+<script src="../js/sb.js"></script>
+<script src="../js/obs.js"></script>
+<script>
+/* PNGTuber : l'avatar ouvre la bouche quand tu parles. Le volume du micro est lu directement dans OBS
+ * (obs-websocket), donc rien ne passe par Internet. Humeurs : !humeur nom (modos), le panneau ou une automatisation. */
+const c = SB.params({
+  idle: '', talk: '', blink: '', talkblink: '', moods: '', mic: '', threshold: -40, hold: 250,
+  anim: 'rebond', dim: true, flip: false, blinkevery: 4, channel: '', cmd: '!humeur', obspass: '', obsurl: 'ws://127.0.0.1:4455', debug: false, demo: false,
+});
+const $ = (id) => document.getElementById(id);
+document.body.classList.add('pt-' + c.anim);
+if (c.flip) $('wrap').classList.add('flip');
+if (c.debug) $('debug').hidden = false;
+
+/* Avatar intégré (si aucune image) : petite créature violette, bouche fermée / ouverte, yeux ouverts / fermés */
+function builtin(mouth, eyes) {
+  const e = eyes ? '<circle cx="78" cy="96" r="10" fill="#fff"/><circle cx="82" cy="98" r="5" fill="#1b1030"/><circle cx="142" cy="96" r="10" fill="#fff"/><circle cx="146" cy="98" r="5" fill="#1b1030"/>'
+    : '<path d="M66 98q12 8 24 0M130 98q12 8 24 0" stroke="#1b1030" stroke-width="5" fill="none" stroke-linecap="round"/>';
+  const m = mouth ? '<ellipse cx="110" cy="140" rx="22" ry="18" fill="#1b1030"/><ellipse cx="110" cy="150" rx="12" ry="6" fill="#ff7aa8"/>' : '<path d="M92 138q18 14 36 0" stroke="#1b1030" stroke-width="6" fill="none" stroke-linecap="round"/>';
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 220"><ellipse cx="110" cy="206" rx="70" ry="10" fill="rgba(0,0,0,.25)"/><path d="M30 120C30 60 70 26 110 26s80 34 80 94c0 50-30 80-80 80S30 170 30 120z" fill="#9b5cff"/><path d="M60 50q-10-30 12-34q6 22-12 34zM160 50q10-30-12-34q-6 22 12 34z" fill="#7d3ff0"/><ellipse cx="62" cy="128" rx="12" ry="7" fill="#ff8fc4" opacity=".6"/><ellipse cx="158" cy="128" rx="12" ry="7" fill="#ff8fc4" opacity=".6"/>${e}${m}</svg>`;
+  return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+}
+const ok = (u) => /^https?:\/\//.test(u || '');
+const BASE = ok(c.idle)
+  ? { idle: c.idle, talk: ok(c.talk) ? c.talk : c.idle, blink: ok(c.blink) ? c.blink : '', talkblink: ok(c.talkblink) ? c.talkblink : '' }
+  : { idle: builtin(false, true), talk: builtin(true, true), blink: builtin(false, false), talkblink: builtin(true, false) };
+// Humeurs : « nom | image bouche fermée | image bouche ouverte »
+const MOODS = { normal: BASE };
+c.moods.split('\n').forEach((l) => { const [n, i, t] = l.split('|').map((x) => (x || '').trim()); if (n && ok(i)) MOODS[n.toLowerCase()] = { idle: i, talk: ok(t) ? t : i, blink: '', talkblink: '' }; });
+let set = BASE, talking = false, blinking = false, lastLoud = 0;
+Object.values(MOODS).forEach((m) => Object.values(m).forEach((u) => { if (u) new Image().src = u; })); // précharge : pas de clignotement au changement
+
+function draw() {
+  const src = talking ? (blinking && set.talkblink ? set.talkblink : set.talk) : (blinking && set.blink ? set.blink : set.idle);
+  if ($('av').getAttribute('src') !== src) $('av').src = src;
+  document.body.classList.toggle('pt-talking', talking);
+  document.body.classList.toggle('pt-quiet', !talking && c.dim);
+}
+function setTalking(v) { if (v !== talking) { talking = v; draw(); } }
+function mood(name) { const m = MOODS[String(name || '').trim().toLowerCase()] || (/^(normal|reset|aucune?)$/i.test(name) ? BASE : null); if (m) { set = m; draw(); } }
+(function blinkLoop() { setTimeout(() => { if (set.blink || set.talkblink) { blinking = true; draw(); setTimeout(() => { blinking = false; draw(); }, 140); } blinkLoop(); }, (c.blinkevery * 1000) * (0.6 + Math.random() * 0.8)); })();
+setInterval(() => { if (talking && Date.now() - lastLoud > c.hold) setTalking(false); }, 50);
+
+/* ---------- Volume du micro, lu dans OBS ---------- */
+let micName = null;
+const status = (t) => { $('st').textContent = t; };
+$('thr').style.left = Math.max(0, Math.min(100, (c.threshold + 60) / 60 * 100)) + '%';
+if (!c.demo) {
+  const obs = new SB.OBS(c.obsurl, c.obspass);
+  obs.on('status', (s) => status('OBS : ' + s))
+    .on('ready', async () => {
+      try {
+        const inputs = (await obs.call('GetInputList')).inputs || [];
+        const mic = c.mic ? inputs.find((i) => i.inputName.toLowerCase() === c.mic.toLowerCase()) : inputs.find((i) => /input_capture/.test(i.inputKind) && !/output/.test(i.inputKind));
+        micName = mic ? mic.inputName : null;
+        status(micName ? SB.t('micro : {0}', [micName]) : SB.t('aucun micro trouvé dans OBS (indique son nom dans les réglages)'));
+      } catch (e) { status(e.message); }
+    })
+    .on('InputVolumeMeters', (d) => {
+      if (!micName) return;
+      const inp = (d.inputs || []).find((i) => i.inputName === micName);
+      if (!inp || !inp.inputLevelsMul) return;
+      const peak = Math.max(0, ...inp.inputLevelsMul.map((ch) => ch[1] || 0));
+      const db = peak > 0 ? 20 * Math.log10(peak) : -100;
+      if (c.debug) $('lvl').style.width = Math.max(0, Math.min(100, (db + 60) / 60 * 100)) + '%';
+      if (db > c.threshold) { lastLoud = Date.now(); setTalking(true); }
+    })
+    .connect();
+  SB.remote('pngtuber', '', (m) => mood(m.text), obs);
+} else {
+  setInterval(() => { lastLoud = Date.now(); setTalking(true); }, 1600); // démo : parle par moments
+  setInterval(() => { if (Math.random() < 0.5) lastLoud = Date.now(); }, 120);
+  status('démo');
+}
+// Humeur depuis le chat (modos) : !humeur content / !humeur normal
+if (c.channel) new SB.TwitchChat(c.channel).on('message', (m) => { const a = SB.command(m, c.cmd); if (a !== null && (m.isMod || m.isBroadcaster)) mood(a); }).connect();
+draw();
+</script>
+</body>
+</html>
