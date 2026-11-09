@@ -18,7 +18,7 @@
     const acc = document.createElement('a');
     acc.className = 'btn small acc';
     const label = (long, short) => { const l = document.createElement('span'); l.className = 'acc-long'; l.textContent = long; const sh = document.createElement('span'); sh.className = 'acc-short'; sh.textContent = short; acc.append(l, sh); };
-    if (SBA.loggedIn()) { acc.href = 'compte.html'; acc.title = 'Mon compte'; label('👤 ' + SBA.session().login, '👤'); }
+    if (SBA.loggedIn()) { acc.href = 'compte.html'; acc.title = 'Mon espace'; label('👤 ' + SBA.session().login, '👤'); }
     else { acc.href = '#'; label('Se connecter avec Twitch', 'Connexion'); acc.onclick = (e) => { e.preventDefault(); SBA.login(); }; }
     nav.appendChild(acc);
   }
@@ -36,6 +36,44 @@
     nav.appendChild(sel);
   }
   document.body.prepend(header);
+
+  /* ---------- Mon espace : barre latérale commune aux écrans du streamer ----------
+   * Chaque écran garde sa page et son adresse ; ?dock=1 (dock OBS) masque la barre. */
+  const ESPACE = [
+    ['Pendant le live', [['panneau.html', 'Panneau de contrôle', 'sliders-horizontal'], ['moderation.html', 'Modération', 'shield'], ['sous-titres.html', 'Sous-titres', 'message-square']]],
+    ['Mes réglages', [['compte.html', 'Mes overlays', 'layout-grid'], ['bot.html', 'Bot de chat', 'bot'], ['automatisations.html', 'Automatisations', 'zap'], ['subathon.html', 'Subathon', 'timer'], ['sr.html', 'Demandes de musique', 'list-music'], ['jeux.html', 'Mini-jeux', 'dices']]],
+    ['Après le live', [['stats.html', 'Statistiques', 'chart-column']]],
+    ['Mon compte', [['compte.html#integrations', 'Intégrations', 'plug'], ['compte.html#page', 'Page publique', 'globe'], ['compte.html#images', 'Images', 'image'], ['compte.html#compte', 'Compte', 'user']]],
+  ];
+  const main = document.querySelector('main');
+  const inEspace = ESPACE.some(([, items]) => items.some(([h]) => h.split('#')[0] === page));
+  if (main && inEspace && !new URLSearchParams(location.search).has('dock')) {
+    const shell = document.createElement('div'); shell.className = 'esp';
+    const nav2 = document.createElement('nav'); nav2.className = 'esp-nav'; nav2.setAttribute('aria-label', 'Mon espace');
+    const toggle = document.createElement('button'); toggle.type = 'button'; toggle.className = 'esp-toggle'; toggle.setAttribute('aria-expanded', 'false');
+    const list = document.createElement('div'); list.className = 'esp-list'; list.id = 'espList'; toggle.setAttribute('aria-controls', 'espList');
+    const links = [];
+    ESPACE.forEach(([group, items]) => {
+      const h = document.createElement('p'); h.className = 'esp-h'; h.textContent = group; list.appendChild(h);
+      items.forEach(([href, label, icon]) => {
+        const a = document.createElement('a'); a.href = href; a.dataset.href = href;
+        if (window.SB && SB.icon) a.appendChild(SB.icon(icon));
+        a.append(label); list.appendChild(a); links.push(a);
+      });
+    });
+    const mark = () => {
+      const here = page === 'compte.html' && location.hash && location.hash !== '#overlays' ? 'compte.html' + location.hash : page;
+      let cur = null;
+      links.forEach((a) => { const on = a.dataset.href === here; if (on) { a.setAttribute('aria-current', 'page'); cur = a; } else a.removeAttribute('aria-current'); });
+      toggle.replaceChildren(document.createTextNode(cur ? cur.textContent : 'Mon espace'));
+      nav2.classList.remove('open'); toggle.setAttribute('aria-expanded', 'false');
+    };
+    toggle.onclick = () => { const o = nav2.classList.toggle('open'); toggle.setAttribute('aria-expanded', String(o)); };
+    nav2.append(toggle, list);
+    main.before(shell); shell.append(nav2, main);
+    document.body.classList.add('has-esp');
+    mark(); addEventListener('hashchange', mark);
+  }
 
   // Pied de page : crédits, licence (AGPL : lien vers le code source), pages légales
   const footer = document.createElement('footer');
