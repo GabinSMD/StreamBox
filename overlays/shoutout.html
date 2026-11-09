@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>StreamBox · Shoutout vidéo</title>
+<link rel="stylesheet" href="../css/overlay.css">
+<script src="../js/i18n.js"></script>
+</head>
+<body>
+<div class="so" id="so">
+  <div class="so-video" id="video"></div>
+  <div class="so-card"><img id="avatar" alt=""><div><div class="so-k" id="kicker"></div><div class="so-name" id="name"></div><div class="so-game" id="game"></div></div></div>
+</div>
+<script src="../js/config.js"></script>
+<script src="../js/sb.js"></script>
+<script src="../js/clips.js"></script>
+<script>
+/* Shoutout vidéo : !so @pseudo (modos), un raid ou le panneau joue un clip de la chaîne citée,
+ * avec son nom, son avatar et son dernier jeu. Le son passe par OBS (« Contrôler l'audio via OBS »). */
+const c = SB.params({
+  channel: '', token: '', cmd: '!so', raids: true, minraid: 2, days: 0, topn: 10, maxsecs: 30, muted: false,
+  text: 'Allez voir {name} !', noclip: 8, size: 26, font: 'Inter', accent: '#9b5cff', demo: false,
+});
+SB.loadFont(c.font); SB.setAccent(c.accent);
+document.documentElement.style.setProperty('--size', c.size + 'px');
+const $ = (id) => document.getElementById(id);
+const queue = []; let busy = false;
+const done = new Map(); // évite deux shoutouts de la même chaîne en moins de 2 minutes
+
+async function show(login) {
+  const u = await SB.Clips.user(login, c.token);
+  if (!u) { console.warn('shoutout : chaîne introuvable', login); return; }
+  const ch = await SB.Clips.channel(u.id, c.token).catch(() => ({}));
+  const clips = await SB.Clips.list(u.id, c.token, { days: c.days }).catch(() => []);
+  $('avatar').src = u.profile_image_url || '';
+  $('kicker').textContent = SB.t(c.text, { name: u.display_name });
+  $('name').textContent = u.display_name;
+  $('game').textContent = ch.game_name ? SB.t('Dernier jeu : {0}', [ch.game_name]) : '';
+  document.body.classList.toggle('so-noclip', !clips.length);
+  document.body.classList.add('so-on');
+  if (clips.length) { // un clip au hasard parmi les plus vus
+    const pick = clips.slice(0, Math.max(1, c.topn))[Math.floor(SB.random() * Math.min(clips.length, Math.max(1, c.topn)))];
+    await SB.Clips.play($('video'), pick, { muted: c.muted, maxSecs: c.maxsecs });
+  } else await new Promise((r) => setTimeout(r, c.noclip * 1000)); // pas de clip : la carte seule
+  document.body.classList.remove('so-on');
+  await new Promise((r) => setTimeout(r, 600));
+  $('video').replaceChildren();
+}
+async function next() {
+  if (busy) return;
+  const login = queue.shift(); if (!login) return;
+  busy = true;
+  try { await show(login); } catch (e) { console.warn('shoutout :', e.message); }
+  busy = false; next();
+}
+function shoutout(login) {
+  login = String(login || '').trim().replace(/^@/, '').toLowerCase();
+  if (!/^\w{2,25}$/.test(login)) return;
+  if (Date.now() - (done.get(login) || 0) < 120000 || queue.includes(login)) return;
+  done.set(login, Date.now()); queue.push(login); next();
+}
+
+const chat = new SB.TwitchChat(c.channel);
+chat.on('message', (m) => { const a = SB.command(m, c.cmd); if (a !== null && (m.isMod || m.isBroadcaster)) shoutout(a.split(/\s+/)[0]); })
+  .on('usernotice', (n) => { if (c.raids && n.type === 'raid' && (n.viewers || 0) >= c.minraid) shoutout(n.login); })
+  .connect();
+SB.remote('shoutout', '', (m) => shoutout(m.text));
+
+if (c.demo) { // aperçu : pas de vrai clip (le lecteur Twitch ne s'affiche que sur le site publié)
+  const run = () => {
+    $('avatar').removeAttribute('src'); $('kicker').textContent = SB.t(c.text, { name: 'Amie_Streameuse' }); $('name').textContent = 'Amie_Streameuse'; $('game').textContent = SB.t('Dernier jeu : {0}', ['Minecraft']);
+    $('video').replaceChildren(SB.el('div', 'clip-demo', '▶ ' + SB.t('Clip de la chaîne')));
+    document.body.classList.add('so-on'); setTimeout(() => document.body.classList.remove('so-on'), 5000);
+  };
+  run(); setInterval(run, 7000);
+} else if (!c.token) SB._cfgError = SB.t('Connecte-toi avec Twitch dans les réglages : le shoutout a besoin de lire les clips.');
+SB.hintIfNoChannel(c);
+</script>
+</body>
+</html>

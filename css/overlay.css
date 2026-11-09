@@ -376,3 +376,35 @@ img.emote { height: 1.6em; vertical-align: middle; margin: -0.3em 0.1em; }
 .pt-meter i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: #6ee7a8; }
 .pt-meter b { position: absolute; top: -2px; bottom: -2px; width: 2px; background: #ff5c8a; }
 .cr-recap { max-width: 34em; margin: 1.2em auto 0; font-size: .82em; line-height: 1.45; font-weight: 600; opacity: .95; }
+
+/* ---------- Clips (shoutout, lecteur) ---------- */
+.clip-frame { width: 100%; height: 100%; border: 0; display: block; background: #000; }
+.clip-demo { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-weight: 800; color: #fff; background: linear-gradient(135deg, #2a1650, #9b5cff 60%, #ff5ca8); }
+.so { position: absolute; inset: 12px; display: flex; flex-direction: column; gap: 10px; opacity: 0; transform: translateY(20px) scale(.97); transition: opacity .5s, transform .5s; }
+.so-on .so { opacity: 1; transform: none; }
+.so-video { flex: 1; min-height: 0; border-radius: var(--radius, 16px); overflow: hidden; box-shadow: 0 12px 36px rgba(0,0,0,.5); border: 3px solid var(--accent); background: #000; }
+.so-noclip .so-video { display: none; }
+.so-noclip .so { justify-content: flex-end; }
+.so-card { display: flex; align-items: center; gap: 12px; background: rgba(var(--panel-rgb, 16, 12, 26), var(--panel-a, .94)); border-radius: var(--radius, 16px); padding: 10px 14px; box-shadow: 0 8px 24px rgba(0,0,0,.4); }
+.so-card img { width: 2.4em; height: 2.4em; border-radius: 50%; border: 3px solid var(--accent); background: var(--accent); }
+.so-k { font-size: .65em; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); }
+.so-name { font-weight: 900; font-size: 1.15em; }
+.so-game { font-size: .7em; opacity: .85; }
+.cp { position: absolute; inset: 0; }
+.cp-video { position: absolute; inset: 0; background: #000; }
+.cp-cap { position: absolute; left: 16px; bottom: 16px; max-width: calc(100% - 32px); background: rgba(var(--panel-rgb, 16, 12, 26), var(--panel-a, .9)); border-left: 4px solid var(--accent); border-radius: var(--radius, 12px); padding: 8px 14px; opacity: 0; transition: opacity .5s; pointer-events: none; }
+.cp-on .cp-cap { opacity: 1; }
+.cp-title { font-weight: 800; overflow-wrap: anywhere; }
+.cp-meta { font-size: .7em; opacity: .85; }
+
+/* ---------- Étiquettes et bandeau ---------- */
+.lb { position: absolute; left: 12px; right: 12px; top: 12px; display: flex; flex-direction: column; gap: 6px; }
+.lb-item { font-weight: 700; text-shadow: 0 2px 6px rgba(0,0,0,.85); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lb-liste .lb-item, .lb-rotation .lb-item { align-self: flex-start; background: rgba(var(--panel-rgb, 16, 12, 26), var(--panel-a, .85)); border-left: 4px solid var(--accent); border-radius: var(--radius, 10px); padding: .2em .7em; text-shadow: none; max-width: 100%; }
+.lb-one { animation: lb-in .5s ease; }
+@keyframes lb-in { from { opacity: 0; transform: translateY(8px); } }
+.lb-bandeau .lb { left: 0; right: 0; top: auto; bottom: 0; overflow: hidden; background: rgba(var(--panel-rgb, 16, 12, 26), var(--panel-a, .9)); border-top: 3px solid var(--accent); padding: .35em 0; }
+.lb-track { display: flex; gap: 1em; width: max-content; animation: lb-scroll linear infinite; }
+.lb-bandeau .lb-item { text-shadow: none; }
+.lb-sep { color: var(--accent); font-weight: 900; }
+@keyframes lb-scroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
