@@ -283,7 +283,7 @@
     },
     {
       id: 'generique', icon: '🎬', name: 'Générique de fin', overlay: 'overlays/generique.html', size: [1920, 1080],
-      tagline: 'Fait défiler les abos, abos offerts, bits, dons, raids, nouveaux follows et chatteurs du live, comme au cinéma.',
+      tagline: 'Fait défiler les abos, abos offerts, bits, dons, raids, nouveaux follows et chatteurs du live, comme au cinéma, avec un résumé du live écrit ou lu à voix haute.',
       replaces: ['Crédits de fin de Streamer.bot', 'StreamElements Credits'],
       note: 'Nécessite un compte StreamBox avec les Statistiques activées : c’est le relais qui note les noms pendant le live. Enregistre cet overlay dans ton compte et mets-le dans ta scène de fin : il redémarre à chaque fois qu’il devient visible.',
       fields: [
@@ -299,6 +299,9 @@
         { key: 'follows', label: 'Nouveaux follows', type: 'checkbox', default: true },
         { key: 'chatters', label: 'Chatteurs (les plus actifs d’abord)', type: 'checkbox', default: true },
         { key: 'maxchat', label: 'Chatteurs affichés au maximum', type: 'number', default: 40, min: 1, max: 100 },
+        { key: 'recap', label: 'Résumé du live en haut du générique', type: 'select', default: 'texte', options: [['texte', 'Écrit automatiquement à partir des chiffres'], ['ia', 'Rédigé par l’IA (Workers AI, sur le relais)'], ['aucun', 'Pas de résumé']], help: 'L’IA ne reçoit que les chiffres du live (durée, jeux, viewers, abos…) et ne doit rien inventer. Si elle ne répond pas, le résumé automatique s’affiche.' },
+        { key: 'voice', label: 'Lire le résumé à voix haute', type: 'select', default: 'aucune', options: [['aucune', 'Non'], ['navigateur', 'Voix de l’ordinateur'], ['relais', 'Voix du relais (Workers AI)']], help: 'Coche « Contrôler l’audio via OBS » dans la source pour entendre la voix sur le stream.' },
+        { key: 'volume', label: 'Volume de la voix (0 à 1)', type: 'number', default: 0.9, min: 0, max: 1, step: 0.05 },
         { key: 'bg', label: 'Fond noir (sinon transparent)', type: 'checkbox', default: false },
         size(30), font, accent,
       ],
