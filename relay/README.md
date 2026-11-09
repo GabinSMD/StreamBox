@@ -53,6 +53,10 @@ Les streamers qui le choisissent tapent `/mod StreamBoxBot` dans leur chat pour 
 
 L'overlay « Lecture à voix haute » peut utiliser une voix générée par **Workers AI** (modèle MeloTTS, français). Elle est déjà déclarée dans `wrangler.toml` (`[ai] binding = "AI"`) : il suffit de redéployer. L'offre gratuite de Workers AI a un quota quotidien, et le relais limite à 20 lectures par minute et par compte.
 
+### Mini-jeux du chat
+
+Rien à configurer en plus du bot (EVENTSUB_SECRET) : les points, duels, prédictions et quiz sont gardés dans le Durable Object du compte. Les points sont virtuels et n'ont aucune valeur.
+
 ### Demandes de musique (facultatif)
 
 - **Recherche YouTube par titre et durée maximum** : crée une clé API « YouTube Data API v3 » sur https://console.cloud.google.com (gratuite, 10 000 unités par jour, soit environ 100 recherches), puis `wrangler secret put YOUTUBE_API_KEY`. Sans clé, les viewers envoient un lien YouTube.

@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mini-jeux du chat · StreamBox</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="css/site.css">
+</head>
+<body>
+<main class="wrap">
+  <h2 class="sec" style="margin-top:36px">🎲 Mini-jeux du chat</h2>
+  <p class="sec">Tes viewers gagnent des points virtuels en discutant, puis les jouent en duels, prédictions et quiz. Tout tourne sur le relais StreamBox, même OBS fermé. Les points n’ont aucune valeur réelle : rien ne s’achète, rien ne se retire.</p>
+  <div id="need" class="box" hidden></div>
+
+  <div id="app" hidden>
+    <section class="box bt-status">
+      <div class="bt-row">
+        <label class="bt-toggle"><input type="checkbox" id="enabled"><b id="enabledLabel"></b></label>
+        <span class="flag" id="st"></span>
+      </div>
+      <div class="note" id="warn" hidden></div>
+      <p class="bt-help" id="cmdHelp"></p>
+    </section>
+
+    <div class="bt-grid">
+      <div>
+        <section class="box">
+          <h3 class="bt-h">🔮 Prédiction</h3>
+          <div id="predNow"></div>
+          <div id="predNew" class="jx-form">
+            <label class="bt-f"><span>Question</span><input type="text" id="predQ" maxlength="120" placeholder="Le boss tombe du premier coup ?"></label>
+            <label class="bt-f"><span>Choix (un par ligne, 2 à 5)</span><textarea id="predO" rows="3" placeholder="Oui&#10;Non"></textarea></label>
+            <div class="pn-row"><button class="btn small" id="predGo" type="button">Lancer la prédiction</button></div>
+          </div>
+        </section>
+        <section class="box">
+          <h3 class="bt-h">🧠 Quiz</h3>
+          <div id="quizNow"></div>
+          <div id="quizNew" class="jx-form">
+            <label class="bt-f"><span>Question</span><input type="text" id="quizQ" maxlength="200" placeholder="Quel est le premier boss du jeu ?"></label>
+            <label class="bt-f"><span>Réponses acceptées (séparées par /)</span><input type="text" id="quizA" maxlength="200" placeholder="le gardien / gardien"></label>
+            <div class="pn-row"><button class="btn small" id="quizGo" type="button">Lancer le quiz</button></div>
+            <p class="bt-help">La première personne qui écrit une bonne réponse dans le chat gagne. Majuscules et accents ne comptent pas.</p>
+          </div>
+        </section>
+        <section class="box">
+          <h3 class="bt-h">🏆 Classement <small id="players"></small></h3>
+          <div id="top"></div>
+          <div class="pn-row">
+            <input type="text" id="giveWho" placeholder="pseudo" style="max-width:160px"><input type="number" id="giveN" placeholder="100 ou -100" style="max-width:120px">
+            <button class="btn ghost small" id="give" type="button">Donner / retirer</button>
+          </div>
+          <details class="more" style="margin-top:14px"><summary>Derniers résultats</summary><div id="events"></div></details>
+          <div class="pn-row"><button class="btn ghost small" id="reset" type="button">Remettre tous les points à zéro</button></div>
+        </section>
+      </div>
+      <aside class="bt-side">
+        <section class="box">
+          <h3 class="bt-h">⚙️ Réglages</h3>
+          <div id="settings" class="sr-settings"></div>
+        </section>
+        <div class="bt-save"><span id="dirty"></span><button class="btn" id="save" type="button">Enregistrer</button></div>
+        <a class="btn ghost small" href="outil.html?id=jeux">Configurer l’overlay OBS</a>
+      </aside>
+    </div>
+  </div>
+</main>
+<script src="js/config.js"></script>
+<script src="js/account.js"></script>
+<script src="js/site.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+const fmt = (n) => Math.round(n).toLocaleString('fr-FR');
+const btn = (label, fn, ghost = true) => { const b = el('button', 'btn small' + (ghost ? ' ghost' : ''), label); b.type = 'button'; b.onclick = fn; return b; };
+let cfg, info, dirty = false;
+function mark() { dirty = true; $('dirty').textContent = 'Modifications non enregistrées'; }
+function field(key, label, type, opts = {}) {
+  const l = el('label', 'bt-f' + (type === 'check' ? ' check' : ''));
+  let e;
+  if (type === 'check') { e = el('input'); e.type = 'checkbox'; e.checked = !!cfg[key]; }
+  else { e = el('input'); e.type = type; e.value = cfg[key]; if (type === 'number') { e.min = opts.min != null ? opts.min : 0; if (opts.max) e.max = opts.max; e.style.maxWidth = '110px'; } }
+  e.addEventListener(type === 'check' ? 'change' : 'input', () => { cfg[key] = type === 'check' ? e.checked : type === 'number' ? +e.value : e.value; mark(); });
+  l.append(el('span', null, label), e); return l;
+}
+async function run(args) { // même commande que dans le chat, lancée au nom du streamer
+  try { const d = await SBA.api('POST', '/me/jeux/action', { args }); apply(d); if (d.reply) toast((d.sent ? 'Envoyé dans le chat : ' : '') + d.reply); }
+  catch (e) { toast('Erreur : ' + e.message); }
+}
+function apply(d) { info = d; if (!dirty) cfg = d.cfg; render(); }
+function render() {
+  const S = info.state, C = cfg.currency, now = S.now;
+  $('enabled').checked = cfg.enabled; $('enabledLabel').textContent = cfg.enabled ? 'Jeux activés' : 'Jeux désactivés';
+  $('st').textContent = `${info.players} joueur(s)`;
+  $('warn').hidden = cfg.enabled; $('warn').textContent = 'Active les jeux pour que le relais lise le chat (les points, les paris et les réponses du quiz passent par là).';
+  $('cmdHelp').replaceChildren('Chat : ', ...[`!points`, `!top`, cfg.duel && '!duel @pseudo 100', cfg.pred && '!bet 1 50', cfg.gamble && '!gamble 50'].filter(Boolean).flatMap((x, i) => (i ? [' · ', el('code', null, x)] : [el('code', null, x)])),
+    ' · modos : ', el('code', null, '!pred Question | A | B'), ' ', el('code', null, '!pred fin 1'), ' ', el('code', null, '!quiz Question | réponse'), ' ', el('code', null, '!give @pseudo 100'));
+  // Prédiction
+  const p = S.pred, live = p && !p.resolved;
+  $('predNew').hidden = !!live;
+  $('predNow').replaceChildren();
+  if (p) {
+    const pool = p.options.reduce((s, o) => s + o.total, 0);
+    const box = el('div', 'jx-live');
+    const h = el('div'); h.append(el('b', null, p.question + ' '), el('small', 'bt-help', p.cancelled ? 'annulée' : p.resolved ? 'terminée' : p.open ? `paris ouverts (${Math.max(0, Math.ceil((p.endsAt - now) / 1000))} s)` : 'paris fermés')); box.append(h);
+    p.options.forEach((o, i) => {
+      const row = el('div', 'pn-row');
+      row.append(el('span', 'lv-num', `${i + 1}.`), el('span', null, o.label), el('small', null, `${fmt(o.total)} ${C} · ${o.bettors} parieur(s) · ${pool ? Math.round((o.total / pool) * 100) : 0} %${p.resolved && p.winner === i ? ' · ✅ gagnant' : ''}`));
+      if (live) row.append(btn('✅ Gagnant', () => { if (confirm(`« ${o.label} » gagne ? Les ${C} sont distribués aux gagnants.`)) run(`!pred fin ${i + 1}`); }));
+      box.appendChild(row);
+    });
+    if (live) { const r = el('div', 'pn-row'); r.append(btn('🔒 Fermer les paris', () => run('!pred fermer')), btn('Annuler et rembourser', () => { if (confirm('Annuler la prédiction et rembourser toutes les mises ?')) run('!pred annuler'); })); box.append(r); }
+    $('predNow').appendChild(box);
+  }
+  // Quiz
+  const q = S.quiz;
+  $('quizNew').hidden = !!(q && q.open);
+  $('quizNow').replaceChildren();
+  if (q) {
+    const box = el('div', 'jx-live');
+    const h = el('div'); h.append(el('b', null, q.question + ' '), el('small', 'bt-help', q.open ? `en cours (${Math.max(0, Math.ceil((q.endsAt - now) / 1000))} s) · réponse : ${info.quizAnswer}` : q.winner ? `gagné par ${q.winner} (${q.answer})` : `terminé (${q.answer})`)); box.append(h);
+    if (q.open) { const r = el('div', 'pn-row'); r.append(btn('Arrêter le quiz', () => run('!quiz stop'))); box.append(r); }
+    $('quizNow').appendChild(box);
+  }
+  // Classement
+  $('players').textContent = '';
+  $('top').replaceChildren(...(S.top.length ? S.top.map((x, i) => { const r = el('div', 'pn-row'); r.append(el('span', 'lv-num', `${i + 1}.`), el('span', null, x.name), el('b', null, `${fmt(x.n)} ${C}`)); return r; }) : [el('p', 'bt-help', `Personne n’a encore de ${C} : il suffit d’écrire dans le chat quand les jeux sont activés.`)]));
+  $('events').replaceChildren(...(S.events.length ? S.events.map((e) => el('div', 'bt-help', `${new Date(e.t).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })} · ${e.text}`)) : [el('p', 'bt-help', 'Rien pour l’instant.')]));
+  if (!dirty) $('settings').replaceChildren(
+    field('currency', 'Nom des points', 'text'),
+    field('start', 'Points offerts au premier message', 'number'),
+    field('earn', 'Points gagnés par minute de chat', 'number'),
+    field('subBonus', 'Multiplicateur pour les abonnés', 'number', { min: 1, max: 10 }),
+    field('duel', 'Duels (!duel @pseudo mise)', 'check'), field('duelTimeout', 'Temps pour accepter un duel (s)', 'number', { min: 15 }),
+    field('pred', 'Prédictions (!bet)', 'check'), field('predSeconds', 'Durée des paris (s)', 'number', { min: 15 }),
+    field('quiz', 'Quiz', 'check'), field('quizPoints', 'Points pour la bonne réponse', 'number', { min: 1 }), field('quizSeconds', 'Durée du quiz (s)', 'number', { min: 10 }),
+    field('gamble', 'Pari au hasard (!gamble)', 'check'), field('gambleWin', 'Chances de gagner au !gamble (%)', 'number', { min: 1, max: 99 }), field('gambleMax', 'Mise max au !gamble', 'number', { min: 1 }));
+}
+async function save() {
+  try { const d = await SBA.api('PUT', '/me/jeux', cfg); dirty = false; apply(d); $('dirty').textContent = d.errors && d.errors.length ? '⚠️ ' + d.errors.join(' · ') : 'Enregistré ✓'; }
+  catch (e) { $('dirty').textContent = 'Erreur : ' + e.message; }
+}
+$('save').onclick = save;
+$('enabled').onchange = () => { cfg.enabled = $('enabled').checked; save(); };
+$('predGo').onclick = () => {
+  const q = $('predQ').value.replace(/\|/g, '/').trim(), opts = $('predO').value.split('\n').map((x) => x.replace(/\|/g, '/').trim()).filter(Boolean);
+  if (!q || opts.length < 2) return toast('Une question et au moins deux choix');
+  run(`!pred ${q} | ${opts.slice(0, 5).join(' | ')}`).then(() => { $('predQ').value = ''; $('predO').value = ''; });
+};
+$('quizGo').onclick = () => {
+  const q = $('quizQ').value.replace(/\|/g, '/').trim(), a = $('quizA').value.replace(/\|/g, '/').trim();
+  if (!q || !a) return toast('Une question et au moins une réponse');
+  run(`!quiz ${q} | ${a}`).then(() => { $('quizQ').value = ''; $('quizA').value = ''; });
+};
+$('give').onclick = () => { const w = $('giveWho').value.trim().replace(/^@/, ''), n = Math.trunc(+$('giveN').value); if (!w || !n) return toast('Un pseudo et un nombre'); run(`!give @${w} ${n}`); };
+$('reset').onclick = async () => {
+  if (!confirm(`Remettre les ${cfg.currency} de tout le monde à zéro ? C’est définitif.`)) return;
+  try { apply(await SBA.api('POST', '/me/jeux/action', { action: 'reset' })); toast('Points remis à zéro'); } catch (e) { toast('Erreur : ' + e.message); }
+};
+addEventListener('beforeunload', (e) => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
+setInterval(async () => { if (SBA.loggedIn() && cfg) { try { apply(await SBA.api('GET', '/me/jeux')); } catch (e) { /* ignore */ } } }, 3000);
+(async () => {
+  if (!SBA.enabled() || !SBA.loggedIn()) {
+    $('need').hidden = false; $('need').append(el('p', 'lead', 'Les mini-jeux sont liés à ton compte StreamBox : connecte-toi avec Twitch.'));
+    const b = el('button', 'btn', 'Se connecter avec Twitch'); b.onclick = () => SBA.login('jeux.html'); $('need').appendChild(b); return;
+  }
+  try { apply(await SBA.api('GET', '/me/jeux')); $('app').hidden = false; } catch (e) { $('need').hidden = false; $('need').textContent = 'Erreur : ' + e.message; }
+})();
+</script>
+</body>
+</html>

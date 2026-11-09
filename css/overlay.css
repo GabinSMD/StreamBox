@@ -276,3 +276,24 @@ img.emote { height: 1.6em; vertical-align: middle; margin: -0.3em 0.1em; }
 .tts-by { font-size: .7em; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); }
 .tts-by::before { content: '🔊 '; }
 .tts-text { font-weight: 700; margin-top: 4px; overflow-wrap: anywhere; }
+
+/* ---------- Mini-jeux du chat ---------- */
+.jx { position: absolute; inset: 12px; display: flex; flex-direction: column; gap: 10px; justify-content: flex-end; }
+.jx-card { background: rgba(var(--panel-rgb, 16, 12, 26), var(--panel-a, .92)); border-radius: var(--radius, 18px); padding: 14px 18px; border-left: 5px solid var(--accent); box-shadow: 0 10px 30px rgba(0,0,0,.4); animation: jx-in .4s ease; }
+.jx-kind { font-size: .65em; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); }
+.jx-card h2 { margin: 4px 0 10px; font-size: 1.05em; overflow-wrap: anywhere; }
+.jx-opt { position: relative; display: flex; align-items: center; gap: 10px; padding: 7px 10px; margin-top: 6px; border-radius: 10px; background: rgba(255,255,255,.08); overflow: hidden; font-size: .85em; }
+.jx-bar { position: absolute; inset: 0 auto 0 0; background: var(--accent); opacity: .35; transition: width .6s ease; }
+.jx-opt > span { position: relative; }
+.jx-n { font-weight: 800; width: 1.2em; text-align: center; }
+.jx-l { flex: 1; font-weight: 700; overflow-wrap: anywhere; }
+.jx-v { font-variant-numeric: tabular-nums; opacity: .85; }
+.jx-opt.win { outline: 2px solid var(--accent); } .jx-opt.win .jx-bar { opacity: .6; }
+.jx-opt.lose { opacity: .5; }
+.jx-foot { margin-top: 8px; font-size: .7em; opacity: .8; font-weight: 600; }
+.jx ol { margin: 6px 0 0; padding: 0; list-style: none; counter-reset: jx; }
+.jx li { display: flex; justify-content: space-between; gap: 10px; padding: 4px 0; font-size: .85em; counter-increment: jx; }
+.jx ol li span::before { content: counter(jx) '. '; color: var(--accent); font-weight: 800; }
+.jx-feed { margin: 0; padding: 0; list-style: none; }
+.jx-feed li { display: block; background: rgba(var(--panel-rgb, 16, 12, 26), var(--panel-a, .8)); border-radius: 10px; padding: 6px 12px; margin-top: 6px; font-size: .7em; font-weight: 600; animation: jx-in .4s ease; }
+@keyframes jx-in { from { opacity: 0; transform: translateY(10px); } }

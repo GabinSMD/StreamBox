@@ -226,6 +226,20 @@
       ],
     },
     {
+      id: 'jeux', icon: '🎲', name: 'Mini-jeux (overlay)', overlay: 'overlays/jeux.html', size: [520, 420],
+      tagline: 'Affiche en direct les prédictions, quiz, duels et le classement des points du chat.',
+      replaces: ['StreamElements Loyalty', 'Streamlabs Loyalty'],
+      note: 'Nécessite un compte StreamBox : enregistre cet overlay dans ton compte et colle son lien court dans OBS. Les jeux se règlent et se lancent sur la page Mini-jeux du chat.',
+      fields: [
+        { key: 'pred', label: 'Afficher les prédictions', type: 'checkbox', default: true },
+        { key: 'quiz', label: 'Afficher les quiz', type: 'checkbox', default: true },
+        { key: 'duel', label: 'Afficher les duels', type: 'checkbox', default: true },
+        { key: 'top', label: 'Afficher le classement quand rien n’est en cours', type: 'checkbox', default: true },
+        { key: 'feed', label: 'Afficher les derniers résultats', type: 'checkbox', default: true },
+        size(20), font, accent,
+      ],
+    },
+    {
       id: 'tts', icon: '🔊', name: 'Lecture à voix haute (TTS)', overlay: 'overlays/tts.html', size: [700, 200],
       tagline: 'Lit à voix haute les !tts de ton chat, les messages des cheers, des dons et d’une récompense de points de chaîne.',
       replaces: ['TTS de StreamElements / Streamlabs', 'Speechify bots'],
@@ -368,6 +382,8 @@
       links: [['Gérer le subathon', 'subathon.html'], ['Overlay OBS', 'outil.html?id=subathon'], ['Roue à défis', 'outil.html?id=roue']] },
     { id: 'sr', icon: '🎶', name: 'Demandes de musique', href: 'sr.html', tagline: 'Tes viewers demandent des morceaux avec !sr (YouTube ou Spotify) : file d’attente, limites, modération, page publique.', replaces: ['Nightbot Song Requests', 'StreamElements Media Request'],
       links: [['Gérer la file', 'sr.html'], ['Overlay Lecteur (YouTube)', 'outil.html?id=lecteur']] },
+    { id: 'minijeux', icon: '🎲', name: 'Mini-jeux du chat', href: 'jeux.html', tagline: 'Points virtuels gagnés en discutant, duels, prédictions, quiz et classement. Tout se joue dans le chat, avec un overlay OBS. Aucune valeur réelle.', replaces: ['StreamElements Loyalty', 'Streamlabs Loyalty', 'DeepBot'],
+      links: [['Gérer les jeux', 'jeux.html'], ['Overlay OBS', 'outil.html?id=jeux']] },
     { id: 'bot', icon: '🤖', name: 'Bot de chat', href: 'bot.html', tagline: 'Commandes, messages automatiques, modération et remerciements. Il tourne 24 h/24 sur le relais, même OBS fermé.', replaces: ['Nightbot', 'Moobot', 'Fossabot', 'Cloudbot'] },
     { id: 'panneau', icon: '🎛️', name: 'Panneau de contrôle', href: 'panneau.html', tagline: 'Des boutons pour piloter sondages, giveaways, subathon, roue, objectifs et scènes OBS, sans taper de commandes. Utilisable comme dock OBS.', replaces: ['Kloot', 'Poltergeist', 'Xenon'] },
     { id: 'integrations', icon: '🔌', name: 'Intégrations', href: 'integrations.html', tagline: 'Twitch, OBS, Discord, Spotify, Deezer, YouTube Music, Ko-fi, StreamElements, Streamlabs : ce que chaque service apporte et comment le brancher.', replaces: [] },
@@ -407,12 +423,12 @@
     { id: 'musique', icon: '🎵', name: 'Musique', desc: 'Le morceau en cours, les demandes du chat, et les musiques dans tes redifs.' },
     { id: 'outils', icon: '🛠️', name: 'Outils pratiques', desc: 'Piloter tes overlays, préparer tes emotes, estimer tes revenus, trouver d’autres outils.' },
   ];
-  const CAT = { chat: 'communaute', bot: 'communaute', sondage: 'communaute', giveaway: 'communaute', roue: 'communaute', emotes: 'communaute',
+  const CAT = { chat: 'communaute', bot: 'communaute', sondage: 'communaute', giveaway: 'communaute', roue: 'communaute', emotes: 'communaute', jeux: 'communaute', minijeux: 'communaute',
     alertes: 'alertes', objectifs: 'alertes', discord: 'alertes', tts: 'alertes',
     'subathon-live': 'evenements', minuteur: 'evenements', rewind: 'evenements',
     musique: 'musique', sr: 'musique', extension: 'musique',
     panneau: 'outils', integrations: 'outils', resizer: 'outils', calc: 'outils', annuaire: 'outils' };
-  const MERGED = { subathon: 'subathon-live', lecteur: 'sr' };
+  const MERGED = { subathon: 'subathon-live', lecteur: 'sr', jeux: 'minijeux' };
   [...window.SB_TOOLS, ...window.SB_PAGES].forEach((t) => { t.cat = CAT[t.id] || 'outils'; if (MERGED[t.id]) t.mergedInto = MERGED[t.id]; });
 
   window.SB_TOOLS.forEach((t) => {

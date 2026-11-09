@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>StreamBox · Mini-jeux du chat</title>
+<link rel="stylesheet" href="../css/overlay.css">
+</head>
+<body>
+<div class="jx" id="root">
+  <section class="jx-card" id="pred" hidden><div class="jx-kind">🔮 Prédiction</div><h2 id="predQ"></h2><div id="predOpts"></div><div class="jx-foot" id="predFoot"></div></section>
+  <section class="jx-card" id="quiz" hidden><div class="jx-kind">🧠 Quiz</div><h2 id="quizQ"></h2><div class="jx-foot" id="quizFoot"></div></section>
+  <section class="jx-card" id="duel" hidden><div class="jx-kind">⚔️ Duel</div><h2 id="duelT"></h2><div class="jx-foot" id="duelFoot"></div></section>
+  <section class="jx-card" id="top" hidden><div class="jx-kind" id="topKind">🏆 Classement</div><ol id="topList"></ol></section>
+  <ul class="jx-feed" id="feed"></ul>
+</div>
+<script src="../js/config.js"></script>
+<script src="../js/sb.js"></script>
+<script>
+/* Affiche l'état des mini-jeux du chat, gardé par le relais StreamBox (prédictions, quiz, duels, classement). */
+const c = SB.params({ pred: true, quiz: true, duel: true, top: true, feed: true, size: 20, font: 'Inter', accent: '#9b5cff', demo: false });
+SB.loadFont(c.font); SB.setAccent(c.accent);
+document.documentElement.style.setProperty('--size', c.size + 'px');
+const $ = (id) => document.getElementById(id);
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+const ovId = new URLSearchParams(location.search).get('o');
+const relay = ((window.SB_CONFIG && SB_CONFIG.relayUrl) || '').replace(/\/$/, '');
+const fmt = (n) => Math.round(n).toLocaleString('fr-FR');
+const secs = (t, now) => Math.max(0, Math.ceil((t - now) / 1000));
+let S = null, skew = 0; // décalage entre l'horloge du relais et celle d'OBS
+
+function render() {
+  if (!S) return;
+  const now = Date.now() + skew, C = S.currency;
+  const p = c.pred && S.pred && !(S.pred.resolved && now - S.pred.resolvedAt > 60000) ? S.pred : null;
+  $('pred').hidden = !p;
+  if (p) {
+    $('predQ').textContent = p.question;
+    const pool = p.options.reduce((s, o) => s + o.total, 0);
+    $('predOpts').replaceChildren(...p.options.map((o, i) => {
+      const pct = pool ? Math.round((o.total / pool) * 100) : 0;
+      const row = el('div', 'jx-opt' + (p.resolved && p.winner === i ? ' win' : p.resolved ? ' lose' : ''));
+      const bar = el('div', 'jx-bar'); bar.style.width = pct + '%';
+      row.append(bar, el('span', 'jx-n', String(i + 1)), el('span', 'jx-l', o.label), el('span', 'jx-v', `${pct} % · ${fmt(o.total)}`));
+      return row;
+    }));
+    $('predFoot').textContent = p.cancelled ? 'Annulée : mises remboursées' : p.resolved ? `Résultat : ${p.options[p.winner].label}` : p.open ? `!bet numéro mise · ${secs(p.endsAt, now)} s` : 'Paris fermés, en attente du résultat';
+  }
+  const q = c.quiz && S.quiz && (S.quiz.open || now - S.quiz.endsAt < 20000) ? S.quiz : null;
+  $('quiz').hidden = !q;
+  if (q) {
+    $('quizQ').textContent = q.question;
+    $('quizFoot').textContent = q.open ? `Réponds dans le chat · ${secs(q.endsAt, now)} s` : q.winner ? `🎉 ${q.winner} a trouvé : ${q.answer}` : `Réponse : ${q.answer}`;
+  }
+  const d = c.duel && S.duel;
+  $('duel').hidden = !d;
+  if (d) { $('duelT').textContent = `${d.from} VS ${d.to}`; $('duelFoot').textContent = `${fmt(d.stake)} ${C} en jeu · ${d.to}, tape !accept`; }
+  const idle = $('pred').hidden && $('quiz').hidden && $('duel').hidden;
+  $('top').hidden = !(c.top && idle && S.top && S.top.length);
+  if (!$('top').hidden) { $('topKind').textContent = `🏆 Classement des ${C}`; $('topList').replaceChildren(...S.top.map((x) => { const li = el('li'); li.append(el('span', null, x.name), el('b', null, fmt(x.n))); return li; })); }
+  $('feed').replaceChildren(...(c.feed ? S.events.slice(0, 3).filter((e) => now - e.t < 120000).map((e) => el('li', null, e.text)) : []));
+}
+async function poll() {
+  try {
+    const d = await (await fetch(`${relay}/o/${ovId}/jeux`, { cache: 'no-store' })).json();
+    if (d.error) throw new Error(d.error);
+    S = d; skew = d.now - Date.now(); render();
+  } catch (e) { console.warn('mini-jeux :', e.message); }
+}
+
+if (c.demo || !ovId) {
+  const t0 = Date.now();
+  S = { currency: 'pépites', now: t0, duel: null, quiz: null, top: [{ name: 'Pixelmaud', n: 4820 }, { name: 'Kevin_le_roux', n: 3150 }, { name: 'Lou', n: 990 }],
+    pred: { question: 'Le boss tombe du premier coup ?', open: true, endsAt: t0 + 90000, resolved: false, options: [{ label: 'Oui, facile', total: 1200 }, { label: 'Jamais de la vie', total: 2650 }] },
+    events: [{ text: '⚔️ Pixelmaud bat Lou (200 pépites)', t: t0 }] };
+  setInterval(() => { S.pred.options[Math.random() < 0.5 ? 0 : 1].total += Math.round(Math.random() * 150); render(); }, 1500);
+  render();
+} else { poll(); setInterval(poll, 2500); }
+setInterval(render, 1000);
+</script>
+</body>
+</html>

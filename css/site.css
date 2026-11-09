@@ -308,3 +308,8 @@ footer .logo { font-size: 17px; }
   .top nav .acc .acc-long { display: none; }
   .top nav .acc .acc-short { display: inline; }
 }
+.jx-form { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+.jx-form input[type=text], .jx-form textarea { width: 100%; }
+.jx-live { padding: 12px; border-radius: 12px; background: var(--card2, rgba(255,255,255,.04)); display: flex; flex-direction: column; gap: 6px; }
+.jx-live .pn-row { margin: 0; align-items: center; }
+.jx-live .pn-row small { color: var(--muted); margin-left: auto; }
