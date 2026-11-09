@@ -14,7 +14,7 @@
   <div id="err" class="box" style="margin:48px auto;max-width:560px" hidden></div>
   <div id="app" hidden>
     <section class="ch-hero">
-      <img id="avatar" alt="">
+      <img id="avatar" alt="" hidden>
       <div class="ch-id">
         <h1><a id="name" target="_blank" rel="noopener"></a></h1>
         <div class="ch-live" id="live"></div>
@@ -25,22 +25,22 @@
 
     <div class="ch-grid">
       <section class="box" id="secCommands" hidden>
-        <div class="ch-h"><h3 class="bt-h">💬 Commandes du chat</h3><input type="text" id="q" placeholder="Chercher une commande" aria-label="Chercher une commande"></div>
+        <div class="ch-h"><h2 class="bt-h">💬 Commandes du chat</h2><input type="text" id="q" placeholder="Chercher une commande" aria-label="Chercher une commande"></div>
         <div id="commands"></div>
       </section>
       <div class="ch-col">
         <section class="box" id="secSchedule" hidden>
-          <h3 class="bt-h">📅 Prochains lives</h3>
+          <h2 class="bt-h">📅 Prochains lives</h2>
           <div id="schedule"></div>
         </section>
         <section class="box" id="secSubathon" hidden>
-          <h3 class="bt-h">⏱️ Subathon en cours</h3>
+          <h2 class="bt-h">⏱️ Subathon en cours</h2>
           <div class="ch-big" id="subTime"></div>
           <p class="bt-help" id="subInfo"></p>
           <a class="btn small" id="subLink">Suivre le subathon et voter</a>
         </section>
         <section class="box" id="secMusic" hidden>
-          <h3 class="bt-h">🎵 Musique</h3>
+          <h2 class="bt-h">🎵 Musique</h2>
           <div id="music"></div>
           <a class="btn small ghost" id="musicLink">Voir toute la file</a>
         </section>
@@ -135,7 +135,7 @@ async function load() {
     const p = d.profile || {};
     document.title = (p.name || chan) + ' · StreamBox';
     $('name').textContent = p.name || chan; $('name').href = 'https://twitch.tv/' + chan;
-    if (p.avatar) $('avatar').src = p.avatar; else $('avatar').hidden = true;
+    if (p.avatar) { $('avatar').src = p.avatar; $('avatar').hidden = false; } else $('avatar').hidden = true;
     $('about').textContent = d.about || p.description || '';
     $('live').replaceChildren();
     if (d.live) {

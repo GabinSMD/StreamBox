@@ -4,13 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Gestion du subathon · StreamBox</title>
+<meta name="description" content="Gère ton subathon : timer, paliers, happy hour et idées votées par le chat.">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Roboto+Mono&display=swap">
 <link rel="stylesheet" href="css/site.css">
 <script src="js/i18n.js"></script>
 </head>
 <body>
 <main class="wrap">
-  <h2 class="sec" style="margin-top:36px">⏱️ Subathon en direct</h2>
+  <h1 class="sec" style="margin-top:36px">⏱️ Subathon en direct</h1>
   <p class="sec">Le timer tourne sur le relais StreamBox : il compte tout seul les abos, bits et follows, même OBS fermé. Il est partagé entre ton overlay et la page publique de tes viewers.</p>
   <div id="need" class="box" hidden></div>
 
@@ -42,19 +43,19 @@
     <div class="bt-grid">
       <div>
         <section class="box">
-          <h3 class="bt-h">⚙️ Réglages</h3>
+          <h2 class="bt-h">⚙️ Réglages</h2>
           <div class="bt-row" id="settings"></div>
-          <h3 class="bt-h" style="margin-top:16px">⏱️ Temps ajouté (minutes)</h3>
+          <h2 class="bt-h" style="margin-top:16px">⏱️ Temps ajouté (minutes)</h2>
           <div class="bt-row" id="rules"></div>
         </section>
         <section class="box">
-          <h3 class="bt-h">🏁 Paliers <small>Affichés sur la page publique, avec leur progression</small></h3>
+          <h2 class="bt-h">🏁 Paliers <small>Affichés sur la page publique, avec leur progression</small></h2>
           <div class="bt-row" id="metric"></div>
           <div id="paliers"></div>
           <button class="btn ghost small" id="addPal" type="button">+ Ajouter un palier</button>
         </section>
         <section class="box">
-          <h3 class="bt-h">💡 Propositions des viewers</h3>
+          <h2 class="bt-h">💡 Propositions des viewers</h2>
           <div class="bt-row" id="ideasCfg"></div>
           <div id="ideas"></div>
         </section>

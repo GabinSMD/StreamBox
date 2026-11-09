@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Panneau de modération · StreamBox</title>
+<meta name="description" content="Panneau de modération Twitch pour toi et tes modos : sanctions en un clic, AutoMod, journal, sondages, prédictions et récompenses.">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
 <link rel="stylesheet" href="css/site.css">
 <script src="js/i18n.js"></script>
@@ -14,7 +15,7 @@
 
   <div id="app" hidden>
     <header class="md-top">
-      <h2>🛡️ Modération</h2>
+      <h1>🛡️ Modération</h1>
       <select id="chan" aria-label="Chaîne"></select>
       <span class="flag" id="live"></span>
       <span class="md-st" id="stChat" title="Chat">💬 …</span>
@@ -26,7 +27,7 @@
     <div class="md-grid">
       <section class="md-chat box">
         <div class="md-filters">
-          <input type="text" id="filter" placeholder="Filtrer : pseudo ou mot">
+          <input type="text" id="filter" aria-label="Filtrer : pseudo ou mot" placeholder="Filtrer : pseudo ou mot">
           <label><input type="checkbox" id="fFirst"> Premiers messages</label>
           <label><input type="checkbox" id="fLinks"> Liens</label>
           <label><input type="checkbox" id="fHide"> Masquer les messages supprimés</label>
@@ -60,10 +61,10 @@
         </section>
         <section class="box md-pane" id="p-modes" hidden>
           <div class="md-modes" id="modes"></div>
-          <h3 class="bt-h" style="margin-top:18px">📣 Annonce</h3>
-          <textarea id="annText" rows="2" maxlength="500" placeholder="Message mis en avant dans le chat"></textarea>
+          <h2 class="bt-h" style="margin-top:18px">📣 Annonce</h2>
+          <textarea id="annText" aria-label="Message mis en avant dans le chat" rows="2" maxlength="500" placeholder="Message mis en avant dans le chat"></textarea>
           <div class="pn-row">
-            <select id="annColor"><option value="primary">Couleur de la chaîne</option><option value="purple">Violet</option><option value="blue">Bleu</option><option value="green">Vert</option><option value="orange">Orange</option></select>
+            <select id="annColor" aria-label="Couleur de l’annonce"><option value="primary">Couleur de la chaîne</option><option value="purple">Violet</option><option value="blue">Bleu</option><option value="green">Vert</option><option value="orange">Orange</option></select>
             <button class="btn small" id="annGo" type="button">Envoyer</button>
           </div>
           <div class="pn-row" style="margin-top:18px"><button class="btn ghost small" id="clearChat" type="button">🧹 Effacer tout le chat</button></div>
@@ -95,7 +96,7 @@
           <div class="bx-body">
             <p class="bt-help">Récompenses de points de chaîne à valider : ✅ c’est fait, ↩ rembourser le viewer.</p>
             <div id="queue"></div>
-            <h3 class="bt-h" style="margin-top:18px">🎁 Récompenses</h3>
+            <h2 class="bt-h" style="margin-top:18px">🎁 Récompenses</h2>
             <div id="rewards"></div>
             <details class="md-new" id="rwNew" hidden><summary>➕ Nouvelle récompense</summary>
               <label class="bt-f"><span>Nom</span><input type="text" id="wTitle" maxlength="45"></label>
@@ -116,11 +117,11 @@
             <label class="bt-f"><span>Catégorie</span><input type="text" id="game" list="games" autocomplete="off"></label>
             <datalist id="games"></datalist>
             <div class="pn-row"><button class="btn small" id="saveLive" type="button">Mettre à jour</button></div>
-            <h3 class="bt-h" style="margin-top:18px">🚀 Raid</h3>
-            <div class="pn-row"><input type="text" id="raidTo" placeholder="chaîne à raider"><button class="btn small" id="raidGo" type="button">Lancer</button><button class="btn ghost small" id="raidStop" type="button">Annuler</button></div>
+            <h2 class="bt-h" style="margin-top:18px">🚀 Raid</h2>
+            <div class="pn-row"><input type="text" id="raidTo" aria-label="chaîne à raider" placeholder="chaîne à raider"><button class="btn small" id="raidGo" type="button">Lancer</button><button class="btn ghost small" id="raidStop" type="button">Annuler</button></div>
           </div>
           <div id="teamBox" hidden>
-            <h3 class="bt-h" style="margin-top:18px">🤝 Équipe</h3>
+            <h2 class="bt-h" style="margin-top:18px">🤝 Équipe</h2>
             <label class="bt-toggle"><input type="checkbox" id="teamMods"><b>Mes modos peuvent gérer sondages, prédictions et file des récompenses</b></label>
             <p class="bt-help">Twitch réserve ces actions au compte du streamer : StreamBox les fait pour tes modos, après avoir vérifié auprès de Twitch qu’ils sont bien modos. Créer ou supprimer une récompense reste réservé à toi.</p>
           </div>
@@ -133,9 +134,9 @@
 <div class="md-card" id="card" hidden role="dialog" aria-label="Fiche du viewer">
   <div class="md-card-in box">
     <button class="md-x" id="cardX" type="button" aria-label="Fermer">✕</button>
-    <div class="md-who"><img id="cAvatar" alt=""><div><b id="cName"></b><small id="cInfo"></small></div></div>
+    <div class="md-who"><img id="cAvatar" alt="" hidden><div><b id="cName"></b><small id="cInfo"></small></div></div>
     <div class="note" id="cBan" hidden></div>
-    <input type="text" id="cReason" maxlength="200" placeholder="Raison (facultative, obligatoire pour un avertissement)">
+    <input type="text" id="cReason" aria-label="Raison (facultative, obligatoire pour un avertissement)" maxlength="200" placeholder="Raison (facultative, obligatoire pour un avertissement)">
     <div class="md-acts">
       <span>Timeout :</span>
       <button data-to="60">1 min</button><button data-to="600">10 min</button><button data-to="3600">1 h</button><button data-to="86400">1 j</button><button data-to="604800">7 j</button>
@@ -147,7 +148,7 @@
       <button id="cUnban" hidden>✅ Débannir</button>
       <a id="cTwitch" target="_blank" rel="noopener">Fiche Twitch ↗</a>
     </div>
-    <h4>Messages pendant cette session <small id="cCount"></small></h4>
+    <h3>Messages pendant cette session <small id="cCount"></small></h3>
     <div class="md-hist" id="cHist" data-i18n-skip></div>
   </div>
 </div>
@@ -247,14 +248,14 @@ $('more').onclick = () => { $('feed').scrollTop = $('feed').scrollHeight; };
 async function openCard(login) {
   const u = users.get(login); if (!u) return;
   cardUser = login; $('card').hidden = false;
-  $('cName').textContent = u.name; $('cInfo').textContent = 'Chargement…'; $('cAvatar').removeAttribute('src'); $('cBan').hidden = true; $('cUnban').hidden = true; $('cReason').value = '';
+  $('cName').textContent = u.name; $('cInfo').textContent = 'Chargement…'; $('cAvatar').removeAttribute('src'); $('cAvatar').hidden = true; $('cBan').hidden = true; $('cUnban').hidden = true; $('cReason').value = '';
   $('cTwitch').href = `https://www.twitch.tv/popout/${ch.login}/viewercard/${login}`;
   renderHist();
   try {
     const [info, fol, banned] = await Promise.all([tw('GET', 'users?id=' + u.id), tw('GET', `channels/followers?broadcaster_id=${ch.id}&user_id=${u.id}`).catch(() => ({})), tw('GET', `moderation/banned?broadcaster_id=${ch.id}&user_id=${u.id}`).catch(() => ({}))]);
     if (cardUser !== login) return;
     const p = (info.data || [])[0] || {};
-    if (p.profile_image_url) $('cAvatar').src = p.profile_image_url;
+    if (p.profile_image_url) { $('cAvatar').src = p.profile_image_url; $('cAvatar').hidden = false; }
     const f = (fol.data || [])[0];
     const days = (d) => Math.floor((Date.now() - Date.parse(d)) / 86400000);
     $('cInfo').textContent = [p.created_at && `compte créé il y a ${days(p.created_at)} j`, f ? `suit depuis ${days(f.followed_at)} j` : 'ne suit pas la chaîne'].filter(Boolean).join(' · ');
@@ -434,7 +435,7 @@ function bars(items, n) { // barres de résultats [{ title, n, extra }]
   const total = items.reduce((a, b) => a + n(b), 0) || 1;
   return items.map((it) => {
     const r = el('div', 'bx-bar'); const pct = Math.round((n(it) / total) * 100);
-    const fill = el('i'); fill.style.width = pct + '%';
+    const fill = el('i'); fill.style.setProperty('--p', pct / 100);
     r.append(fill, skip(el('span', null, it.title)), el('b', null, `${pct} % · ${n(it).toLocaleString(SB_LANG_TAG)}${it._extra || ''}`));
     return r;
   });
