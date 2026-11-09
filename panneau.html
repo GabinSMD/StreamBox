@@ -5,13 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Panneau de contrôle · StreamBox</title>
 <meta name="description" content="Panneau de contrôle StreamBox : pilote sondages, giveaways, subathon, roue et sons depuis un dock OBS.">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400..800&family=Tektur:wght@500..800&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="css/site.css">
 <script src="js/i18n.js"></script>
+<script src="js/icons.js"></script>
 </head>
 <body>
 <main class="wrap">
-  <h1 class="sec" style="margin-top:32px">🎛️ Panneau de contrôle</h1>
+  <h1 class="sec" style="margin-top:32px"><svg class="ic ic-sliders-horizontal" aria-hidden="true" focusable="false"><use href="img/icons.svg#sliders-horizontal"/></svg>Panneau de contrôle</h1>
   <p class="sec">Pilote tes overlays sans taper de commandes. Ouvre cette page sur le PC du stream, ou ajoute-la dans OBS : <b>Docks → Docks de navigateur personnalisés</b>. Coche « Contrôlable depuis le panneau » dans les réglages de chaque overlay.</p>
 
   <div class="box pn-conn">
@@ -22,9 +23,9 @@
   </div>
 
   <div class="pn-grid" id="grid">
-    <section class="box pn-card" data-tool="scenes"><h2>🎬 Scènes</h2><div class="pn-row" id="scenes"><small>Connecte OBS pour voir tes scènes.</small></div></section>
+    <section class="box pn-card" data-tool="scenes"><h2><svg class="ic ic-clapperboard" aria-hidden="true" focusable="false"><use href="img/icons.svg#clapperboard"/></svg>Scènes</h2><div class="pn-row" id="scenes"><small>Connecte OBS pour voir tes scènes.</small></div></section>
 
-    <section class="box pn-card"><h2>📊 Sondage</h2>
+    <section class="box pn-card"><h2><svg class="ic ic-chart-column" aria-hidden="true" focusable="false"><use href="img/icons.svg#chart-column"/></svg>Sondage</h2>
       <input type="text" id="pq" aria-label="Question" placeholder="Question">
       <input type="text" id="po" aria-label="Choix séparés par des virgules (vide = Oui, Non)" placeholder="Choix séparés par des virgules (vide = Oui, Non)">
       <div class="pn-row"><input type="number" id="pd" aria-label="Durée (s)" placeholder="Durée (s)" min="5" style="max-width:120px">
@@ -33,17 +34,17 @@
         <button class="btn ghost" data-send="sondage" data-args="cacher">Cacher</button></div>
     </section>
 
-    <section class="box pn-card"><h2>🎁 Giveaway</h2>
+    <section class="box pn-card"><h2><svg class="ic ic-gift" aria-hidden="true" focusable="false"><use href="img/icons.svg#gift"/></svg>Giveaway</h2>
       <div class="pn-row"><input type="text" id="gk" aria-label="Mot-clé (vide = celui des réglages)" placeholder="Mot-clé (vide = celui des réglages)">
         <button class="btn" data-send="giveaway" data-args-fn="giveaway">Ouvrir</button></div>
       <div class="pn-row"><button class="btn ghost" data-send="giveaway" data-args="stop">Fermer</button>
-        <button class="btn" data-send="giveaway" data-args="tirage">🎲 Tirer au sort</button>
+        <button class="btn" data-send="giveaway" data-args="tirage"><svg class="ic ic-dices" aria-hidden="true" focusable="false"><use href="img/icons.svg#dices"/></svg>Tirer au sort</button>
         <button class="btn ghost" data-send="giveaway" data-args="reset">Réinitialiser</button></div>
     </section>
 
-    <section class="box pn-card"><h2>⏱️ Subathon</h2>
-      <div class="pn-row"><button class="btn" data-send="subathon" data-args="start">▶ Démarrer</button>
-        <button class="btn ghost" data-send="subathon" data-args="pause">⏸ Pause</button></div>
+    <section class="box pn-card"><h2><svg class="ic ic-timer" aria-hidden="true" focusable="false"><use href="img/icons.svg#timer"/></svg>Subathon</h2>
+      <div class="pn-row"><button class="btn" data-send="subathon" data-args="start"><svg class="ic ic-play" aria-hidden="true" focusable="false"><use href="img/icons.svg#play"/></svg>Démarrer</button>
+        <button class="btn ghost" data-send="subathon" data-args="pause"><svg class="ic ic-pause" aria-hidden="true" focusable="false"><use href="img/icons.svg#pause"/></svg>Pause</button></div>
       <div class="pn-row"><button class="btn ghost" data-send="subathon" data-args="+1">+1 min</button>
         <button class="btn ghost" data-send="subathon" data-args="+5">+5 min</button>
         <button class="btn ghost" data-send="subathon" data-args="+10">+10 min</button>
@@ -54,11 +55,11 @@
         <button class="btn ghost" data-send="subathon" data-args="happy off">Fin happy hour</button></div>
     </section>
 
-    <section class="box pn-card"><h2>🎡 Roue</h2>
+    <section class="box pn-card"><h2><svg class="ic ic-ferris-wheel" aria-hidden="true" focusable="false"><use href="img/icons.svg#ferris-wheel"/></svg>Roue</h2>
       <div class="pn-row"><button class="btn" data-send="roue" data-args="">Faire tourner la roue</button></div>
     </section>
 
-    <section class="box pn-card"><h2>🎯 Objectif</h2>
+    <section class="box pn-card"><h2><svg class="ic ic-target" aria-hidden="true" focusable="false"><use href="img/icons.svg#target"/></svg>Objectif</h2>
       <div class="pn-row"><button class="btn ghost" data-send="objectifs" data-args="+1">+1</button>
         <button class="btn ghost" data-send="objectifs" data-args="+5">+5</button>
         <button class="btn ghost" data-send="objectifs" data-args="-1">−1</button>
@@ -66,7 +67,7 @@
         <button class="btn ghost" data-send="objectifs" data-args-fn="goalset">Régler</button></div>
     </section>
 
-    <section class="box pn-card"><h2>⏳ Compte à rebours</h2>
+    <section class="box pn-card"><h2><svg class="ic ic-hourglass" aria-hidden="true" focusable="false"><use href="img/icons.svg#hourglass"/></svg>Compte à rebours</h2>
       <div class="pn-row"><button class="btn ghost" data-send="minuteur" data-args="5">5 min</button>
         <button class="btn ghost" data-send="minuteur" data-args="10">10 min</button>
         <button class="btn ghost" data-send="minuteur" data-args="+1">+1 min</button>
@@ -74,34 +75,34 @@
         <button class="btn ghost" data-send="minuteur" data-args="reprendre">Reprendre</button></div>
     </section>
 
-    <section class="box pn-card"><h2>🔢 Compteurs</h2>
+    <section class="box pn-card"><h2><svg class="ic ic-hash" aria-hidden="true" focusable="false"><use href="img/icons.svg#hash"/></svg>Compteurs</h2>
       <div class="pn-row"><input type="text" id="ctid" aria-label="commande (mort)" value="mort" placeholder="commande (mort)" style="max-width:140px">
         <button class="btn ghost" data-send="compteurs" data-args-fn="ctplus">+1</button>
         <button class="btn ghost" data-send="compteurs" data-args-fn="ctminus">−1</button>
         <button class="btn ghost" data-send="compteurs" data-args-fn="ctreset">Remettre à zéro</button></div>
     </section>
 
-    <section class="box pn-card"><h2>🔉 Sons et écran de fin</h2>
+    <section class="box pn-card"><h2><svg class="ic ic-volume-1" aria-hidden="true" focusable="false"><use href="img/icons.svg#volume-1"/></svg>Sons et écran de fin</h2>
       <div class="pn-row"><input type="text" id="sndname" aria-label="nom du son" value="tada" placeholder="nom du son" style="max-width:140px">
         <button class="btn ghost" data-send="sons" data-args-fn="sound">Jouer</button>
-        <button class="btn ghost" data-send="qrdons" data-args="">📱 Montrer le QR code</button>
-        <button class="btn ghost" data-send="generique" data-args="">🎬 Relancer le générique</button></div>
+        <button class="btn ghost" data-send="qrdons" data-args=""><svg class="ic ic-qr-code" aria-hidden="true" focusable="false"><use href="img/icons.svg#qr-code"/></svg>Montrer le QR code</button>
+        <button class="btn ghost" data-send="generique" data-args=""><svg class="ic ic-clapperboard" aria-hidden="true" focusable="false"><use href="img/icons.svg#clapperboard"/></svg>Relancer le générique</button></div>
     </section>
 
-    <section class="box pn-card"><h2>📣 Shoutout et clips</h2>
+    <section class="box pn-card"><h2><svg class="ic ic-megaphone" aria-hidden="true" focusable="false"><use href="img/icons.svg#megaphone"/></svg>Shoutout et clips</h2>
       <div class="pn-row"><input type="text" id="sologin" aria-label="pseudo" placeholder="pseudo" style="max-width:160px">
         <button class="btn ghost" data-send="shoutout" data-args-fn="so">Shoutout</button>
-        <button class="btn ghost" data-send="clips" data-args="suivant">⏭ Clip suivant</button>
-        <button class="btn ghost" data-send="etiquettes" data-args="reset">🏷️ Remettre les top à zéro</button></div>
+        <button class="btn ghost" data-send="clips" data-args="suivant"><svg class="ic ic-skip-forward" aria-hidden="true" focusable="false"><use href="img/icons.svg#skip-forward"/></svg>Clip suivant</button>
+        <button class="btn ghost" data-send="etiquettes" data-args="reset"><svg class="ic ic-tag" aria-hidden="true" focusable="false"><use href="img/icons.svg#tag"/></svg>Remettre les top à zéro</button></div>
     </section>
 
-    <section class="box pn-card"><h2>⏪ Rewind</h2>
-      <div class="pn-row"><button class="btn" data-send="rewind" data-args="clip">📸 Marquer un temps fort</button>
+    <section class="box pn-card"><h2><svg class="ic ic-rewind" aria-hidden="true" focusable="false"><use href="img/icons.svg#rewind"/></svg>Rewind</h2>
+      <div class="pn-row"><button class="btn" data-send="rewind" data-args="clip"><svg class="ic ic-camera" aria-hidden="true" focusable="false"><use href="img/icons.svg#camera"/></svg>Marquer un temps fort</button>
         <button class="btn ghost" data-send="rewind" data-args="">Lancer le condensé</button>
         <button class="btn ghost" data-send="rewind" data-args="stop">Arrêter</button></div>
     </section>
 
-    <section class="box pn-card"><h2>🔔 Alertes</h2>
+    <section class="box pn-card"><h2><svg class="ic ic-bell" aria-hidden="true" focusable="false"><use href="img/icons.svg#bell"/></svg>Alertes</h2>
       <div class="pn-row"><button class="btn ghost" data-send="alertes" data-args="">Tester les alertes</button></div>
     </section>
   </div>

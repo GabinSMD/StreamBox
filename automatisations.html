@@ -5,13 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Automatisations · StreamBox</title>
 <meta name="description" content="Automatisations pour ton live : quand il se passe un événement (raid, abo, commande), StreamBox change de scène, joue un son ou écrit dans le chat.">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400..800&family=Tektur:wght@500..800&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="css/site.css">
 <script src="js/i18n.js"></script>
+<script src="js/icons.js"></script>
 </head>
 <body>
 <main class="wrap">
-  <h1 class="sec" style="margin-top:36px">⚡ Automatisations</h1>
+  <h1 class="sec" style="margin-top:36px"><svg class="ic ic-zap" aria-hidden="true" focusable="false"><use href="img/icons.svg#zap"/></svg>Automatisations</h1>
   <p class="sec">« Quand il se passe ça, fais ça. » Un raid change de scène, un abo active un filtre, une récompense de points de chaîne affiche une source pendant 10 secondes… Les automatisations tournent dans OBS, dans une source navigateur invisible.</p>
   <div id="need" class="box" hidden></div>
 
@@ -32,7 +33,7 @@
 
     <section class="box">
       <h2 class="bt-h">3. Tester depuis cette page (facultatif)</h2>
-      <p class="bt-help">Connecte cette page à OBS pour choisir tes scènes et sources dans une liste, et pour lancer une automatisation avec le bouton ▶ Tester (OBS doit être ouvert sur ce PC).</p>
+      <p class="bt-help">Connecte cette page à OBS pour choisir tes scènes et sources dans une liste, et pour lancer une automatisation avec le bouton « Tester » (OBS doit être ouvert sur ce PC).</p>
       <div class="pn-row"><input type="password" id="obspass" placeholder="Mot de passe du serveur WebSocket d’OBS" autocomplete="off" style="max-width:280px"><button class="btn ghost small" id="obsGo" type="button">Connecter OBS</button><span class="bt-help" id="obsSt"></span></div>
     </section>
     <div class="bt-save"><span id="dirty"></span><button class="btn" id="save" type="button">Enregistrer</button></div>
