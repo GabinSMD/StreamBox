@@ -9,9 +9,47 @@
   'use strict';
   const SB = (window.SB = window.SB || {});
 
+  /* ---------- Lien court d'un compte StreamBox (?o=…) ----------
+   * Les réglages et les jetons sont lus sur le relais avant que l'overlay démarre (requête synchrone,
+   * le temps d'une fraction de seconde), puis l'overlay se recharge tout seul quand le streamer
+   * modifie ses réglages sur le site. Le lien collé dans OBS ne contient donc aucun jeton. */
+  const urlQ = new URLSearchParams(location.search);
+  let cfgQ = null;
+  const ovId = urlQ.get('o');
+  const relay = ((urlQ.get('relay') || (window.SB_CONFIG && window.SB_CONFIG.relayUrl) || '') + '').replace(/\/$/, '');
+  if (ovId && /^[a-z0-9]{20,48}$/.test(ovId) && relay) {
+    try {
+      const x = new XMLHttpRequest();
+      x.open('GET', relay + '/o/' + ovId, false);
+      x.send();
+      if (x.status === 200) {
+        const d = JSON.parse(x.responseText);
+        cfgQ = new URLSearchParams();
+        Object.entries(d.params || {}).forEach(([k, v]) => cfgQ.set(k, typeof v === 'boolean' ? (v ? '1' : '0') : String(v)));
+      } else SB._cfgError = x.status === 404 ? 'Ce lien d’overlay n’existe plus (supprimé ou régénéré).' : 'Relais StreamBox indisponible (' + x.status + ').';
+    } catch (e) { SB._cfgError = 'Relais StreamBox injoignable.'; }
+    if (SB._cfgError) setTimeout(() => location.reload(), 15000);
+    else {
+      let retry = 0;
+      const live = () => {
+        const ws = new WebSocket(relay.replace(/^http/, 'ws') + '/o/' + ovId + '/ws');
+        ws.onmessage = (e) => { try { const m = JSON.parse(e.data); if (m.type === 'update' || m.type === 'deleted') location.reload(); } catch (err) { /* ignore */ } };
+        ws.onopen = () => { retry = 0; };
+        ws.onclose = () => setTimeout(live, Math.min(60000, 3000 * 2 ** retry++));
+      };
+      live();
+    }
+  }
+  /* Paramètres effectifs : ceux du compte, puis ceux de l'URL (qui ont le dernier mot) */
+  SB.query = function () {
+    const q = new URLSearchParams(cfgQ || '');
+    urlQ.forEach((v, k) => { if (k !== 'o') q.set(k, v); });
+    return q;
+  };
+
   /* ---------- Paramètres ---------- */
   SB.params = function (defaults) {
-    const q = new URLSearchParams(location.search);
+    const q = SB.query();
     const out = {};
     for (const [k, v] of Object.entries(defaults)) {
       if (!q.has(k)) { out[k] = v; continue; }
@@ -334,7 +372,7 @@
   /* ---------- Apparence personnalisée (commune à tous les overlays) ----------
    * textcolor, panel (couleur des fonds), opacity (0 à 1), radius (px), shadow=0, outline=1, css (CSS libre) */
   SB.applyStyle = function () {
-    const q = new URLSearchParams(location.search);
+    const q = SB.query();
     const root = document.documentElement.style;
     const hex = (h) => { const m = String(h).replace('#', '').match(/^([0-9a-f]{6})$/i); if (!m) return null; const n = parseInt(m[1], 16); return `${n >> 16 & 255}, ${n >> 8 & 255}, ${n & 255}`; };
     if (q.get('textcolor')) root.setProperty('--text', q.get('textcolor'));
@@ -397,7 +435,7 @@
    * L'overlay le reçoit et le traite comme la commande « <cmd> <args> » tapée par le streamer.
    * Activé si l'URL contient remote=1 ou obspass=… ; obs = client OBS déjà ouvert (facultatif). */
   SB.remote = function (tool, cmd, handler, obs) {
-    const q = new URLSearchParams(location.search);
+    const q = SB.query();
     if (!obs && !(q.get('remote') === '1' || q.has('obspass'))) return;
     const listen = (o) => o.on('CustomEvent', (d) => {
       const s = d && d.streambox;
@@ -420,6 +458,7 @@
   };
 
   SB.hintIfNoChannel = function (cfg) {
+    if (SB._cfgError) { document.body.appendChild(SB.el('div', 'sb-hint', 'StreamBox : ' + SB._cfgError)); return; }
     if (cfg.channel || cfg.demo) return;
     const d = SB.el('div', 'sb-hint', 'StreamBox : ajoute ?channel=ta_chaine à l’URL (ou configure l’outil sur le site).');
     document.body.appendChild(d);

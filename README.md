@@ -45,6 +45,18 @@ La source Rewind reste dans OBS pendant tout le live et calcule chaque seconde u
 
 Au-delà du seuil, StreamBox attend quelques secondes (pour inclure la réaction), puis sauvegarde le **Replay Buffer** d’OBS. Au stream suivant, il rejoue les meilleurs moments dans l’ordre, via une source Média, avec un bandeau (raison, heure, réactions du chat, intensité). En option, il peut créer des clips Twitch à la place, et compléter avec les meilleurs clips de la communauté.
 
+## Comptes StreamBox
+
+Avec le relais (voir `relay/README.md`), chaque streamer se connecte avec **son compte Twitch** :
+
+- ses overlays et ses intégrations sont enregistrés dans son compte (page **Mon compte**) ;
+- le lien à coller dans OBS est court (`overlays/chat.html?o=…`) et **ne contient aucun jeton** ;
+- quand il modifie un réglage sur le site, l'overlay dans OBS se recharge tout seul ;
+- les jetons (Twitch, Spotify, StreamElements, Streamlabs, Ko-fi, Discord, OBS) sont **chiffrés** sur le relais. Chaque overlay ne reçoit que ceux dont son outil a besoin, et l'accès Twitch est renouvelé automatiquement ;
+- s'il a montré un lien par erreur, il peut le régénérer : l'ancien cesse de marcher.
+
+Sans compte, tout fonctionne comme avant, avec les réglages dans le lien.
+
 ## Intégrations
 
 | Service | Ce qu’il apporte | Serveur ? |
@@ -89,7 +101,9 @@ annuaire.html         Annuaire des outils externes
 redimensionneur.html  Redimensionneur d'emotes
 calculateur.html      Calculateur de revenus
 overlays/*.html       Les overlays OBS
-js/sb.js              Noyau : client chat Twitch, emotes, apparence, mode démo
+js/sb.js              Noyau : client chat Twitch, emotes, apparence, liens courts, mode démo
+js/account.js         Compte StreamBox côté site (session, appels au relais)
+compte.html           Mon compte : overlays et intégrations
 js/highlights.js      Détecteur de temps forts (chat + voix)
 js/obs.js             Client obs-websocket v5
 js/eventsub.js        Client EventSub WebSocket (follows, points de chaîne, début/fin du live)
@@ -114,4 +128,4 @@ Prochaines étapes :
 - [x] Panneau de contrôle (dock OBS)
 - [ ] Multi-plateforme : chat Kick et YouTube fusionnés
 - [ ] Lecture des messages à voix haute (TTS) et demandes de musiques par le chat
-- [ ] Compte utilisateur pour sauvegarder ses overlays
+- [x] Comptes StreamBox (connexion Twitch, réglages et jetons enregistrés, liens courts)

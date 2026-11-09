@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mon compte · StreamBox</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Roboto+Mono&display=swap">
+<link rel="stylesheet" href="css/site.css">
+</head>
+<body>
+<main class="wrap">
+  <div id="out" class="box" style="margin:48px auto;max-width:560px" hidden>
+    <h1>Mon compte StreamBox</h1>
+    <p class="lead" id="outmsg">Connecte-toi avec ton compte Twitch pour enregistrer tes overlays et tes intégrations. Les liens à coller dans OBS seront courts et ne contiendront aucun jeton. Si tu modifies un réglage, tes overlays se mettent à jour tout seuls.</p>
+    <button class="btn" id="login" type="button">Se connecter avec Twitch</button>
+  </div>
+
+  <div id="in" hidden>
+    <div class="acc-head">
+      <h2 class="sec" style="margin:36px 0 4px">👤 <span id="who"></span></h2>
+      <button class="btn ghost small" id="logout" type="button">Se déconnecter</button>
+    </div>
+    <p class="sec">Tes overlays enregistrés. Colle leur lien dans OBS une seule fois : ensuite, tout se règle ici.</p>
+    <div class="acc-list" id="overlays"></div>
+    <details class="more" style="margin-top:14px"><summary>➕ Créer un overlay</summary><div class="pn-row" id="create"></div></details>
+
+    <h2 class="sec">🔌 Mes intégrations</h2>
+    <p class="sec">Renseignées une fois, utilisées par tous tes overlays. Les jetons sont chiffrés sur le relais, et chaque overlay ne reçoit que ceux dont il a besoin. Une fois enregistrés, ils ne sont plus jamais affichés.</p>
+    <div class="grid" id="secrets"></div>
+  </div>
+</main>
+<script src="js/config.js"></script>
+<script src="js/tools.js"></script>
+<script src="js/account.js"></script>
+<script src="js/site.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+
+const SECRETS = [
+  { key: 'obspass', icon: '🎥', name: 'Mot de passe WebSocket d’OBS', help: 'OBS → Outils → Paramètres du serveur WebSocket. Sert au Rewind, au panneau de contrôle et à la roue.' },
+  { key: 'webhook', icon: '💬', name: 'Webhook Discord', help: 'Paramètres du salon → Intégrations → Webhooks → Copier l’URL. Pour tester : !discord test dans ton chat, avec l’overlay Annonces Discord ouvert.' },
+  { key: 'spotify', icon: '🟢', name: 'Spotify', help: 'Morceau en cours dans l’overlay Musique.', connect: true },
+  { key: 'spotifycid', icon: '🟢', name: 'Client ID Spotify personnel (facultatif)', help: 'Seulement si l’application Spotify du site est pleine (25 utilisateurs maximum en mode développement).', plain: true },
+  { key: 'lastfm', icon: '🎧', name: 'Pseudo Last.fm', help: 'Pour Deezer, YouTube Music et Apple Music dans l’overlay Musique.', plain: true },
+  { key: 'kofi', icon: '☕', name: 'Clé Ko-fi', help: 'Une clé secrète de ton choix (12 caractères minimum). Colle ensuite l’adresse affichée dans Ko-fi → Paramètres → API → Webhook URL.', generate: true },
+  { key: 'sltoken', icon: '🔷', name: 'Jeton Socket API Streamlabs', help: 'Streamlabs → Paramètres → Clés API → Socket API Token.' },
+  { key: 'sejwt', icon: '⚡', name: 'Jeton JWT StreamElements', help: 'StreamElements → Mon compte → Chaînes → Afficher les secrets.' },
+];
+
+let me = null;
+function toast2(m) { if (window.toast) toast(m); }
+
+async function load() {
+  if (!SBA.enabled()) { $('out').hidden = false; $('login').hidden = true; $('outmsg').textContent = 'Les comptes ne sont pas encore activés sur ce site : il faut configurer relayUrl et twitchClientId dans js/config.js (voir relay/README.md).'; return; }
+  if (!SBA.loggedIn()) { $('out').hidden = false; return; }
+  try { me = await SBA.api('GET', '/me'); }
+  catch (e) { if (e.auth) { $('out').hidden = false; return; } $('in').hidden = false; $('overlays').textContent = 'Erreur : ' + e.message; return; }
+  $('in').hidden = false;
+  $('who').textContent = me.login;
+  // Retour de la connexion Spotify : on range le jeton dans le compte, pas dans le navigateur
+  let sp = null; try { sp = JSON.parse(localStorage.getItem('sb-spotify') || 'null'); } catch (e) { /* ignore */ }
+  if (sp && sp.refresh) {
+    await SBA.api('PUT', '/me/secrets', { spotify: sp.refresh, spotifycid: sp.cid !== SB_CONFIG.spotifyClientId ? sp.cid : null }).catch(() => {});
+    try { localStorage.removeItem('sb-spotify'); } catch (e) { /* ignore */ }
+    me = await SBA.api('GET', '/me'); toast2('Spotify connecté ✓');
+  }
+  renderOverlays(); renderSecrets();
+}
+
+function renderOverlays() {
+  const box = $('overlays'); box.replaceChildren();
+  if (!me.overlays.length) box.appendChild(el('p', 'sec', 'Aucun overlay enregistré pour l’instant. Ouvre un outil et clique sur « Enregistrer dans mon compte ».'));
+  me.overlays.forEach((o) => {
+    const tool = SB_TOOLS.find((t) => t.id === o.tool) || { icon: '❔', name: o.tool, overlay: '' };
+    const row = el('div', 'acc-row');
+    const info = el('div', 'acc-info');
+    info.append(el('b', null, tool.icon + ' ' + o.name), el('small', null, tool.name + ' · modifié le ' + new Date(o.updatedAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })));
+    const acts = el('div', 'pn-row');
+    const btn = (label, cls, fn) => { const b = el('button', 'btn small ' + (cls || 'ghost'), label); b.type = 'button'; b.onclick = fn; acts.appendChild(b); return b; };
+    const edit = el('a', 'btn small', 'Modifier'); edit.href = `outil.html?id=${o.tool}&o=${o.id}`; acts.appendChild(edit);
+    btn('Copier le lien OBS', '', async () => { await navigator.clipboard.writeText(SBA.overlayLink(tool, o.id)).catch(() => {}); toast2('Lien copié'); });
+    btn('Dupliquer', '', async () => {
+      const full = await SBA.api('GET', '/me/overlays/' + o.id);
+      await SBA.api('POST', '/me/overlays', { tool: o.tool, name: o.name + ' (copie)', settings: full.settings });
+      me = await SBA.api('GET', '/me'); renderOverlays(); toast2('Overlay dupliqué');
+    });
+    btn('Nouveau lien', '', async () => {
+      if (!confirm('Créer un nouveau lien ? L’ancien lien arrêtera de marcher : à faire si ton lien a été vu en stream. Il faudra coller le nouveau dans OBS.')) return;
+      await SBA.api('POST', `/me/overlays/${o.id}/rotate`); me = await SBA.api('GET', '/me'); renderOverlays(); toast2('Nouveau lien créé : recopie-le dans OBS');
+    });
+    btn('Supprimer', 'danger', async () => {
+      if (!confirm(`Supprimer « ${o.name} » ? Il disparaîtra aussi d’OBS.`)) return;
+      await SBA.api('DELETE', '/me/overlays/' + o.id); me = await SBA.api('GET', '/me'); renderOverlays();
+    });
+    row.append(info, acts); box.appendChild(row);
+  });
+  const create = $('create'); create.replaceChildren();
+  SB_TOOLS.forEach((t) => { const a = el('a', 'btn ghost small', t.icon + ' ' + t.name); a.href = 'outil.html?id=' + t.id; create.appendChild(a); });
+}
+
+function renderSecrets() {
+  const box = $('secrets'); box.replaceChildren();
+  const tw = el('div', 'tool'); tw.style.cursor = 'default';
+  tw.append(el('h3', null, '🟣 Twitch'), el('p', null, `Connecté en tant que ${me.login}. Le relais renouvelle ton accès tout seul : rien à refaire.`));
+  box.appendChild(tw);
+  SECRETS.forEach((sec) => {
+    const set = me.secrets[sec.key];
+    const card = el('div', 'tool'); card.style.cursor = 'default';
+    const h = el('h3', null, sec.icon + ' ' + sec.name);
+    const flag = el('span', 'flag', set ? 'renseigné ✓' : 'non renseigné'); flag.style.marginLeft = '8px'; flag.style.color = set ? 'var(--ok)' : 'var(--muted)';
+    h.appendChild(flag);
+    card.append(h, el('p', null, sec.help));
+    const row = el('div', 'pn-row');
+    const save = async (v) => {
+      try { const r = await SBA.api('PUT', '/me/secrets', { [sec.key]: v }); me.secrets = r.secrets; renderSecrets(); toast2(v ? 'Enregistré ✓' : 'Effacé'); }
+      catch (e) { toast2('Erreur : ' + e.message); }
+    };
+    if (sec.connect) {
+      const b = el('button', 'btn small', set ? 'Reconnecter Spotify' : 'Se connecter avec Spotify'); b.type = 'button';
+      b.onclick = () => { location.href = 'spotify.html?retour=compte.html'; };
+      row.appendChild(b);
+    } else {
+      const input = el('input'); input.type = sec.plain ? 'text' : 'password'; input.placeholder = set ? '•••••• (déjà renseigné, tape pour remplacer)' : '';
+      input.autocomplete = 'off';
+      const b = el('button', 'btn small', 'Enregistrer'); b.type = 'button';
+      b.onclick = () => { if (!input.value.trim()) return toast2('Champ vide'); if (sec.key === 'kofi' && !/^[A-Za-z0-9_-]{12,64}$/.test(input.value.trim())) return toast2('12 à 64 caractères : lettres, chiffres, - ou _'); save(input.value.trim()); };
+      row.append(input, b);
+      if (sec.generate) {
+        const g = el('button', 'btn ghost small', 'Générer'); g.type = 'button';
+        g.onclick = () => { const k = [...crypto.getRandomValues(new Uint8Array(16))].map((x) => x.toString(16).padStart(2, '0')).join(''); input.type = 'text'; input.value = k;
+          const hint = el('small', null, `Adresse à coller dans Ko-fi : ${SBA.relay()}/kofi/${k}?v=<ton jeton de vérification Ko-fi>`); hint.style.display = 'block'; hint.style.wordBreak = 'break-all'; card.appendChild(hint); };
+        row.appendChild(g);
+      }
+    }
+    if (set) { const x = el('button', 'btn ghost small', 'Effacer'); x.type = 'button'; x.onclick = () => save(null); row.appendChild(x); }
+    card.appendChild(row); box.appendChild(card);
+  });
+}
+
+$('login').onclick = () => SBA.login('compte.html');
+$('logout').onclick = () => SBA.logout();
+load();
+</script>
+</body>
+</html>
