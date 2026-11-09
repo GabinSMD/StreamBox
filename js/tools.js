@@ -44,6 +44,7 @@
         twitch('moderator:read:followers channel:read:redemptions', 'Connexion Twitch (follows et points de chaîne)'),
         { key: 'follows', label: 'Follows', type: 'checkbox', default: true },
         { key: 'points', label: 'Points de chaîne (récompenses)', type: 'checkbox', default: true },
+        { key: 'dons', label: 'Dons (StreamElements, Streamlabs, Ko-fi : voir « Dons » plus bas)', type: 'checkbox', default: true },
         { key: 'subs', label: 'Abonnements et réabonnements', type: 'checkbox', default: true },
         { key: 'gifts', label: 'Abonnements offerts', type: 'checkbox', default: true },
         { key: 'raids', label: 'Raids', type: 'checkbox', default: true },
@@ -58,6 +59,8 @@
         { key: 'tgift', label: 'Texte : abonnements offerts', type: 'text', default: '{name} offre {count} abonnement(s) !' },
         { key: 'traid', label: 'Texte : raid', type: 'text', default: 'RAID ! {name} arrive avec {count} viewers !' },
         { key: 'tbits', label: 'Texte : bits', type: 'text', default: '{name} envoie {count} bits !' },
+        { key: 'tdon', label: 'Texte : don ({amount} = montant)', type: 'text', default: '{name} fait un don de {amount} !' },
+        { key: 'mindon', label: 'Don minimum pour une alerte', type: 'number', default: 0, min: 0, step: 0.5 },
         { key: 'tfollow', label: 'Texte : follow', type: 'text', default: '{name} vient de follow !' },
         { key: 'tpoints', label: 'Texte : points de chaîne ({reward} = récompense)', type: 'text', default: '{name} utilise « {reward} » !' },
         { key: 'test', label: 'Commande de test', type: 'text', default: '!testalerte' },
@@ -84,7 +87,7 @@
         { key: 'start', label: 'Temps de départ (heures)', type: 'number', default: 4, min: 0, step: 0.25 },
         { key: 'sub1', label: 'Minutes par abo palier 1', type: 'number', default: 5, min: 0, step: 0.5 },
         { key: 'bits', label: 'Minutes pour 100 bits', type: 'number', default: 1, min: 0, step: 0.25 },
-        { key: 'don', label: 'Minutes par euro de don', type: 'number', default: 1, min: 0, step: 0.25 },
+        { key: 'don', label: 'Minutes par euro de don (dons automatiques ou ajoutés par les modos)', type: 'number', default: 1, min: 0, step: 0.25 },
         { key: 'prime', label: 'Minutes par abo Prime', type: 'number', default: 5, min: 0, step: 0.5 },
         { key: 'sub2', label: 'Minutes par abo palier 2', type: 'number', default: 10, min: 0, step: 0.5 },
         { key: 'sub3', label: 'Minutes par abo palier 3', type: 'number', default: 20, min: 0, step: 0.5 },
@@ -155,7 +158,7 @@
       note: 'Abonnements et bits comptent tout seuls. Avec la connexion Twitch, les followers comptent aussi, et le total réel (followers ou abonnés) est repris au démarrage.',
       fields: [
         channel,
-        { key: 'type', label: 'Objectif', type: 'select', default: 'subs', options: [['subs', 'Abonnés'], ['follows', 'Followers (connexion Twitch)'], ['bits', 'Bits'], ['dons', 'Dons (€, ajoutés par les modos)'], ['perso', 'Personnalisé (compteur manuel)']] },
+        { key: 'type', label: 'Objectif', type: 'select', default: 'subs', options: [['subs', 'Abonnés'], ['follows', 'Followers (connexion Twitch)'], ['bits', 'Bits'], ['dons', 'Dons (automatiques ou ajoutés par les modos)'], ['perso', 'Personnalisé (compteur manuel)']] },
         { key: 'target', label: 'Objectif à atteindre', type: 'number', default: 50, min: 1 },
         { key: 'next', label: 'Paliers suivants (séparés par des virgules)', type: 'text', default: '', placeholder: '100, 150, 200' },
         { key: 'title', label: 'Titre (vide = automatique)', type: 'text', default: '', placeholder: 'Objectif : cosplay en live !' },
@@ -186,6 +189,53 @@
         { key: 'volume', label: 'Volume (0 à 1)', type: 'number', default: 0.3, min: 0, max: 1, step: 0.05 },
         { key: 'cmd', label: 'Commande', type: 'text', default: '!roue' },
         size(28), font, accent,
+      ],
+    },
+    {
+      id: 'musique', icon: '🎵', name: 'Musique en cours', overlay: 'overlays/musique.html', size: [600, 140],
+      tagline: 'Affiche le morceau que tu écoutes : Spotify en direct, ou Deezer, YouTube Music et Apple Music via Last.fm.',
+      replaces: ['Tuna', 'Amuse', 'Snip'],
+      note: 'Spotify : connexion directe, avec la progression du morceau. Deezer, YouTube Music, Apple Music, SoundCloud… : ces plateformes n’ont pas d’API « morceau en cours ». Passe par Last.fm (gratuit) : Deezer et Spotify y envoient nativement ce que tu écoutes (option « Scrobbling » dans leurs réglages). Pour YouTube Music, installe l’extension Web Scrobbler. Coche « Publier la liste » pour que tes viewers retrouvent les musiques dans tes redifs, avec l’extension StreamBox.',
+      fields: [
+        { key: 'source', label: 'Source', type: 'select', default: 'spotify', options: [['spotify', 'Spotify (connexion directe)'], ['lastfm', 'Last.fm (Deezer, YouTube Music, Apple Music…)']] },
+        { key: 'spotify', label: 'Connexion Spotify', type: 'spotify', default: '' },
+        { key: 'lastfm', label: 'Pseudo Last.fm', type: 'text', default: '', placeholder: 'ton_pseudo_lastfm' },
+        { key: 'style', label: 'Style', type: 'select', default: 'carte', options: [['carte', 'Carte avec pochette'], ['vinyle', 'Vinyle qui tourne'], ['compacte', 'Compacte (texte seul)']] },
+        { key: 'hideidle', label: 'Cacher quand rien ne joue', type: 'checkbox', default: true },
+        { key: 'progress', label: 'Barre de progression (Spotify)', type: 'checkbox', default: true },
+        { key: 'label', label: 'Petit titre', type: 'text', default: 'En écoute' },
+        { key: 'log', label: 'Publier la liste des musiques (pour l’extension des redifs)', type: 'checkbox', default: false },
+        { ...channel, label: 'Ta chaîne Twitch (pour publier la liste)' },
+        twitch('', 'Connexion Twitch (pour publier la liste)'),
+        { key: 'spotifycid', label: 'Ton propre Client ID Spotify (facultatif)', type: 'text', default: '', help: 'Les applications Spotify en mode développement sont limitées à 25 utilisateurs. Crée la tienne en 2 minutes sur developer.spotify.com, avec l’URL de redirection …/spotify.html.' },
+        { key: 'lfmkey', label: 'Ta propre clé API Last.fm (facultatif)', type: 'text', default: '' },
+        { key: 'poll', label: 'Actualisation (s)', type: 'number', default: 4, min: 2, max: 30 },
+        size(20), font, accent,
+      ],
+    },
+    {
+      id: 'discord', icon: '📣', name: 'Annonces Discord', overlay: 'overlays/discord.html', size: [520, 300],
+      tagline: 'Annonce ton live sur Discord dès qu’il commence, poste un récap à la fin, et laisse tes modos écrire sur Discord depuis le chat.',
+      replaces: ['bots d’annonce de live (MEE6, Streamcord…)'],
+      commands: [['!discord message', 'Publie le message sur ton salon Discord (modos)']],
+      setup: [
+        'Discord → Paramètres du salon → Intégrations → Webhooks → Nouveau webhook → Copier l’URL, et colle-la ci-dessous.',
+        'Connecte-toi avec Twitch : c’est ce qui permet de savoir quand le live commence et se termine.',
+        'Ajoute cette source dans OBS (dans n’importe quelle scène) et laisse-la tourner : elle est invisible en live.',
+      ],
+      note: 'L’adresse du webhook permet d’écrire dans ton salon : ne montre jamais ce lien en stream.',
+      fields: [
+        channel,
+        { key: 'webhook', label: 'Adresse du webhook Discord', type: 'text', default: '', placeholder: 'https://discord.com/api/webhooks/…' },
+        twitch('', 'Connexion Twitch (début et fin du live)'),
+        { key: 'mention', label: 'Mentionner', type: 'select', default: '', options: [['', 'Personne'], ['here', '@here'], ['everyone', '@everyone']], help: 'Pour un rôle précis, passe par « Plus de réglages ».' },
+        { key: 'tlive', label: 'Message d’annonce ({channel}, {title}, {game})', type: 'text', default: '🔴 **{channel}** est en live ! {title}' },
+        { key: 'live', label: 'Annoncer le début du live', type: 'checkbox', default: true },
+        { key: 'recap', label: 'Poster un récap à la fin (messages, chatteurs, abos, bits)', type: 'checkbox', default: true },
+        { key: 'trecap', label: 'Titre du récap ({duration})', type: 'text', default: 'Merci pour ce live de {duration} !' },
+        { key: 'cmd', label: 'Commande', type: 'text', default: '!discord' },
+        { key: 'debug', label: 'Afficher l’état (pour vérifier)', type: 'checkbox', default: false },
+        accent,
       ],
     },
     {
@@ -224,6 +274,7 @@
         { key: 'cmd', label: 'Commande de contrôle', type: 'text', default: '!giveaway' },
         { key: 'subonly', label: 'Réservé aux abonnés', type: 'checkbox', default: false },
         { key: 'subluck', label: 'Chances des abonnés (×)', type: 'number', default: 1, min: 1, max: 10 },
+        { key: 'discord', label: 'Annoncer le gagnant sur Discord (adresse du webhook, facultatif)', type: 'text', default: '', placeholder: 'https://discord.com/api/webhooks/…' },
         size(20), font, accent,
       ],
     },
@@ -272,6 +323,8 @@
 
   window.SB_PAGES = [
     { id: 'panneau', icon: '🎛️', name: 'Panneau de contrôle', href: 'panneau.html', tagline: 'Des boutons pour piloter sondages, giveaways, subathon, roue, objectifs et scènes OBS, sans taper de commandes. Utilisable comme dock OBS.', replaces: ['Kloot', 'Poltergeist', 'Xenon'] },
+    { id: 'integrations', icon: '🔌', name: 'Intégrations', href: 'integrations.html', tagline: 'Twitch, OBS, Discord, Spotify, Deezer, YouTube Music, Ko-fi, StreamElements, Streamlabs : ce que chaque service apporte et comment le brancher.', replaces: [] },
+    { id: 'extension', icon: '🧩', name: 'Extension « Musiques des redifs »', href: 'integrations.html#extension', tagline: 'Pour tes viewers : dans tes VODs Twitch et tes rediffusions YouTube, la musique qui passait pendant le live, avec les liens pour l’écouter.', replaces: [] },
     { id: 'resizer', icon: '🖼️', name: 'Redimensionneur d’emotes', href: 'redimensionneur.html', tagline: 'Une image, et toutes les tailles d’emotes et de badges Twitch, Discord, 7TV, BTTV et FFZ en un clic. Tout reste sur ton ordinateur.', replaces: ['EmoteResizer', 'Emote Resizer', 'Twitch Emote Resizer'] },
     { id: 'calc', icon: '💰', name: 'Calculateur de revenus', href: 'calculateur.html', tagline: 'Estime ce que te rapportent tes abonnements et tes bits chaque mois.', replaces: ['calculateurs d’EmoteResizer'] },
     { id: 'annuaire', icon: '🧭', name: 'Annuaire des outils', href: 'annuaire.html', tagline: 'Les autres outils de la communauté (clips, bots, stats…), triés et commentés.', replaces: [] },
@@ -292,8 +345,15 @@
     { key: 'remote', label: 'Contrôlable depuis le panneau de contrôle', type: 'checkbox', default: false, group: 'remote' },
     { key: 'obspass', label: 'Mot de passe du serveur WebSocket d’OBS', type: 'text', default: '', group: 'remote', help: 'OBS → Outils → Paramètres du serveur WebSocket. Le lien reste sur ton PC.' },
   ];
+  const DONS = [
+    { key: 'kofi', label: 'Clé Ko-fi du relais StreamBox', type: 'text', default: '', group: 'dons', help: 'Voir relay/README.md : Ko-fi envoie tes dons au relais, qui les transmet ici.' },
+    { key: 'sltoken', label: 'Jeton Socket API Streamlabs', type: 'text', default: '', group: 'dons', help: 'Streamlabs → Paramètres → Clés API → Socket API Token.' },
+    { key: 'sejwt', label: 'Jeton JWT StreamElements', type: 'text', default: '', group: 'dons', help: 'StreamElements → Mon compte → Chaînes → Afficher les secrets. ⚠️ Ce jeton donne accès à ton compte StreamElements : ne montre jamais le lien de l’overlay.' },
+  ];
+  const WITH_DONS = ['alertes', 'subathon', 'objectifs'];
   const PILOTABLE = ['sondage', 'giveaway', 'subathon', 'minuteur', 'alertes', 'objectifs', 'roue'];
   window.SB_TOOLS.forEach((t) => {
+    if (WITH_DONS.includes(t.id)) t.fields = t.fields.concat(DONS);
     if (PILOTABLE.includes(t.id)) t.fields = t.fields.concat(REMOTE);
     t.fields = t.fields.concat(STYLE);
   });

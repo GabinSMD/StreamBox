@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>StreamBox · Annonces Discord</title>
+<link rel="stylesheet" href="../css/overlay.css">
+</head>
+<body>
+<div class="panel dc-panel" id="panel" hidden>
+  <div class="kicker">Annonces Discord</div>
+  <h1 id="state">En attente du live</h1>
+  <div class="dc-log" id="log"></div>
+</div>
+<script src="../js/config.js"></script>
+<script src="../js/sb.js"></script>
+<script src="../js/eventsub.js"></script>
+<script>
+/* Source invisible à laisser dans OBS : elle annonce le début du live sur Discord,
+ * poste un récap à la fin, et permet aux modos d'écrire sur Discord avec !discord <message>. */
+const c = SB.params({
+  channel: '', token: '', webhook: '', mention: '', live: true, recap: true, cmd: '!discord',
+  tlive: '🔴 **{channel}** est en live ! {title}', trecap: 'Merci pour ce live de {duration} !',
+  debug: false, accent: '#9b5cff', demo: false,
+});
+SB.setAccent(c.accent);
+const $ = (id) => document.getElementById(id);
+if (c.debug || c.demo) $('panel').hidden = false;
+const color = parseInt((c.accent || '#9b5cff').replace('#', ''), 16) || 0x9b5cff;
+const KEY = 'sb-discord-' + (c.channel.toLowerCase() || 'local');
+let S; try { S = JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { S = {}; }
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { /* ignore */ } };
+
+function log(t) { const d = SB.el('div', null, new Date().toLocaleTimeString('fr-FR') + ' · ' + t); $('log').prepend(d); while ($('log').children.length > 6) $('log').lastElementChild.remove(); }
+const fill = (tpl, v) => tpl.replace(/\{(\w+)\}/g, (_, k) => (v[k] != null ? v[k] : ''));
+function mention() {
+  if (c.mention === 'everyone') return { content: '@everyone', allowed_mentions: { parse: ['everyone'] } };
+  if (c.mention === 'here') return { content: '@here', allowed_mentions: { parse: ['everyone'] } };
+  if (/^\d{5,25}$/.test(c.mention)) return { content: `<@&${c.mention}>`, allowed_mentions: { roles: [c.mention] } };
+  return { content: '' };
+}
+async function post(payload, what) {
+  if (c.demo) { log('(démo) ' + what); return; }
+  try { await SB.discordPost(c.webhook, payload); log(what + ' ✓'); } catch (e) { log(what + ' : ' + e.message); }
+}
+const fmtDur = (ms) => { const m = Math.round(ms / 60000); return m >= 60 ? `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}` : `${m} min`; };
+
+/* ---- Statistiques du live (pour le récap) ---- */
+const BOTS = new Set(['nightbot', 'streamelements', 'streamlabs', 'moobot', 'fossabot', 'wizebot']);
+function resetStats(start) { S.stats = { start, msgs: 0, chatters: {}, subs: 0, bits: 0, raids: 0 }; save(); }
+setInterval(save, 30000);
+
+/* ---- Début du live ---- */
+async function onLive(start) {
+  $('state').textContent = 'En live';
+  if (S.announced === start) return; // déjà annoncé (OBS relancé pendant le live)
+  S.announced = start; resetStats(start);
+  if (!c.live) return;
+  await new Promise((r) => setTimeout(r, c.demo ? 0 : 20000)); // le titre et la miniature mettent un peu de temps à arriver
+  let info = { title: '', game_name: '', thumbnail_url: '' };
+  try { if (!c.demo) info = (await SB.helix('streams?user_login=' + encodeURIComponent(c.channel), c.token)).data[0] || info; } catch (e) { /* ignore */ }
+  const url = 'https://twitch.tv/' + c.channel;
+  const m = mention();
+  post(Object.assign(m, {
+    content: [m.content, fill(c.tlive, { channel: c.channel, title: info.title, game: info.game_name })].filter(Boolean).join(' '),
+    embeds: [{ title: info.title || 'Live en cours', url, color, description: info.game_name ? '🎮 ' + info.game_name : '',
+      image: info.thumbnail_url ? { url: info.thumbnail_url.replace('{width}', '1280').replace('{height}', '720') + '?t=' + Date.now() } : undefined,
+      footer: { text: 'twitch.tv/' + c.channel } }],
+  }), 'annonce du live');
+}
+
+/* ---- Fin du live : récap ---- */
+async function onOffline() {
+  $('state').textContent = 'Live terminé';
+  const st = S.stats;
+  if (!c.recap || !st || S.recapped === st.start) return;
+  S.recapped = st.start; save();
+  const top = Object.values(st.chatters).sort((a, b) => b.n - a.n).slice(0, 3);
+  const fields = [
+    { name: '💬 Messages', value: st.msgs.toLocaleString('fr-FR'), inline: true },
+    { name: '👥 Dans le chat', value: String(Object.keys(st.chatters).length), inline: true },
+  ];
+  if (st.subs) fields.push({ name: '⭐ Abonnements', value: String(st.subs), inline: true });
+  if (st.bits) fields.push({ name: '💎 Bits', value: st.bits.toLocaleString('fr-FR'), inline: true });
+  if (st.raids) fields.push({ name: '🚀 Raids', value: String(st.raids), inline: true });
+  if (top.length) fields.push({ name: '🏆 Les plus actifs', value: top.map((x, i) => `${['🥇', '🥈', '🥉'][i]} ${x.name} (${x.n})`).join('\n') });
+  post({ embeds: [{ title: fill(c.trecap, { channel: c.channel, duration: fmtDur(Date.now() - st.start) }), color, fields, footer: { text: 'Récap StreamBox' } }] }, 'récap du live');
+}
+
+/* ---- Chat ---- */
+const chat = new SB.TwitchChat(c.channel);
+function onMessage(m) {
+  const a = SB.command(m, c.cmd);
+  if (a !== null && m.isMod) { if (a) post({ content: a.slice(0, 1900), username: m.name + ' (via StreamBox)' }, 'message de ' + m.name); return; }
+  if (!S.stats || BOTS.has(m.login)) return;
+  S.stats.msgs++;
+  const ch = S.stats.chatters[m.login] || (S.stats.chatters[m.login] = { n: 0, name: m.name }); ch.n++;
+  if (m.bits) S.stats.bits += m.bits;
+}
+chat.on('message', onMessage)
+  .on('usernotice', (n) => { if (!S.stats) return; if (/sub/.test(n.type)) S.stats.subs += n.giftCount || 1; if (n.type === 'raid') S.stats.raids++; })
+  .connect();
+SB.remote('discord', c.cmd, onMessage);
+
+/* ---- Détection du live (connexion Twitch) ---- */
+if (!c.demo) {
+  if (!SB.isDiscordWebhook(c.webhook)) log('ajoute l’adresse du webhook Discord dans les réglages');
+  if (!c.token) log('connecte-toi avec Twitch pour détecter le début et la fin du live');
+  SB.twitchEvents(c, ['online', 'offline']).on('online', (e) => onLive(e.start)).on('offline', onOffline).on('status', (s) => log('Twitch : ' + s));
+  // OBS lancé alors que le live a déjà commencé : on vérifie une fois
+  if (c.token && window.SB_CONFIG && SB_CONFIG.twitchClientId) SB.helix('streams?user_login=' + encodeURIComponent(c.channel), c.token)
+    .then((d) => { const s = d.data[0]; if (s) { const start = Date.parse(s.started_at); if (!S.stats || S.stats.start !== start) onLive(start); else $('state').textContent = 'En live'; } })
+    .catch(() => {});
+} else {
+  onLive(Date.now() - 3 * 3600000);
+  for (let i = 0; i < 40; i++) onMessage(SB.fake({}));
+  setTimeout(() => chat.inject(SB.fake({ user: SB.demoBroadcaster, text: c.cmd + ' On lance la soirée Mario Kart !' })), 1500);
+  setTimeout(onOffline, 3000);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Intégrations · StreamBox</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="css/site.css">
+</head>
+<body>
+<main class="wrap">
+  <h2 class="sec" style="margin-top:36px">🔌 Intégrations</h2>
+  <p class="sec">StreamBox se branche sur les services que tu utilises déjà. Rien à installer : chaque connexion se fait depuis la page de l’outil concerné.</p>
+  <div class="grid" id="list"></div>
+
+  <h2 class="sec" id="extension">🧩 Extension « Musiques des redifs »</h2>
+  <p class="sec">Pour tes viewers : quand ils regardent une VOD Twitch ou une rediffusion de live YouTube, l’extension affiche la musique qui passait à ce moment du live, avec des liens Spotify, Deezer et YouTube Music. La liste complète est cliquable et saute au bon moment de la vidéo.</p>
+  <div class="how">
+    <div><span class="num">1</span><b>Pendant le live</b><span>L’overlay 🎵 Musique, option « Publier la liste », envoie chaque morceau au relais StreamBox avec l’heure.</span></div>
+    <div><span class="num">2</span><b>Sur la rediffusion</b><span>L’extension retrouve l’heure de début du live, puis le morceau qui correspond à l’instant de la vidéo.</span></div>
+    <div><span class="num">3</span><b>Installation</b><span>Chrome, Edge, Brave et Firefox. Le dossier <code>extension/</code> du dépôt contient l’extension et son mode d’emploi.</span></div>
+  </div>
+</main>
+<script src="js/config.js"></script>
+<script src="js/tools.js"></script>
+<script src="js/site.js"></script>
+<script>
+const I = [
+  { icon: '🟣', name: 'Twitch', how: 'Chat lu sans compte. Une connexion (sans mot de passe partagé) ajoute les follows, les points de chaîne, le total d’abonnés et les clips.', tools: ['chat', 'alertes', 'subathon', 'objectifs', 'rewind', 'discord'], ready: () => !!SB_CONFIG.twitchClientId },
+  { icon: '🎥', name: 'OBS (obs-websocket)', how: 'Inclus dans OBS 28+. Sert au Rewind (micro, Replay Buffer), au panneau de contrôle et aux scènes.', tools: ['rewind', 'panneau'], ready: () => true },
+  { icon: '💬', name: 'Discord', how: 'Par webhook, sans bot : annonce du live, récap de fin, gagnant du giveaway, messages des modos.', tools: ['discord', 'giveaway'], ready: () => true },
+  { icon: '🟢', name: 'Spotify', how: 'Connexion directe : morceau en cours avec la progression.', tools: ['musique'], ready: () => !!SB_CONFIG.spotifyClientId, warn: 'Chaque streamer peut aussi utiliser son propre Client ID Spotify.' },
+  { icon: '🎧', name: 'Deezer, YouTube Music, Apple Music', how: 'Via Last.fm (gratuit). Deezer et Spotify y envoient nativement ce que tu écoutes. Pour YouTube Music, utilise l’extension Web Scrobbler.', tools: ['musique'], ready: () => !!SB_CONFIG.lastfmApiKey },
+  { icon: '☕', name: 'Ko-fi', how: 'Dons en direct dans les alertes, le subathon et les objectifs, via le relais StreamBox (gratuit, à déployer une fois).', tools: ['alertes', 'subathon', 'objectifs'], ready: () => !!SB_CONFIG.relayUrl },
+  { icon: '⚡', name: 'StreamElements', how: 'Dons (tips) en direct avec ton jeton JWT.', tools: ['alertes', 'subathon', 'objectifs'], ready: () => true },
+  { icon: '🔷', name: 'Streamlabs', how: 'Dons en direct avec ton jeton Socket API.', tools: ['alertes', 'subathon', 'objectifs'], ready: () => true },
+  { icon: '🪝', name: 'Tout le reste (Tipeee, Patreon, Zapier…)', how: 'Tout service capable d’envoyer un webhook peut passer par le relais StreamBox (/hook/<clé>).', tools: ['alertes', 'subathon'], ready: () => !!SB_CONFIG.relayUrl },
+];
+const all = [...SB_TOOLS, ...SB_PAGES];
+const list = document.getElementById('list');
+I.forEach((it) => {
+  const d = document.createElement('div'); d.className = 'tool'; d.style.cursor = 'default';
+  const h = document.createElement('h3'); h.textContent = it.icon + ' ' + it.name;
+  const ok = it.ready();
+  const st = document.createElement('span'); st.className = 'flag'; st.style.marginLeft = '8px';
+  st.textContent = ok ? 'prêt' : 'à configurer sur ce site'; st.style.color = ok ? 'var(--ok)' : '#ffb86b';
+  h.appendChild(st);
+  const p = document.createElement('p'); p.textContent = it.how + (it.warn ? ' ' + it.warn : '');
+  const links = document.createElement('div'); links.className = 'rep';
+  links.append('Utilisé par : ');
+  it.tools.map((id) => all.find((t) => t.id === id)).filter(Boolean).forEach((t, i) => {
+    if (i) links.append(', ');
+    const a = document.createElement('a'); a.href = t.href || 'outil.html?id=' + t.id; a.textContent = t.icon + ' ' + t.name; links.appendChild(a);
+  });
+  d.append(h, p, links); list.appendChild(d);
+});
+</script>
+</body>
+</html>

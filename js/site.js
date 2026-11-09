@@ -1,7 +1,7 @@
 /* En-tête, pied de page et petits utilitaires communs aux pages du site. */
 (function () {
   const page = location.pathname.split('/').pop() || 'index.html';
-  const links = [['index.html', 'Outils'], ['annuaire.html', 'Annuaire'], ['index.html#comment', 'Comment ça marche', 'opt-link']];
+  const links = [['index.html', 'Outils'], ['integrations.html', 'Intégrations', 'opt-link'], ['annuaire.html', 'Annuaire'], ['index.html#comment', 'Comment ça marche', 'opt-link']];
   const header = document.createElement('header');
   header.className = 'top';
   header.innerHTML = '<div class="wrap"><a class="logo" href="index.html"><i>▶</i>StreamBox</a><nav></nav></div>';

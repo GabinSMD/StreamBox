@@ -10,9 +10,11 @@
 <script src="../js/config.js"></script>
 <script src="../js/sb.js"></script>
 <script src="../js/eventsub.js"></script>
+<script src="../js/dons.js"></script>
 <script>
 const c = SB.params({
-  channel: '', token: '', follows: true, points: true,
+  channel: '', token: '', follows: true, points: true, dons: true, mindon: 0,
+  tdon: '{name} fait un don de {amount} !',
   tfollow: '{name} vient de follow !', tpoints: '{name} utilise « {reward} » !',
   duration: 7, sound: true, volume: 0.4, size: 22, font: 'Inter', accent: '#9b5cff',
   subs: true, gifts: true, raids: true, bits: true, minbits: 1, minraid: 1,
@@ -93,6 +95,7 @@ function testAlerts() {
   onNotice(Object.assign(f(6, ''), { type: 'submysterygift', giftCount: 5 }));
   onNotice(Object.assign(f(4, ''), { type: 'raid', viewers: 87 }));
   onFollow({ login: 'nouveau_viewer', name: 'Nouveau_Viewer' });
+  onDon({ source: 'Ko-fi', name: 'Lou', amount: 10, currency: 'EUR', message: 'Pour le café ☕' });
   onPoints({ login: u[1].login, name: u[1].login, reward: 'Hydrate-toi', cost: 500, input: '' });
 }
 
@@ -114,6 +117,11 @@ chat.on('room', (id) => emotes.load(id))
   .on('message', (m) => { if (m.isMod && SB.command(m, c.test) !== null) testAlerts(); })
   .connect();
 SB.twitchEvents(c, ['follow', 'points']).on('follow', onFollow).on('points', onPoints);
+SB.donations(c).on('don', onDon);
+function onDon(d) {
+  if (!c.dons || d.amount < c.mindon) return;
+  push({ icon: '💸', tpl: c.tdon, vars: { name: d.name, amount: SB.formatMoney(d.amount, d.currency), source: d.source }, msg: d.message ? { text: d.message, emotes: [] } : null });
+}
 SB.remote('alertes', c.test, () => testAlerts());
 
 if (c.demo) { testAlerts(); setInterval(() => { if (!busy) testAlerts(); }, 2000); }
