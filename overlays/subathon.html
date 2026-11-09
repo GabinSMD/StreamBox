@@ -21,7 +21,7 @@
 <script src="../js/dons.js"></script>
 <script>
 const c = SB.params({
-  channel: '', token: '', follow: 0, reward: '', rewardmin: 5, title: 'Subathon', start: 4, cap: 0,
+  channel: '', source: 'local', token: '', follow: 0, reward: '', rewardmin: 5, title: 'Subathon', start: 4, cap: 0,
   sub1: 5, sub2: 10, sub3: 20, prime: 5, bits: 1, don: 1, raid: 0, raidmin: 10,
   cmd: '!subathon', autostart: false, style: 'carte', tsize: 90, size: 18,
   showstats: true, showlast: true, font: 'Inter', accent: '#9b5cff', demo: false,
@@ -198,19 +198,42 @@ function onMessage(m) {
   }
 }
 
-const chat = new SB.TwitchChat(c.channel);
-chat.on('usernotice', onNotice)
-  .on('cheer', (m) => { if (c.bits) { S.totals.bits += m.bits; addTime(m.bits / 100 * c.bits, `${m.name} (${m.bits} bits)`, 'bits'); } })
-  .on('message', onMessage)
-  .connect();
-// Follows et points de chaîne (connexion Twitch) : « reward » = nom de la récompense qui ajoute du temps
-SB.twitchEvents(c, ['follow', 'points'])
-  .on('follow', (e) => { if (c.follow) addTime(c.follow, `${e.name} (follow)`, 'follow'); })
-  .on('points', (e) => { if (c.reward && e.reward.trim().toLowerCase() === c.reward.trim().toLowerCase()) addTime(c.rewardmin, `${e.name} (${e.reward})`, 'points'); });
-SB.remote('subathon', c.cmd, onMessage);
-// Dons automatiques (StreamElements, Streamlabs, Ko-fi) : « don » minutes par unité de monnaie
-SB.donations(c).on('don', (d) => { if (S.status === 'ended') return; S.totals.don += d.amount; addTime(d.amount * c.don, `don de ${SB.formatMoney(d.amount, d.currency)} de ${d.name}`, 'don'); });
-if (c.autostart && S.status === 'idle') start();
+if (c.source !== 'relais') {
+  const chat = new SB.TwitchChat(c.channel);
+  chat.on('usernotice', onNotice)
+    .on('cheer', (m) => { if (c.bits) { S.totals.bits += m.bits; addTime(m.bits / 100 * c.bits, `${m.name} (${m.bits} bits)`, 'bits'); } })
+    .on('message', onMessage)
+    .connect();
+  // Follows et points de chaîne (connexion Twitch) : « reward » = nom de la récompense qui ajoute du temps
+  SB.twitchEvents(c, ['follow', 'points'])
+    .on('follow', (e) => { if (c.follow) addTime(c.follow, `${e.name} (follow)`, 'follow'); })
+    .on('points', (e) => { if (c.reward && e.reward.trim().toLowerCase() === c.reward.trim().toLowerCase()) addTime(c.rewardmin, `${e.name} (${e.reward})`, 'points'); });
+  SB.remote('subathon', c.cmd, onMessage);
+  // Dons automatiques (StreamElements, Streamlabs, Ko-fi) : « don » minutes par unité de monnaie
+  SB.donations(c).on('don', (d) => { if (S.status === 'ended') return; S.totals.don += d.amount; addTime(d.amount * c.don, `don de ${SB.formatMoney(d.amount, d.currency)} de ${d.name}`, 'don'); });
+  if (c.autostart && S.status === 'idle') start();
+} else {
+  // Timer du relais StreamBox : le même que sur la page publique. Les abos, bits, follows et commandes
+  // sont comptés par le relais (bot de chat), l'overlay ne fait qu'afficher.
+  const relay = ((window.SB_CONFIG && SB_CONFIG.relayUrl) || '').replace(/\/$/, '');
+  let synced = false;
+  const sync = async () => {
+    try {
+      const r = await fetch(`${relay}/public/${encodeURIComponent(c.channel.toLowerCase())}/subathon`, { cache: 'no-store' });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || r.status);
+      const now = Date.now();
+      Object.assign(S, { status: d.status, left: d.remaining, endAt: now + d.remaining, startedAt: d.elapsed ? now - d.elapsed : 0, pausedTotal: 0, pausedAt: now,
+        happyMult: d.happy ? d.happy.mult : 1, happyUntil: d.happy ? now + (d.happy.until - d.now) : 0, totals: Object.assign({}, S.totals, d.totals) });
+      const key = (x) => x.t + '|' + x.label, known = new Set(S.last.map(key));
+      if (synced) d.last.slice().reverse().forEach((x) => { if (!known.has(key(x))) float(x.ms, x.label); }); // nouveaux soutiens
+      S.last = d.last.slice(0, 4);
+      if (c.title === 'Subathon') $('title').textContent = d.title;
+      synced = true;
+    } catch (e) { console.warn('subathon du relais :', e.message); }
+  };
+  sync(); setInterval(sync, 3000);
+}
 
 if (c.demo) {
   start();

@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gestion du subathon · StreamBox</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Roboto+Mono&display=swap">
+<link rel="stylesheet" href="css/site.css">
+</head>
+<body>
+<main class="wrap">
+  <h2 class="sec" style="margin-top:36px">⏱️ Subathon en direct</h2>
+  <p class="sec">Le timer tourne sur le relais StreamBox : il compte tout seul les abos, bits et follows, même OBS fermé. Il est partagé entre ton overlay et la page publique de tes viewers.</p>
+  <div id="need" class="box" hidden></div>
+
+  <div id="app" hidden>
+    <section class="box bt-status">
+      <div class="bt-row">
+        <label class="bt-toggle"><input type="checkbox" id="enabled"><b id="enabledLabel"></b></label>
+        <span class="flag" id="st"></span>
+      </div>
+      <div class="sg-time" id="time">--:--:--</div>
+      <div class="bt-help" id="totals"></div>
+      <div class="pn-row">
+        <button class="btn" data-a="start">▶ Démarrer</button><button class="btn ghost" data-a="pause">⏸ Pause</button>
+        <button class="btn ghost" data-a="+1">+1 min</button><button class="btn ghost" data-a="+5">+5 min</button><button class="btn ghost" data-a="+10">+10 min</button><button class="btn ghost" data-a="-5">−5 min</button>
+      </div>
+      <div class="pn-row">
+        <input type="number" id="don" placeholder="Don (€)" min="0" step="0.5" style="max-width:110px"><input type="text" id="donName" placeholder="Pseudo" style="max-width:160px">
+        <button class="btn ghost small" id="addDon" type="button">Ajouter le don</button>
+        <button class="btn ghost small" data-a="happy 2 30m">Happy hour ×2 (30 min)</button><button class="btn ghost small" data-a="happy off">Fin happy hour</button>
+        <input type="text" id="setTo" placeholder="3h30" style="max-width:90px"><button class="btn ghost small" id="setBtn" type="button">Régler le timer</button>
+      </div>
+      <div class="pn-row"><span class="bt-help">Page publique pour tes viewers :</span><input type="text" id="pubLink" readonly style="flex:1;min-width:200px"><button class="btn small" id="copyPub" type="button">Copier</button><a class="btn ghost small" id="openPub" target="_blank" rel="noopener">Ouvrir</a></div>
+      <div class="note" id="scopes" hidden></div>
+      <p class="bt-help">Dans le chat : <code>!subathon start</code>, <code>pause</code>, <code>+10</code>, <code>-5</code>, <code>set 3h</code>, <code>don 15 Pseudo</code>, <code>happy 2 30m</code> (modos). Tout le monde : <code>!subathon</code> (temps restant), <code>!idee …</code>, <code>!vote 3</code>.</p>
+    </section>
+
+    <div class="bt-grid">
+      <div>
+        <section class="box">
+          <h3 class="bt-h">⚙️ Réglages</h3>
+          <div class="bt-row" id="settings"></div>
+          <h3 class="bt-h" style="margin-top:16px">⏱️ Temps ajouté (minutes)</h3>
+          <div class="bt-row" id="rules"></div>
+        </section>
+        <section class="box">
+          <h3 class="bt-h">🏁 Paliers <small>Affichés sur la page publique, avec leur progression</small></h3>
+          <div class="bt-row" id="metric"></div>
+          <div id="paliers"></div>
+          <button class="btn ghost small" id="addPal" type="button">+ Ajouter un palier</button>
+        </section>
+        <section class="box">
+          <h3 class="bt-h">💡 Propositions des viewers</h3>
+          <div class="bt-row" id="ideasCfg"></div>
+          <div id="ideas"></div>
+        </section>
+      </div>
+      <aside class="bt-side"><div class="bt-save"><span id="dirty"></span><button class="btn" id="save" type="button">Enregistrer</button></div></aside>
+    </div>
+  </div>
+</main>
+<script src="js/config.js"></script>
+<script src="js/account.js"></script>
+<script src="js/site.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+let cfg, state, ideas, base = 0, dirty = false;
+const fmt = (ms) => { const s = Math.max(0, Math.ceil(ms / 1000)), h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), p = (x) => String(x).padStart(2, '0'); return `${h}:${p(m)}:${p(s % 60)}`; };
+function mark() { dirty = true; $('dirty').textContent = 'Modifications non enregistrées'; }
+function field(obj, key, label, type, opts = {}) {
+  const l = el('label', 'bt-f');
+  let e;
+  if (type === 'select') { e = el('select'); opts.options.forEach(([v, t]) => { const o = el('option', null, t); o.value = v; e.appendChild(o); }); e.value = obj[key]; }
+  else if (type === 'check') { e = el('input'); e.type = 'checkbox'; e.checked = !!obj[key]; l.className = 'bt-f check'; }
+  else { e = el('input'); e.type = type; e.value = obj[key]; if (type === 'number') { e.step = opts.step || 1; e.min = 0; e.style.maxWidth = opts.w || '100px'; } }
+  e.addEventListener(type === 'select' || type === 'check' ? 'change' : 'input', () => { obj[key] = type === 'check' ? e.checked : type === 'number' ? +e.value : e.value; mark(); });
+  l.append(el('span', null, label), e); return l;
+}
+function apply(d) { cfg = d.cfg; state = d.state; ideas = d.ideas; base = Date.now(); renderAll(); }
+function remaining() { return state.status === 'running' ? Math.max(0, state.remaining - (Date.now() - base)) : state.remaining; }
+function renderStatus() {
+  $('enabled').checked = cfg.enabled; $('enabledLabel').textContent = cfg.enabled ? 'Subathon activé' : 'Subathon désactivé';
+  $('st').textContent = { idle: 'pas encore lancé', running: '🔴 en cours', paused: '⏸ en pause', ended: 'terminé' }[state.status];
+  const t = state.totals;
+  $('totals').textContent = `${t.subs} abos (${t.gifts} offerts) · ${t.bits} bits · ${t.follows} follows · ${t.don} € · ${Math.round(t.added / 60000)} min ajoutées`;
+  const link = new URL('live.html?c=' + SBA.session().login, location.href).toString();
+  $('pubLink').value = link; $('openPub').href = link;
+}
+function renderAll() {
+  renderStatus();
+  $('settings').replaceChildren(field(cfg, 'title', 'Titre', 'text'), field(cfg, 'start', 'Temps de départ (h)', 'number', { step: 0.25 }), field(cfg, 'cap', 'Durée maximum (h, 0 = illimitée)', 'number'), field(cfg, 'cmd', 'Commande', 'text'));
+  const R = cfg.rules;
+  $('rules').replaceChildren(field(R, 'sub1', 'Abo palier 1 / Prime', 'number', { step: 0.5 }), field(R, 'sub2', 'Abo palier 2', 'number', { step: 0.5 }), field(R, 'sub3', 'Abo palier 3', 'number', { step: 0.5 }),
+    field(R, 'bits', 'Pour 100 bits', 'number', { step: 0.25 }), field(R, 'don', 'Par € de don', 'number', { step: 0.25 }), field(R, 'follow', 'Par follow', 'number', { step: 0.25 }), field(R, 'raid', 'Par raid', 'number'), field(R, 'raidMin', 'Viewers min. du raid', 'number'));
+  $('metric').replaceChildren(field(cfg, 'metric', 'Les paliers comptent', 'select', { options: [['subs', 'les abos'], ['bits', 'les bits'], ['dons', 'les dons (€)'], ['heures', 'les heures de live']] }));
+  $('paliers').replaceChildren(...cfg.paliers.map((p, i) => {
+    const row = el('div', 'bt-row bt-item');
+    const del = el('button', 'btn ghost small', '✕'); del.type = 'button'; del.onclick = () => { cfg.paliers.splice(i, 1); mark(); renderAll(); };
+    const lab = field(p, 'label', 'Récompense', 'text'); lab.style.flex = '1';
+    row.append(field(p, 'target', 'Objectif', 'number'), lab, del); return row;
+  }));
+  $('ideasCfg').replaceChildren(field(cfg.ideas, 'on', 'Propositions ouvertes', 'check'), field(cfg.ideas, 'needApproval', 'Valider avant affichage', 'check'), field(cfg.ideas, 'maxPerUser', 'Idées max par viewer', 'number'));
+  const order = { pending: 0, approved: 1, done: 2, hidden: 3 };
+  $('ideas').replaceChildren(...(ideas.length ? ideas.slice().sort((a, b) => order[a.status] - order[b.status] || b.votes - a.votes).map((x) => {
+    const row = el('div', 'bt-row bt-item sg-idea ' + x.status);
+    const txt = el('div'); txt.style.flex = '1'; txt.append(el('b', null, `#${x.id} ${x.text}`), el('div', 'bt-help', `par ${x.by} · ${x.votes} vote${x.votes > 1 ? 's' : ''} · ${{ pending: '⏳ en attente', approved: '✓ visible', done: '✅ réalisée', hidden: '🚫 refusée' }[x.status]}`));
+    row.appendChild(txt);
+    const b = (label, status, del) => { const k = el('button', 'btn ghost small', label); k.type = 'button'; k.onclick = async () => apply(await SBA.api('PUT', '/me/subathon/ideas/' + x.id, del ? { delete: true } : { status })); row.appendChild(k); };
+    if (x.status !== 'approved') b('Valider', 'approved'); if (x.status !== 'done') b('Réalisée', 'done'); if (x.status !== 'hidden') b('Refuser', 'hidden'); b('✕', null, true);
+    return row;
+  }) : [el('p', 'bt-help', 'Aucune proposition pour l’instant.')]));
+}
+async function act(args) { try { const d = await SBA.api('POST', '/me/subathon/action', { args }); apply(d); if (d.message) toast(d.message); } catch (e) { toast('Erreur : ' + e.message); } }
+async function save() {
+  try { const d = await SBA.api('PUT', '/me/subathon', cfg); apply(d); dirty = false; $('dirty').textContent = d.errors && d.errors.length ? '⚠️ ' + d.errors.join(' · ') : 'Enregistré ✓'; }
+  catch (e) { $('dirty').textContent = 'Erreur : ' + e.message; }
+}
+document.querySelectorAll('[data-a]').forEach((b) => b.addEventListener('click', () => act(b.dataset.a)));
+$('addDon').onclick = () => { const v = parseFloat($('don').value); if (!(v > 0)) return toast('Indique un montant'); act(`don ${v} ${$('donName').value.trim()}`.trim()); $('don').value = ''; $('donName').value = ''; };
+$('setBtn').onclick = () => { if ($('setTo').value.trim()) act('set ' + $('setTo').value.trim()); };
+$('enabled').onchange = () => { cfg.enabled = $('enabled').checked; save(); };
+$('addPal').onclick = () => { const last = cfg.paliers[cfg.paliers.length - 1]; cfg.paliers.push({ target: last ? last.target * 2 : 10, label: '' }); mark(); renderAll(); };
+$('save').onclick = save;
+$('copyPub').onclick = async () => { await navigator.clipboard.writeText($('pubLink').value).catch(() => {}); toast('Lien copié : partage-le dans ton chat ou ton Discord'); };
+addEventListener('beforeunload', (e) => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
+setInterval(() => { if (state) $('time').textContent = state.status === 'ended' ? 'Terminé' : fmt(remaining()); }, 250);
+setInterval(async () => { if (!dirty && SBA.loggedIn()) { try { const d = await SBA.api('GET', '/me/subathon'); state = d.state; ideas = d.ideas; base = Date.now(); renderStatus(); } catch (e) { /* ignore */ } } }, 5000);
+
+(async () => {
+  if (!SBA.enabled() || !SBA.loggedIn()) {
+    $('need').hidden = false; $('need').append(el('p', 'lead', 'Le subathon est lié à ton compte StreamBox : connecte-toi avec Twitch.'));
+    const b = el('button', 'btn', 'Se connecter avec Twitch'); b.onclick = () => SBA.login('subathon.html'); $('need').appendChild(b); return;
+  }
+  try {
+    apply(await SBA.api('GET', '/me/subathon'));
+    $('app').hidden = false;
+    const bot = await SBA.api('GET', '/me/bot').catch(() => null); // le subathon lit le chat avec les mêmes autorisations que le bot
+    if (bot && bot.status.missing.length) {
+      $('scopes').hidden = false;
+      $('scopes').append('⚠️ Pour compter les abos et lire !subathon et !idee dans le chat, StreamBox a besoin des autorisations du bot. ');
+      const a = el('button', 'btn small', 'Autoriser'); a.onclick = () => { location.href = 'connexion.html?compte=1&scope=bot&retour=subathon.html'; }; $('scopes').appendChild(a);
+    }
+  } catch (e) { $('need').hidden = false; $('need').textContent = 'Erreur : ' + e.message; }
+})();
+</script>
+</body>
+</html>

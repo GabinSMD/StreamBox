@@ -83,6 +83,7 @@
       note: 'Le timer est sauvegardé dans OBS : si OBS plante ou redémarre, il reprend là où il en était. Les dons sont ajoutés par les modos via la commande ou le panneau de contrôle. Les follows et les points de chaîne demandent la connexion Twitch.',
       fields: [
         channel,
+        { key: 'source', label: 'Timer', type: 'select', default: 'local', options: [['local', 'Dans OBS (réglages ci-dessous)'], ['relais', 'Celui du relais (page « Subathon en direct ») : recommandé']], help: 'Avec « relais », le timer est le même que sur la page publique de tes viewers ; les réglages se font sur la page Subathon en direct.' },
         twitch('moderator:read:followers channel:read:redemptions', 'Connexion Twitch (follows et points de chaîne)'),
         { key: 'start', label: 'Temps de départ (heures)', type: 'number', default: 4, min: 0, step: 0.25 },
         { key: 'sub1', label: 'Minutes par abo palier 1', type: 'number', default: 5, min: 0, step: 0.5 },
@@ -322,6 +323,7 @@
   ];
 
   window.SB_PAGES = [
+    { id: 'subathon-live', icon: '⏱️', name: 'Subathon en direct + page viewers', href: 'subathon.html', tagline: 'Le timer tourne sur le relais, même OBS fermé. Une page publique montre aux viewers le temps restant et les paliers, et leur permet de proposer et voter des idées.', replaces: ['marathon-timer.com', 'pages de subathon faites à la main'] },
     { id: 'bot', icon: '🤖', name: 'Bot de chat', href: 'bot.html', tagline: 'Commandes, messages automatiques, modération et remerciements. Il tourne 24 h/24 sur le relais, même OBS fermé.', replaces: ['Nightbot', 'Moobot', 'Fossabot', 'Cloudbot'] },
     { id: 'panneau', icon: '🎛️', name: 'Panneau de contrôle', href: 'panneau.html', tagline: 'Des boutons pour piloter sondages, giveaways, subathon, roue, objectifs et scènes OBS, sans taper de commandes. Utilisable comme dock OBS.', replaces: ['Kloot', 'Poltergeist', 'Xenon'] },
     { id: 'integrations', icon: '🔌', name: 'Intégrations', href: 'integrations.html', tagline: 'Twitch, OBS, Discord, Spotify, Deezer, YouTube Music, Ko-fi, StreamElements, Streamlabs : ce que chaque service apporte et comment le brancher.', replaces: [] },

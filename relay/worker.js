@@ -32,11 +32,17 @@
  *   GET/PUT /me/bot · POST /me/bot/test (console de test, n'écrit rien sur Twitch)
  *   POST    /eventsub                    webhooks EventSub signés (chat, live, follows, abos, raids, bits)
  *
+ * Subathon (timer sur le relais, page publique) :
+ *   GET/PUT /me/subathon · POST /me/subathon/action { args } · PUT /me/subathon/ideas/:id { status }
+ *   GET     /public/:login/subathon      état public (timer, paliers, idées) ; session facultative (votes du viewer)
+ *   POST    /public/:login/ideas         { text } (session viewer) · POST /public/:login/ideas/:id/vote
+ *
  * Secrets (wrangler secret put …) : TWITCH_CLIENT_ID, TWITCH_CLIENT_SECRET, ENCRYPTION_KEY (32 octets en base64),
  *   EVENTSUB_SECRET (10 à 100 caractères, pour signer les webhooks), BOT_LOGIN (facultatif : compte bot du site).
  */
 
-import { DEFAULT_BOT, sanitizeBot, onChat, onEvent, onTick, wantedSubs, BOT_SCOPES, BOT_ACCOUNT_SCOPES } from './bot.js';
+import { DEFAULT_BOT, sanitizeBot, onChat, onEvent, onTick, wantedSubs, userLevel, BOT_SCOPES, BOT_ACCOUNT_SCOPES } from './bot.js';
+import * as SUBA from './subathon.js';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -244,8 +250,10 @@ async function accountRoutes(req, env, url, p) {
       return json({ bot: true, login: v.login });
     }
     const session = rand(32);
-    await call('user:' + v.user_id, '/login', tokens);
-    await call('sess:' + session, '/session', { user_id: v.user_id, exp: Date.now() + 90 * 86400000 });
+    // « viewer » : simple connexion pour voter (aucune permission) ; ne touche jamais aux jetons d'un streamer
+    await call('user:' + v.user_id, mode === 'viewer' ? '/viewer-login' : '/login', tokens);
+    await call('login:' + v.login, '/index-set', { user_id: v.user_id });
+    await call('sess:' + session, '/session', { user_id: v.user_id, login: v.login, exp: Date.now() + 90 * 86400000 });
     return json({ session, login: v.login });
   }
 
@@ -261,6 +269,25 @@ async function accountRoutes(req, env, url, p) {
     if (!bid) return new Response(null, { status: 204 });
     const r = await stub('user:' + bid).fetch('https://acc/bot-event', { method: 'POST', headers: { 'X-Origin': url.origin }, body: JSON.stringify({ kind: type, id: req.headers.get('Twitch-Eventsub-Message-Id'), type: body.subscription.type, event: body.event }) });
     return new Response(null, { status: r.ok ? 204 : 202 });
+  }
+
+  // ---- Subathon public : timer, paliers, idées (lecture libre ; propositions et votes avec une session) ----
+  if (p[0] === 'public' && LOGIN_RE.test(p[1] || '') && ['subathon', 'ideas'].includes(p[2])) {
+    const [ist, idx] = await call('login:' + p[1], '/index');
+    if (ist !== 200 || !idx.user_id) return json({ error: 'chaîne inconnue sur StreamBox' }, 404);
+    const sid = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
+    let viewer = null;
+    if (/^[a-z0-9]{20,64}$/.test(sid)) { const [vs, s] = await call('sess:' + sid, '/session-get'); if (vs === 200) viewer = s; }
+    const owner = stub('user:' + idx.user_id);
+    const go = (path, body) => owner.fetch('https://acc' + path, { method: 'POST', body: JSON.stringify(body) }).then((r) => withCors(new Response(r.body, { status: r.status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } })));
+    if (req.method === 'GET' && p[2] === 'subathon') return go('/public-sub', { viewerId: viewer && viewer.user_id });
+    if (req.method === 'POST' && p[2] === 'ideas') {
+      if (!viewer) return json({ error: 'connecte-toi avec Twitch pour proposer ou voter' }, 401);
+      const body = await req.json().catch(() => ({}));
+      if (p.length === 3) return go('/public-idea', { text: body.text, by: viewer.login || 'viewer', byId: viewer.user_id });
+      if (/^\d{1,6}$/.test(p[3] || '') && p[4] === 'vote') return go('/public-vote', { id: +p[3], userId: viewer.user_id });
+    }
+    return json({ error: 'route inconnue' }, 404);
   }
 
   // ---- Lecture par un overlay (lien court, public mais impossible à deviner) ----
@@ -293,6 +320,12 @@ async function accountRoutes(req, env, url, p) {
 
   if (p.length === 1 && req.method === 'GET') return fwd('/me', 'POST', {});
   if (p[1] === 'secrets' && req.method === 'PUT') return fwd('/secrets', 'POST', body);
+  if (p[1] === 'subathon') {
+    if (p.length === 2 && req.method === 'GET') return fwd('/sub-get', 'POST', {});
+    if (p.length === 2 && req.method === 'PUT') return fwd('/sub-save', 'POST', body);
+    if (p[2] === 'action' && req.method === 'POST') return fwd('/sub-action', 'POST', body);
+    if (p[2] === 'ideas' && /^\d{1,6}$/.test(p[3] || '') && req.method === 'PUT') return fwd('/sub-idea', 'POST', Object.assign({}, body, { id: +p[3] }));
+  }
   if (p[1] === 'bot') {
     if (p.length === 2 && req.method === 'GET') return fwd('/bot-get', 'POST', {});
     if (p.length === 2 && req.method === 'PUT') return fwd('/bot-save', 'POST', body);
@@ -380,6 +413,7 @@ export class Account {
       await saveSecrets(Object.assign(prev, { twitch: { access: body.access, refresh: body.refresh, exp: body.exp } }));
       return ok({ ok: true });
     }
+    if (path === '/viewer-login') { if (!(await st.get('profile'))) await st.put('profile', { login: body.login, user_id: body.user_id, scopes: [] }); return ok({ ok: true }); }
     const profile = await st.get('profile');
     if (!profile) return err('compte inconnu', 404);
     const overlays = async () => (await st.get('overlays')) || {};
@@ -389,6 +423,7 @@ export class Account {
       return ok({ user_id: profile.user_id, login: profile.login, access: await this.twitchAccess(s, E) });
     }
     if (path.startsWith('/bot-')) return this.botRoute(path, body, profile, await secrets(), E, ok, err);
+    if (path.startsWith('/sub-') || path.startsWith('/public-')) return this.subRoute(path, body, profile, E, ok, err);
 
     if (path === '/me') {
       const s = await secrets(); const ov = await overlays();
@@ -521,11 +556,25 @@ export class Account {
     const h = { 'Client-Id': E.cid, Authorization: 'Bearer ' + app, 'Content-Type': 'application/json' };
     for (const id of (await st.get('botsubs')) || []) await fetch('https://api.twitch.tv/helix/eventsub/subscriptions?id=' + id, { method: 'DELETE', headers: h }).catch(() => {});
     const ids = [];
-    if (cfg.enabled) {
+    const subCfg = await st.get('sub');
+    const subOn = !!(subCfg && subCfg.enabled);
+    if (cfg.enabled || subOn) {
       const origin = await st.get('origin');
       const bot = cfg.sender === 'bot' ? await this.botAccount() : null;
+      const bid = profile.user_id;
+      // Bot et subathon partagent les mêmes abonnements (un seul par type)
+      const off = { events: Object.fromEntries(Object.keys(cfg.events).map((k) => [k, { on: false }])) };
+      let list = wantedSubs(cfg.enabled ? cfg : off, bid, bot ? bot.user_id : bid);
+      if (subOn) {
+        const b = { broadcaster_user_id: bid };
+        list.push({ type: 'channel.subscribe', version: '1', condition: b }, { type: 'channel.subscription.message', version: '1', condition: b },
+          { type: 'channel.subscription.gift', version: '1', condition: b }, { type: 'channel.cheer', version: '1', condition: b });
+        if (subCfg.rules.follow) list.push({ type: 'channel.follow', version: '2', condition: { broadcaster_user_id: bid, moderator_user_id: bid } });
+        if (subCfg.rules.raid) list.push({ type: 'channel.raid', version: '1', condition: { to_broadcaster_user_id: bid } });
+      }
+      list = list.filter((x, i) => list.findIndex((y) => y.type === x.type) === i);
       if (cfg.sender === 'bot' && !bot) errors.push('compte bot du site non connecté');
-      else for (const sub of wantedSubs(cfg, profile.user_id, bot ? bot.user_id : profile.user_id)) {
+      else for (const sub of list) {
         const r = await fetch('https://api.twitch.tv/helix/eventsub/subscriptions', { method: 'POST', headers: h, body: JSON.stringify(Object.assign(sub, { transport: { method: 'webhook', callback: origin + '/eventsub', secret: this.env.EVENTSUB_SECRET } })) });
         const d = await r.json().catch(() => ({}));
         if (r.ok && d.data) ids.push(d.data[0].id);
@@ -562,7 +611,9 @@ export class Account {
       return ok({ actions: out });
     }
     if (path === '/bot-event') {
-      if (!cfg.enabled) return ok({ ignored: true });
+      const subCfg = await st.get('sub');
+      const subOn = !!(subCfg && subCfg.enabled);
+      if (!cfg.enabled && !subOn) return ok({ ignored: true });
       const state = (await st.get('botstate')) || {};
       state.seen = state.seen || [];
       if (body.id && state.seen.includes(body.id)) return ok({ duplicate: true }); // Twitch peut renvoyer un webhook
@@ -571,7 +622,7 @@ export class Account {
       const ctx = { state, changed: false };
       const api = this.makeApi(cfg, profile, secrets, E, ctx);
       const e = body.event || {};
-      if (body.type === 'stream.online') { state.live = true; state.startedAt = Date.parse(e.started_at) || Date.now(); state.lines = 0; state.timers = {}; await st.setAlarm(Date.now() + 60000); }
+      if (body.type === 'stream.online') { state.live = true; state.startedAt = Date.parse(e.started_at) || Date.now(); state.lines = 0; state.timers = {}; if (cfg.enabled) await st.setAlarm(Date.now() + 60000); }
       else if (body.type === 'stream.offline') { state.live = false; state.permits = {}; }
       else if (body.type === 'channel.chat.message') {
         const text = (e.message && e.message.text) || '';
@@ -580,11 +631,89 @@ export class Account {
         // seulement les messages que le bot vient d'envoyer (le streamer peut toujours taper ses commandes).
         const own = b ? e.chatter_user_id === b.user_id
           : e.chatter_user_id === profile.user_id && (state.sent || []).some((x) => x.text === text && Date.now() - x.t < 60000);
-        if (!own) await onChat(cfg, state, { text, login: e.chatter_user_login, name: e.chatter_user_name, userId: e.chatter_user_id, badges: e.badges, messageId: e.message_id, isBroadcaster: e.chatter_user_id === profile.user_id }, api, profile.login);
-      } else await onEvent(cfg, state, body.type, e, api, profile.login);
+        if (!own) {
+          const handled = subOn && await this.subChat(subCfg, text, e, profile, api);
+          if (!handled && cfg.enabled) await onChat(cfg, state, { text, login: e.chatter_user_login, name: e.chatter_user_name, userId: e.chatter_user_id, badges: e.badges, messageId: e.message_id, isBroadcaster: e.chatter_user_id === profile.user_id }, api, profile.login);
+        }
+      } else {
+        if (subOn) { const S = (await st.get('substate')) || SUBA.freshState(subCfg); SUBA.onEvent(subCfg, S, body.type, e, Date.now()); await st.put('substate', S); }
+        if (cfg.enabled) await onEvent(cfg, state, body.type, e, api, profile.login);
+      }
       if (ctx.changed) await st.put('bot', cfg);
       await st.put('botstate', state);
       return ok({ ok: true });
+    }
+    return err('?', 404);
+  }
+
+  /* ================= Subathon ================= */
+  async subChat(sub, text, e, profile, api) {
+    const st = this.ctx.storage, now = Date.now();
+    const [w, ...rest] = text.trim().split(/\s+/);
+    const low = (w || '').toLowerCase(), args = rest.join(' '), name = e.chatter_user_name;
+    const level = userLevel(e.badges, e.chatter_user_id === profile.user_id);
+    if (low !== sub.cmd && low !== '!idee' && low !== '!idée' && low !== '!vote') return false;
+    const S = (await st.get('substate')) || SUBA.freshState(sub);
+    const ideas = (await st.get('ideas')) || { seq: 0, items: [] };
+    let reply = null;
+    if (low === sub.cmd) reply = level >= 3 || !args ? SUBA.command(sub, S, args, name, now) : null;
+    else if (low === '!vote') { const r = SUBA.vote(ideas, rest[0], e.chatter_user_id); if (r.error) reply = `@${name} ${r.error}`; }
+    else {
+      const m = args.match(/^(ok|valider|non|refuser|fait)\s+(\d+)$/i);
+      if (m && level >= 3) {
+        const idea = ideas.items.find((x) => x.id === +m[2]);
+        if (idea) { idea.status = /^(ok|valider)$/i.test(m[1]) ? 'approved' : /^fait$/i.test(m[1]) ? 'done' : 'hidden'; reply = `Idée n°${idea.id} : ${{ approved: 'validée ✓', done: 'réalisée 🎉', hidden: 'refusée' }[idea.status]}`; }
+      } else {
+        const r = SUBA.addIdea(sub, ideas, args, name, e.chatter_user_id, now);
+        reply = r.error ? `@${name} ${r.error}` : `@${name} idée n°${r.idea.id} enregistrée${r.idea.status === 'pending' ? ' (en attente de validation)' : ''} ✓`;
+      }
+    }
+    await st.put('substate', S); await st.put('ideas', ideas);
+    if (reply) await api.say(reply);
+    return true;
+  }
+
+  async subRoute(path, body, profile, E, ok, err) {
+    const st = this.ctx.storage, now = Date.now();
+    let sub = (await st.get('sub')) || SUBA.sanitizeSub({}, null);
+    const S = (await st.get('substate')) || SUBA.freshState(sub);
+    const ideas = (await st.get('ideas')) || { seq: 0, items: [] };
+    const full = () => ({ cfg: sub, state: Object.assign({}, S, { remaining: SUBA.remaining(S, now), elapsed: SUBA.elapsed(S, now), now }), ideas: ideas.items.map((x) => Object.assign({}, x, { votes: x.voters.length, voters: undefined })), login: profile.login });
+    if (path === '/sub-get') { SUBA.tick(S, now); return ok(full()); }
+    if (path === '/sub-save') {
+      const prev = sub;
+      sub = SUBA.sanitizeSub(body, prev);
+      if (S.status === 'idle') S.left = sub.start * 3600000; // le temps de départ ne change qu'avant le lancement
+      await st.put('sub', sub); await st.put('substate', S);
+      if (this.env.ACCOUNT) await this.env.ACCOUNT.get(this.env.ACCOUNT.idFromName('login:' + profile.login)).fetch('https://acc/index-set', { method: 'POST', body: JSON.stringify({ user_id: profile.user_id }) });
+      let errors = [];
+      const key = (c) => [c.enabled, !!c.rules.follow, !!c.rules.raid].join();
+      if (key(sub) !== key(prev) && this.env.EVENTSUB_SECRET) {
+        const botCfg = (await st.get('bot')) || sanitizeBot({}, null);
+        errors = await this.syncSubs(botCfg, profile, E).catch((e) => [e.message]);
+      }
+      return ok(Object.assign(full(), { errors }));
+    }
+    if (path === '/sub-action') {
+      const msg = SUBA.command(sub, S, String(body.args || ''), profile.login, now);
+      await st.put('substate', S);
+      return ok(Object.assign(full(), { message: msg }));
+    }
+    if (path === '/sub-idea') {
+      const idea = ideas.items.find((x) => x.id === body.id);
+      if (!idea) return err('idée introuvable', 404);
+      if (body.delete) ideas.items.splice(ideas.items.indexOf(idea), 1);
+      else if (['pending', 'approved', 'hidden', 'done'].includes(body.status)) idea.status = body.status;
+      await st.put('ideas', ideas);
+      return ok(full());
+    }
+    if (path === '/public-sub') { if (!sub.enabled) return err('pas de subathon en cours sur cette chaîne', 404); return ok(SUBA.publicView(sub, S, ideas, now, body.viewerId, profile.login)); }
+    if (path === '/public-idea' || path === '/public-vote') {
+      if (!sub.enabled) return err('pas de subathon en cours', 404);
+      const r = path === '/public-idea' ? SUBA.addIdea(sub, ideas, body.text, body.by, body.byId, now) : SUBA.vote(ideas, body.id, body.userId);
+      if (r.error) return err(r.error);
+      await st.put('ideas', ideas);
+      return ok({ ok: true, id: r.idea.id, status: r.idea.status, voted: r.voted });
     }
     return err('?', 404);
   }

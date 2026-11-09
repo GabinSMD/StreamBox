@@ -13,6 +13,7 @@
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; } /* un élément caché reste caché, quel que soit son style */
 html { -webkit-text-size-adjust: 100%; }
 body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.55 'Inter', system-ui, sans-serif; }
 a { color: inherit; }
@@ -209,3 +210,38 @@ input[type=password] { width: 100%; background: var(--bg); color: var(--text); b
 .bt-line { margin-top: 8px; }
 .bt-res { color: var(--muted); padding-left: 10px; border-left: 2px solid var(--accent); margin-top: 3px; }
 .bt-save { display: flex; gap: 10px; align-items: center; justify-content: flex-end; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; font-size: 13px; color: var(--muted); }
+
+/* Page publique du subathon */
+.lv-hero { text-align: center; padding: 48px 0 28px; }
+.lv-kicker { color: var(--muted); font-weight: 600; }
+.lv-kicker a { color: var(--accent); font-weight: 800; text-decoration: none; }
+.lv-hero h1 { font-size: clamp(26px, 5vw, 40px); margin: 8px 0 6px; }
+.lv-time { font-size: clamp(54px, 13vw, 120px); font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; line-height: 1.05;
+  background: linear-gradient(90deg, var(--accent), var(--accent2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.lv-paused .lv-time { opacity: .6; }
+.lv-happy { display: inline-block; margin-top: 10px; background: linear-gradient(90deg, #ffb800, #ff5ca8); color: #1a0b16; font-weight: 800; padding: 6px 14px; border-radius: 99px; }
+.lv-meta { color: var(--muted); margin-top: 10px; font-weight: 600; }
+.lv-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.lv-pal { margin-bottom: 12px; }
+.lv-pal-top { display: flex; justify-content: space-between; gap: 10px; font-size: 14.5px; }
+.lv-pal-top span { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.lv-pal.ok b { color: var(--ok); }
+.lv-bar { height: 10px; border-radius: 99px; background: var(--bg); margin-top: 6px; overflow: hidden; }
+.lv-bar div { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); border-radius: 99px; transition: width .6s; }
+.lv-pal.ok .lv-bar div { background: var(--ok); }
+.lv-rules div, .lv-last div { display: flex; justify-content: space-between; gap: 10px; padding: 6px 0; border-top: 1px solid var(--line); font-size: 14.5px; }
+.lv-last div { justify-content: flex-start; }
+.lv-rules b, .lv-last b { color: var(--accent); white-space: nowrap; }
+.lv-ideas { margin-top: 16px; }
+.lv-ideas form input { flex: 1; }
+.lv-idea { display: flex; gap: 12px; align-items: center; padding: 10px 0; border-top: 1px solid var(--line); }
+.lv-idea.done .lv-itext { opacity: .65; }
+.lv-itext { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.lv-itext small { display: block; color: var(--muted); font-size: 12.5px; }
+.lv-num { color: var(--muted); font-weight: 700; }
+.lv-vote { flex: none; min-width: 64px; border: 1px solid var(--line); background: var(--bg2); color: var(--text); border-radius: 99px; padding: 6px 12px; font: 700 14px inherit; font-family: inherit; cursor: pointer; }
+.lv-vote.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.lv-vote:disabled { cursor: default; opacity: .6; }
+.sg-time { font-size: 48px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.sg-idea.pending { border-color: color-mix(in srgb, #ffb86b 50%, transparent); }
+.sg-idea.hidden { opacity: .55; }
