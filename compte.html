@@ -29,6 +29,24 @@
     <p class="sec">Renseignées une fois, utilisées par tous tes overlays. Les jetons sont chiffrés sur le relais, et chaque overlay ne reçoit que ceux dont il a besoin. Une fois enregistrés, ils ne sont plus jamais affichés.</p>
     <div class="grid" id="secrets"></div>
 
+    <h2 class="sec" id="page">🌐 Ma page publique</h2>
+    <p class="sec">Une page à donner à ton chat : tes commandes, ton planning Twitch, tes liens, la file de musique et le subathon. Quand elle est active, <code>!commandes</code> y renvoie.</p>
+    <section class="box pg-box">
+      <label class="bt-toggle"><input type="checkbox" id="pgOn"><b>Activer ma page publique</b></label>
+      <div class="pg-url" id="pgUrl" hidden><a id="pgLink" target="_blank" rel="noopener"></a><button class="btn ghost small" id="pgCopy" type="button">Copier</button></div>
+      <label class="bt-f"><span>Présentation (sinon, la bio de ta chaîne Twitch)</span><textarea id="pgAbout" rows="3" maxlength="600"></textarea></label>
+      <div class="bt-f"><span>Liens (Discord, réseaux, boutique…)</span><div id="pgLinks"></div><button class="btn ghost small" id="pgAdd" type="button">➕ Ajouter un lien</button></div>
+      <div class="pg-secs">
+        <label><input type="checkbox" data-sec="commands"> Commandes du bot</label>
+        <label><input type="checkbox" data-sec="responses"> Avec leurs réponses</label>
+        <label><input type="checkbox" data-sec="schedule"> Planning Twitch</label>
+        <label><input type="checkbox" data-sec="music"> File de musique</label>
+        <label><input type="checkbox" data-sec="subathon"> Subathon</label>
+      </div>
+      <p class="bt-help">Seules les commandes accessibles à tout le monde sont affichées (pas celles des modos ou des abonnés).</p>
+      <div class="pn-row"><button class="btn small" id="pgSave" type="button">Enregistrer</button></div>
+    </section>
+
     <h2 class="sec">🖼️ Mes images</h2>
     <p class="sec">Images envoyées depuis les réglages des overlays (avatar du PNGTuber…) : 12 au plus. Une image supprimée disparaît des overlays qui l’utilisent.</p>
     <div class="asset-list" id="assets"></div>
@@ -76,7 +94,7 @@ async function load() {
     try { localStorage.removeItem('sb-spotify'); } catch (e) { /* ignore */ }
     me = await SBA.api('GET', '/me'); toast2('Spotify connecté ✓');
   }
-  renderOverlays(); renderSecrets(); renderAssets();
+  renderOverlays(); renderSecrets(); renderAssets(); loadPage();
 }
 async function renderAssets() {
   const box = $('assets');
@@ -171,6 +189,31 @@ $('delete').onclick = async () => {
   try { await SBA.deleteAccount(); alert('Ton compte StreamBox a été supprimé.'); location.href = 'index.html'; }
   catch (e) { toast2('Erreur : ' + e.message); }
 };
+/* ---------- Page publique ---------- */
+function linkRow(l) {
+  const r = el('div', 'pn-row pg-link');
+  const a = el('input'); a.type = 'text'; a.placeholder = 'Nom (ex. Discord)'; a.maxLength = 40; a.value = l.label || ''; a.className = 'pg-l';
+  const u = el('input'); u.type = 'url'; u.placeholder = 'https://…'; u.value = l.url || ''; u.className = 'pg-u';
+  const x = el('button', 'btn ghost small', '✕'); x.type = 'button'; x.title = 'Retirer'; x.onclick = () => r.remove();
+  r.append(a, u, x); return r;
+}
+function showPage(pg) {
+  $('pgOn').checked = !!pg.enabled; $('pgAbout').value = pg.about || '';
+  $('pgLinks').replaceChildren(...(pg.links || []).map(linkRow));
+  document.querySelectorAll('[data-sec]').forEach((c) => { c.checked = !!(pg.sections || {})[c.dataset.sec]; });
+  $('pgUrl').hidden = !pg.url; $('pgLink').textContent = pg.url || ''; $('pgLink').href = pg.url || '#';
+}
+async function loadPage() { try { showPage(await SBA.api('GET', '/me/page')); } catch (e) { /* relais ancien : section inutilisable */ } }
+$('pgAdd').onclick = () => { if ($('pgLinks').children.length >= 12) return toast2('12 liens au plus'); $('pgLinks').appendChild(linkRow({})); };
+$('pgCopy').onclick = () => { navigator.clipboard.writeText($('pgLink').href).then(() => toast2('Lien copié ✓')); };
+$('pgSave').onclick = async () => {
+  const links = [...document.querySelectorAll('.pg-link')].map((r) => ({ label: r.querySelector('.pg-l').value.trim(), url: r.querySelector('.pg-u').value.trim() })).filter((l) => l.label || l.url);
+  if (links.some((l) => !l.label || !/^https?:\/\/\S+\.\S+/.test(l.url))) return toast2('Chaque lien a besoin d’un nom et d’une adresse en https://');
+  const sections = {}; document.querySelectorAll('[data-sec]').forEach((c) => { sections[c.dataset.sec] = c.checked; });
+  try { showPage(await SBA.api('PUT', '/me/page', { enabled: $('pgOn').checked, about: $('pgAbout').value, links, sections, site: location.href.split('#')[0].split('?')[0] })); toast2('Page enregistrée ✓'); }
+  catch (e) { toast2('Erreur : ' + e.message); }
+};
+
 $('login').onclick = () => SBA.login('compte.html');
 $('logout').onclick = () => SBA.logout();
 load();

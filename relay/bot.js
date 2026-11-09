@@ -156,6 +156,8 @@ export async function onChat(cfg, st, ev, api, channel) {
   const v = { user: ev.name, userId: ev.userId, touser: touser || ev.name, args, channel };
 
   if (B.commandes && (name === '!commandes' || name === '!commands')) {
+    const page = api.pageUrl ? await api.pageUrl().catch(() => '') : ''; // page publique : la liste complète, avec les réponses
+    if (page) return api.say(`Toutes les commandes : ${page}`);
     const list = cfg.commands.filter((c) => c.enabled && LEVELS[c.level] <= level).map((c) => c.name);
     const builtins = [B.uptime && '!uptime', B.followage && '!followage', B.clip && '!clip'].filter(Boolean);
     return api.say(`Commandes : ${[...list, ...builtins].join(' ') || 'aucune'}`.slice(0, 480));
