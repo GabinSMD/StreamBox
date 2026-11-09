@@ -1,7 +1,8 @@
 # Relais StreamBox
 
-Petit serveur gratuit (Cloudflare Workers) qui sert à deux choses :
+Petit serveur gratuit (Cloudflare Workers) qui sert à trois choses :
 
+0. **Les comptes StreamBox** : connexion avec Twitch, réglages et intégrations enregistrés par streamer (jetons chiffrés), liens courts pour les overlays, mise à jour en direct dans OBS.
 1. **Recevoir les dons Ko-fi** (Ko-fi ne sait qu'envoyer des webhooks) et les transmettre en direct aux overlays dans OBS : alertes, subathon, objectifs. Il accepte aussi n'importe quel service capable d'envoyer un webhook JSON, par exemple via Zapier ou Make.
 2. **Garder la liste des musiques jouées en live**, pour l'extension « Musiques des redifs ».
 
@@ -16,12 +17,22 @@ wrangler deploy
 
 Wrangler affiche l'adresse du relais, par exemple `https://streambox-relay.<ton-compte>.workers.dev`. Mets-la dans `js/config.js` (`relayUrl`).
 
-Pour que l'extension trouve le début des VODs Twitch, ajoute les identifiants de ton application Twitch. Il faut ici un client « Confidentiel », séparé de celui du site :
+### Activer les comptes (recommandé)
+
+1. Dans https://dev.twitch.tv/console/apps, ton application StreamBox doit être de type **Confidentiel**. Son URL de redirection est `https://<ton-site>/connexion.html`.
+2. Donne au relais l'identifiant et le secret de cette application, ainsi qu'une clé de chiffrement pour les jetons des streamers :
 
 ```bash
 wrangler secret put TWITCH_CLIENT_ID
 wrangler secret put TWITCH_CLIENT_SECRET
+openssl rand -base64 32 | wrangler secret put ENCRYPTION_KEY
 ```
+
+3. Dans `js/config.js`, mets le même `twitchClientId` et l'adresse du relais (`relayUrl`). Le bouton « Se connecter avec Twitch » apparaît alors sur le site.
+
+Le secret Twitch ne quitte jamais le relais. C'est lui qui renouvelle les accès Twitch des streamers, si bien que leurs overlays ne « périment » pas.
+
+> ⚠️ Ne perds pas `ENCRYPTION_KEY` : sans elle, les jetons enregistrés ne peuvent plus être lus, et chaque streamer devra les ressaisir. Ces mêmes identifiants servent aussi à l'extension, pour trouver le début des VODs Twitch.
 
 ## Brancher Ko-fi
 

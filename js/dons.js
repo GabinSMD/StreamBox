@@ -74,7 +74,7 @@
 
   /* Ouvre toutes les sources configurées dans l'URL ; renvoie le client (même vide) */
   SB.donations = function (c) {
-    const q = new URLSearchParams(location.search);
+    const q = SB.query();
     const d = new SB.Donations();
     if (c && c.demo) return d;
     if (q.get('sejwt')) d.streamelements(q.get('sejwt'));

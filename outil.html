@@ -13,6 +13,7 @@
     <section class="box">
       <h1 id="name"></h1>
       <p class="lead" id="tagline"></p>
+      <div class="accbar" id="accbar" hidden></div>
       <form id="form" autocomplete="off"></form>
       <div class="importbar">
         <input type="text" id="importurl" placeholder="Coller le lien d’un overlay déjà dans OBS" aria-label="Lien à modifier">
@@ -51,6 +52,7 @@
 </main>
 <script src="js/config.js"></script>
 <script src="js/tools.js"></script>
+<script src="js/account.js"></script>
 <script src="js/site.js"></script>
 <script>
 (function () {
@@ -78,6 +80,12 @@
   let saved = {};
   try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) { saved = {}; }
 
+  /* ----- Compte StreamBox ----- */
+  const ACC = !!(window.SBA && SBA.enabled() && SBA.loggedIn());
+  let ovId = new URLSearchParams(location.search).get('o');
+  if (ovId && !/^[a-z0-9]{20,48}$/.test(ovId)) ovId = null;
+  const isSecret = (f) => ACC && (SBA.SECRET_FIELDS.includes(f.key) || f.type === 'twitch' || f.type === 'spotify') && !(tool.id === 'giveaway' && f.key === 'discord');
+
   /* ----- Formulaire ----- */
   const form = $('form');
   const VISIBLE = 5;
@@ -95,8 +103,14 @@
     }
   }
   tool.fields.forEach((f, i) => {
+    if (isSecret(f)) return; // géré dans « Mon compte → Intégrations »
     const wrap = document.createElement('div');
     wrap.className = 'field' + (f.type === 'checkbox' ? ' check' : '');
+    if (ACC && tool.id === 'giveaway' && f.key === 'discord') { // le webhook vient du compte : une simple case
+      const label = document.createElement('label'); const cb = document.createElement('input'); cb.type = 'checkbox'; cb.name = 'discord'; cb.id = 'f-discord';
+      cb.checked = saved.discord === 'compte'; label.append(cb, 'Annoncer le gagnant sur Discord (webhook de Mon compte)');
+      wrap.className = 'field check'; wrap.appendChild(label); place(wrap, f, i); return;
+    }
     const inputId = 'f-' + f.key;
     let input;
     if (f.type === 'twitch') {
@@ -180,6 +194,8 @@
     const out = {};
     tool.fields.forEach((f) => {
       const el = form.elements[f.key];
+      if (!el) return;
+      if (el.type === 'checkbox' && f.key === 'discord') { out.discord = el.checked ? 'compte' : ''; return; }
       out[f.key] = f.type === 'checkbox' ? el.checked : (f.type === 'number' || f.type === 'range') ? (el.value === '' ? f.default : parseFloat(el.value)) : el.value.trim();
     });
     return out;
@@ -189,7 +205,7 @@
     const u = new URL(tool.overlay, location.href);
     tool.fields.forEach((f) => {
       const v = vals[f.key];
-      if (v === f.default || (f.type === 'checkbox' && !!v === !!f.default)) return;
+      if (v === undefined || v === f.default || (f.type === 'checkbox' && !!v === !!f.default)) return;
       u.searchParams.set(f.key, f.type === 'checkbox' ? (v ? '1' : '0') : String(v));
     });
     Object.entries(extra || {}).forEach(([k, v]) => u.searchParams.set(k, v));
@@ -212,7 +228,8 @@
   function update() {
     const vals = values();
     try { const keep = Object.assign({}, vals); tool.fields.forEach((f) => (f.type === 'twitch' || f.type === 'spotify') && delete keep[f.key]); localStorage.setItem(KEY, JSON.stringify(keep)); } catch (e) { /* stockage indisponible */ }
-    $('url').value = overlayUrl(vals);
+    $('url').value = ACC ? (ovId ? SBA.overlayLink(tool, ovId) : 'Enregistre l’overlay dans ton compte pour obtenir son lien') : overlayUrl(vals);
+    if (ACC) scheduleSave(vals);
     const useDemo = $('demo').checked || !vals.channel;
     const src = overlayUrl(useDemo ? Object.assign({}, vals, { channel: '', token: '', spotify: '', webhook: '', sejwt: '', sltoken: '', kofi: '' }) : vals, useDemo ? { demo: '1' } : {});
     clearTimeout(timer);
@@ -227,6 +244,11 @@
     update();
   });
   $('copy').addEventListener('click', async () => {
+    if (ACC) {
+      if (!ovId && !(await createOverlay())) return;
+      try { await navigator.clipboard.writeText(SBA.overlayLink(tool, ovId)); } catch (e) { $('url').select(); document.execCommand('copy'); }
+      toast('Lien copié, colle-le dans OBS'); return;
+    }
     const v = values();
     if (!v.channel && tool.fields[0].key === 'channel' && !/optionnel/i.test(tool.fields[0].label)) {
       form.elements.channel.focus(); toast('Indique d’abord le nom de ta chaîne'); return;
@@ -267,6 +289,82 @@
     preview.classList.remove('game'); $('gamebg').checked = false;
   });
   $('gamebg').addEventListener('change', () => { if ($('gamebg').checked) preview.style.backgroundImage = ''; });
+
+  /* ----- Enregistrement dans le compte ----- */
+  function settingsOf(vals) {
+    const out = {};
+    tool.fields.forEach((f) => {
+      if (isSecret(f)) return;
+      const v = vals[f.key];
+      if (v === undefined || v === f.default || (f.type === 'checkbox' && !!v === !!f.default) || v === '') return;
+      out[f.key] = v;
+    });
+    return out;
+  }
+  const accbar = $('accbar');
+  const accStatus = document.createElement('small');
+  let loading = false, saveTimer = null, lastSaved = null;
+  async function createOverlay() {
+    try {
+      const d = await SBA.api('POST', '/me/overlays', { tool: tool.id, name: $('ovname').value.trim() || tool.name, settings: settingsOf(values()) });
+      ovId = d.id; lastSaved = JSON.stringify(settingsOf(values()));
+      history.replaceState(null, '', `outil.html?id=${tool.id}&o=${ovId}`);
+      renderAccbar(); update(); toast('Enregistré dans ton compte ✓');
+      return true;
+    } catch (e) { toast('Erreur : ' + e.message); return false; }
+  }
+  function scheduleSave(vals) {
+    if (!ovId || loading) return;
+    const json = JSON.stringify(settingsOf(vals));
+    if (json === lastSaved) return;
+    clearTimeout(saveTimer);
+    accStatus.textContent = 'Enregistrement…';
+    saveTimer = setTimeout(async () => {
+      try { await SBA.api('PUT', '/me/overlays/' + ovId, { settings: JSON.parse(json), name: $('ovname').value.trim() || tool.name }); lastSaved = json; accStatus.textContent = 'Enregistré ✓ L’overlay dans OBS se met à jour tout seul.'; }
+      catch (e) { accStatus.textContent = 'Erreur : ' + e.message; }
+    }, 700);
+  }
+  function renderAccbar() {
+    accbar.hidden = false; accbar.replaceChildren();
+    if (!ACC) {
+      accbar.append(Object.assign(document.createElement('span'), { textContent: '💾 Connecte-toi avec Twitch pour enregistrer cet overlay : tu auras un lien court, sans jeton, qui se met à jour tout seul.' }));
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'btn small'; b.textContent = 'Se connecter'; b.onclick = () => SBA.login();
+      accbar.appendChild(b); return;
+    }
+    const row = document.createElement('div'); row.className = 'pn-row';
+    const name = document.createElement('input'); name.type = 'text'; name.id = 'ovname'; name.placeholder = 'Nom de l’overlay'; name.value = (accbar.dataset.name || tool.name);
+    name.addEventListener('input', () => { accbar.dataset.name = name.value; lastSaved = null; scheduleSave(values()); });
+    row.appendChild(name);
+    if (!ovId) { const b = document.createElement('button'); b.type = 'button'; b.className = 'btn small'; b.textContent = '💾 Enregistrer dans mon compte'; b.onclick = createOverlay; row.appendChild(b); }
+    const link = document.createElement('a'); link.href = 'compte.html'; link.className = 'btn ghost small'; link.textContent = 'Mon compte'; row.appendChild(link);
+    accbar.appendChild(row);
+    if (!accStatus.textContent) accStatus.textContent = ovId ? 'Enregistré dans ton compte. Chaque modification est appliquée dans OBS.' : 'Pas encore enregistré.';
+    accbar.appendChild(accStatus);
+    const note = document.createElement('small');
+    note.textContent = '🔒 Jetons et intégrations (Twitch, OBS, Discord, Spotify, dons…) : gérés une fois dans Mon compte, jamais dans le lien.';
+    note.style.display = 'block'; accbar.appendChild(note);
+    document.querySelector('.steps li:last-child').textContent = 'Tes modifications ici sont appliquées toutes seules dans OBS : pas besoin de recopier le lien.';
+    $('import').parentElement.style.display = 'none';
+  }
+  if (window.SBA && SBA.enabled()) renderAccbar();
+  if (ACC && form.elements.channel && !form.elements.channel.value) form.elements.channel.value = SBA.session().login;
+  if (ACC && ovId) {
+    loading = true;
+    SBA.api('GET', '/me/overlays/' + ovId).then((o) => {
+      if (o.tool !== tool.id) { location.replace(`outil.html?id=${o.tool}&o=${ovId}`); return; }
+      tool.fields.forEach((f) => {
+        const el = form.elements[f.key]; if (!el) return;
+        const has = f.key in o.settings, v = o.settings[f.key];
+        if (el.type === 'checkbox') el.checked = f.key === 'discord' ? v === 'compte' : has ? !!v && v !== '0' : !!f.default;
+        else el.value = has ? v : f.default;
+        el.dispatchEvent(new Event('input'));
+      });
+      if (!o.settings.channel && form.elements.channel) form.elements.channel.value = SBA.session().login;
+      accbar.dataset.name = o.name; $('ovname').value = o.name;
+      lastSaved = JSON.stringify(settingsOf(values()));
+      loading = false; update();
+    }).catch((e) => { loading = false; ovId = null; renderAccbar(); toast('Overlay introuvable : ' + e.message); });
+  }
 
   fit(); update();
 })();
