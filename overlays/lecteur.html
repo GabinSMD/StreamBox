@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>StreamBox · Lecteur (demandes de musique)</title>
+<link rel="stylesheet" href="../css/overlay.css">
+</head>
+<body>
+<div class="lt" id="lt">
+  <div class="lt-player"><div id="yt"></div><div class="lt-fake" id="fake" hidden></div></div>
+  <div class="lt-info">
+    <div class="np-label" id="label">Demandé par le chat</div>
+    <div class="lt-title" id="title">En attente de demandes…</div>
+    <div class="lt-meta" id="meta"></div>
+  </div>
+</div>
+<script src="../js/config.js"></script>
+<script src="../js/sb.js"></script>
+<script>
+/* Joue la file des demandes de musique (!sr) gardée par le relais StreamBox.
+ * Le son passe par OBS : coche « Contrôler l'audio via OBS » dans les propriétés de la source. */
+const c = SB.params({ style: 'carte', hideidle: true, size: 20, font: 'Inter', accent: '#9b5cff', demo: false });
+SB.loadFont(c.font); SB.setAccent(c.accent);
+document.documentElement.style.setProperty('--size', c.size + 'px');
+document.body.classList.add('lt-' + c.style);
+const $ = (id) => document.getElementById(id);
+const ovId = new URLSearchParams(location.search).get('o');
+const relay = ((window.SB_CONFIG && SB_CONFIG.relayUrl) || '').replace(/\/$/, '');
+let player = null, ready = false, playing = null, busy = false;
+
+function show(cur, st) {
+  document.body.classList.toggle('lt-idle', !cur);
+  document.body.classList.toggle('lt-hide', c.hideidle && !cur);
+  $('title').textContent = cur ? cur.title : 'En attente de demandes…';
+  $('label').textContent = cur ? `Demandé par ${cur.by}` : 'Demandes de musique';
+  const meta = [];
+  if (cur && cur.artist) meta.push(cur.artist);
+  if (st && st.count) meta.push(`${st.count} en attente`);
+  $('meta').textContent = meta.join(' · ');
+}
+
+async function call(action, n) {
+  const r = await fetch(`${relay}/o/${ovId}/sr`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, n }) });
+  return r.json();
+}
+
+async function apply(st) {
+  if (st.error) { show(null); return; }
+  if (player && ready && typeof st.volume === 'number') player.setVolume(st.volume);
+  const cur = st.current;
+  if (cur && cur.n !== playing) { playing = cur.n; if (ready) player.loadVideoById(cur.id); }
+  else if (!cur && playing != null) { playing = null; if (ready) player.stopVideo(); }
+  show(cur, st);
+  if (!cur && st.count > 0 && !busy) { busy = true; try { await apply(await call('next')); } finally { busy = false; } } // démarre la file
+}
+
+async function poll() {
+  if (busy) return;
+  try { await apply(await (await fetch(`${relay}/o/${ovId}/sr`, { cache: 'no-store' })).json()); } catch (e) { console.warn(e.message); }
+}
+
+async function finished(kind) {
+  if (playing == null) return;
+  busy = true;
+  try { await apply(await call(kind, playing)); } finally { busy = false; }
+}
+
+window.onYouTubeIframeAPIReady = () => {
+  player = new YT.Player('yt', {
+    width: '100%', height: '100%',
+    playerVars: { autoplay: 1, controls: 0, rel: 0, modestbranding: 1, playsinline: 1, iv_load_policy: 3 },
+    events: {
+      onReady: () => { ready = true; poll(); },
+      onStateChange: (e) => { if (e.data === YT.PlayerState.ENDED) finished('ended'); },
+      onError: () => finished('error'), // vidéo supprimée ou non intégrable : on passe à la suivante
+    },
+  });
+};
+
+if (c.demo) {
+  $('yt').hidden = true; $('fake').hidden = false;
+  const demo = [['Daft Punk — One More Time', 'Pixelmaud', 'Daft Punk'], ['Stromae — Alors on danse', 'Kevin_le_roux', 'Stromae'], ['M83 — Midnight City', 'Sacha_VIP', 'M83']];
+  let i = 0;
+  const next = () => { const [t, by, a] = demo[i++ % demo.length]; $('fake').textContent = '▶ ' + t; show({ title: t, by, artist: a }, { count: 2 }); };
+  next(); setInterval(next, 6000);
+} else if (!ovId || !relay) {
+  show(null); document.body.classList.remove('lt-hide');
+  document.body.appendChild(SB.el('div', 'sb-hint', 'StreamBox : le Lecteur fonctionne avec un compte. Enregistre-le dans ton compte, puis colle son lien court dans OBS.'));
+} else {
+  const s = document.createElement('script'); s.src = 'https://www.youtube.com/iframe_api'; document.head.appendChild(s);
+  setInterval(poll, 3000);
+}
+</script>
+</body>
+</html>

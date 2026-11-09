@@ -13,8 +13,8 @@
 <script src="js/account.js"></script>
 <script src="js/site.js"></script>
 <script>
-/* Connexion Spotify « PKCE » : aucun secret, tout reste dans le navigateur.
- * Permission demandée : lire le morceau en cours (rien d'autre). */
+/* Connexion Spotify « PKCE » : aucun secret.
+ * Permissions : lire le morceau en cours, et ajouter à la file (demandes de musique, Spotify Premium). */
 const q = new URLSearchParams(location.search);
 const say = (h, p) => { document.getElementById('h').textContent = h; document.getElementById('p').textContent = p || ''; };
 const safeReturn = (r) => (r && /^[\w\-./?=&%]+$/.test(r) && !r.includes('//') ? r : 'outil.html?id=musique');
@@ -42,7 +42,7 @@ const ss = { get: (k) => { try { return sessionStorage.getItem(k); } catch (e) {
   const state = b64url(crypto.getRandomValues(new Uint8Array(12)));
   ss.set('sb-sp-verifier', verifier); ss.set('sb-sp-cid', cid); ss.set('sb-sp-state', state); ss.set('sb-sp-return', safeReturn(q.get('retour')));
   const u = new URL('https://accounts.spotify.com/authorize');
-  Object.entries({ client_id: cid, response_type: 'code', redirect_uri: redirect, code_challenge_method: 'S256', code_challenge: challenge, state, scope: 'user-read-currently-playing user-read-playback-state' })
+  Object.entries({ client_id: cid, response_type: 'code', redirect_uri: redirect, code_challenge_method: 'S256', code_challenge: challenge, state, scope: 'user-read-currently-playing user-read-playback-state user-modify-playback-state' })
     .forEach(([k, v]) => u.searchParams.set(k, v));
   location.replace(u.toString());
 })();

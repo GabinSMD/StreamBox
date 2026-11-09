@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Demandes de musique · StreamBox</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="css/site.css">
+</head>
+<body>
+<main class="wrap">
+  <h2 class="sec" style="margin-top:36px">🎶 Demandes de musique</h2>
+  <p class="sec">Tes viewers demandent des morceaux avec <code>!sr</code>. La file tourne sur le relais StreamBox, et toi et tes modos la gérez ici ou depuis le chat.</p>
+  <div id="need" class="box" hidden></div>
+
+  <div id="app" hidden>
+    <section class="box bt-status">
+      <div class="bt-row">
+        <label class="bt-toggle"><input type="checkbox" id="enabled"><b id="enabledLabel"></b></label>
+        <span class="flag" id="st"></span>
+      </div>
+      <div class="note" id="warn" hidden></div>
+      <div class="pn-row"><span class="bt-help">File publique pour tes viewers :</span><input type="text" id="pubLink" readonly style="flex:1;min-width:200px"><button class="btn small" id="copyPub" type="button">Copier</button><a class="btn ghost small" id="openPub" target="_blank" rel="noopener">Ouvrir</a></div>
+      <p class="bt-help" id="cmdHelp"></p>
+    </section>
+
+    <div class="bt-grid">
+      <div>
+        <section class="box">
+          <h3 class="bt-h">▶ En cours</h3>
+          <div id="current"></div>
+          <h3 class="bt-h" style="margin-top:16px">📋 File d’attente <small id="count"></small></h3>
+          <div id="queue"></div>
+          <div class="pn-row"><button class="btn ghost small" data-a="clear">Vider la file</button><button class="btn ghost small" id="pause" type="button"></button></div>
+          <details class="more" style="margin-top:14px"><summary>Déjà joués</summary><div id="history"></div></details>
+        </section>
+      </div>
+      <aside class="bt-side">
+        <section class="box">
+          <h3 class="bt-h">⚙️ Réglages</h3>
+          <div id="settings" class="sr-settings"></div>
+        </section>
+        <div class="bt-save"><span id="dirty"></span><button class="btn" id="save" type="button">Enregistrer</button></div>
+      </aside>
+    </div>
+  </div>
+</main>
+<script src="js/config.js"></script>
+<script src="js/account.js"></script>
+<script src="js/site.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+let cfg, Q, info, dirty = false;
+const len = (s) => (s ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` : '');
+function mark() { dirty = true; $('dirty').textContent = 'Modifications non enregistrées'; }
+function field(key, label, type, opts = {}) {
+  const l = el('label', 'bt-f' + (type === 'check' ? ' check' : ''));
+  let e;
+  if (type === 'select') { e = el('select'); opts.options.forEach(([v, t]) => { const o = el('option', null, t); o.value = v; e.appendChild(o); }); e.value = cfg[key]; }
+  else if (type === 'check') { e = el('input'); e.type = 'checkbox'; e.checked = !!cfg[key]; }
+  else if (type === 'area') { e = el('textarea'); e.rows = 3; e.value = cfg[key]; e.placeholder = opts.ph || ''; }
+  else { e = el('input'); e.type = type; e.value = cfg[key]; if (type === 'number') { e.min = 0; e.style.maxWidth = '100px'; } }
+  e.addEventListener(type === 'select' || type === 'check' ? 'change' : 'input', () => { cfg[key] = type === 'check' ? e.checked : type === 'number' ? +e.value : e.value; mark(); });
+  l.append(el('span', null, label), e); return l;
+}
+function itemRow(x, i, actions) {
+  const row = el('div', 'sr-item');
+  if (x.thumb) { const img = el('img'); img.src = x.thumb; img.alt = ''; row.appendChild(img); }
+  const t = el('div', 'sr-t'); const a = el('a', null, x.title); a.href = x.url || '#'; a.target = '_blank'; a.rel = 'noopener';
+  t.append(i != null ? el('b', 'lv-num', `${i + 1}. `) : '', a, el('small', null, [x.artist, len(x.duration), 'par ' + x.by, x.status === 'error' ? '⚠️ illisible' : x.status === 'skipped' ? 'passé' : x.status === 'spotify' ? 'envoyé à Spotify' : ''].filter(Boolean).join(' · ')));
+  row.appendChild(t);
+  (actions || []).forEach(([label, title, fn]) => { const b = el('button', 'btn ghost small', label); b.type = 'button'; b.title = title; b.onclick = fn; row.appendChild(b); });
+  return row;
+}
+async function act(action, n, dir) { try { apply(await SBA.api('POST', '/me/sr/action', { action, n, dir })); } catch (e) { toast('Erreur : ' + e.message); } }
+function apply(d) { info = d; Q = d.queue; if (!dirty) cfg = d.cfg; render(); }
+function render() {
+  $('enabled').checked = cfg.enabled; $('enabledLabel').textContent = cfg.enabled ? 'Demandes ouvertes' : 'Demandes fermées';
+  $('st').textContent = Q.paused ? '⏸ en pause' : cfg.source === 'spotify' ? 'source : Spotify' : 'source : YouTube';
+  $('pause').textContent = Q.paused ? '▶ Reprendre les demandes' : '⏸ Mettre en pause';
+  $('cmdHelp').innerHTML = '';
+  $('cmdHelp').append('Chat : ', el('code', null, `${cfg.cmd} titre ou lien`), ' · ', el('code', null, '!song'), ' · ', el('code', null, '!file'), ' · ', el('code', null, '!wrongsong'), ' · modos : ', el('code', null, '!skip'), ' ', el('code', null, `${cfg.cmd} pause | reprendre | clear`));
+  const link = new URL('demandes.html?c=' + SBA.session().login, location.href).toString(); $('pubLink').value = link; $('openPub').href = link;
+  const warn = [];
+  if (cfg.source === 'youtube') {
+    warn.push('Ajoute l’overlay 🎧 Lecteur dans OBS (enregistré dans ton compte) : c’est lui qui joue la file. Coche « Contrôler l’audio via OBS ».');
+    if (!info.ytSearch) warn.push('Recherche par titre désactivée : les viewers doivent envoyer un lien YouTube (le propriétaire du site peut ajouter YOUTUBE_API_KEY au relais).');
+  } else if (!info.spotify) warn.push('Connecte Spotify dans Mon compte (Spotify Premium nécessaire pour ajouter à la file).');
+  $('warn').hidden = !warn.length; $('warn').replaceChildren(...warn.map((w) => el('div', null, '• ' + w)));
+  if (cfg.source === 'youtube') { const a = el('a', 'btn small', 'Configurer le Lecteur'); a.href = 'outil.html?id=lecteur'; $('warn').appendChild(a); }
+  $('current').replaceChildren(Q.current ? itemRow(Q.current, null, [['⏭', 'Passer', () => act('skip')]]) : el('p', 'bt-help', cfg.source === 'spotify' ? 'Avec Spotify, les morceaux vont directement dans ta file Spotify (voir « Déjà joués »).' : 'Rien en cours.'));
+  $('count').textContent = Q.items.length ? `${Q.items.length} morceau(x)` : '';
+  $('queue').replaceChildren(...(Q.items.length ? Q.items.map((x, i) => itemRow(x, i, [['▲', 'Monter', () => act('move', x.n, -1)], ['▼', 'Descendre', () => act('move', x.n, 1)], ['▶', 'Jouer maintenant', () => act('playnow', x.n)], ['✕', 'Retirer', () => act('remove', x.n)]])) : [el('p', 'bt-help', 'File vide.')]));
+  $('history').replaceChildren(...(Q.history.length ? Q.history.map((x) => itemRow(x)) : [el('p', 'bt-help', 'Rien pour l’instant.')]));
+  if (!dirty) $('settings').replaceChildren(
+    field('source', 'Source', 'select', { options: [['youtube', 'YouTube (overlay Lecteur dans OBS)'], ['spotify', 'Spotify (ta file Spotify, Premium)']] }),
+    field('level', 'Qui peut demander', 'select', { options: [['everyone', 'Tout le monde'], ['sub', 'Abonnés'], ['vip', 'VIP'], ['mod', 'Modos']] }),
+    field('maxPerUser', 'Demandes en attente par viewer', 'number'), field('maxQueue', 'Taille max de la file', 'number'),
+    field('maxMinutes', 'Durée max d’un morceau (min)', 'number'), field('cooldown', 'Délai entre deux demandes (s)', 'number'),
+    field('volume', 'Volume du Lecteur (0-100)', 'number'), field('cmd', 'Commande', 'text'),
+    field('announce', 'Le bot annonce chaque morceau ajouté', 'check'),
+    field('blocklist', 'Mots interdits (titre ou artiste)', 'area', { ph: 'un mot par ligne' }));
+}
+async function save() {
+  try { const d = await SBA.api('PUT', '/me/sr', cfg); dirty = false; apply(d); $('dirty').textContent = d.errors && d.errors.length ? '⚠️ ' + d.errors.join(' · ') : 'Enregistré ✓'; }
+  catch (e) { $('dirty').textContent = 'Erreur : ' + e.message; }
+}
+$('save').onclick = save;
+$('enabled').onchange = () => { cfg.enabled = $('enabled').checked; save(); };
+$('pause').onclick = () => act(Q.paused ? 'resume' : 'pause');
+document.querySelector('[data-a="clear"]').onclick = () => { if (confirm('Vider toute la file ?')) act('clear'); };
+$('copyPub').onclick = async () => { await navigator.clipboard.writeText($('pubLink').value).catch(() => {}); toast('Lien copié'); };
+addEventListener('beforeunload', (e) => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
+setInterval(async () => { if (SBA.loggedIn() && cfg) { try { apply(await SBA.api('GET', '/me/sr')); } catch (e) { /* ignore */ } } }, 4000);
+(async () => {
+  if (!SBA.enabled() || !SBA.loggedIn()) {
+    $('need').hidden = false; $('need').append(el('p', 'lead', 'Les demandes de musique sont liées à ton compte StreamBox : connecte-toi avec Twitch.'));
+    const b = el('button', 'btn', 'Se connecter avec Twitch'); b.onclick = () => SBA.login('sr.html'); $('need').appendChild(b); return;
+  }
+  try { apply(await SBA.api('GET', '/me/sr')); $('app').hidden = false; } catch (e) { $('need').hidden = false; $('need').textContent = 'Erreur : ' + e.message; }
+})();
+</script>
+</body>
+</html>

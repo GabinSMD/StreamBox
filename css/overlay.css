@@ -256,3 +256,16 @@ img.emote { height: 1.6em; vertical-align: middle; margin: -0.3em 0.1em; }
 .dc-panel { top: 12px; bottom: auto; }
 .dc-log { font-size: .7em; opacity: .85; font-weight: 500; }
 .dc-log div { margin-top: 3px; }
+
+/* ---------- LECTEUR (demandes de musique) ---------- */
+.lt { position: absolute; inset: 8px; display: flex; gap: 14px; align-items: center; background: rgba(var(--panel-rgb, 16, 12, 26), var(--panel-a, .9)); border-radius: var(--radius, 18px); padding: 10px; box-shadow: 0 10px 30px rgba(0,0,0,.4); transition: opacity .6s, transform .6s; }
+.lt-hide .lt { opacity: 0; transform: translateY(20px); }
+.lt-player { flex: none; width: 240px; aspect-ratio: 16 / 9; border-radius: calc(var(--radius, 18px) * .6); overflow: hidden; background: #000; position: relative; }
+.lt-player iframe, .lt-player > div { width: 100%; height: 100%; border: 0; }
+.lt-fake { display: grid !important; place-items: center; background: linear-gradient(135deg, var(--accent), #ff5ca8); font-weight: 800; font-size: .7em; text-align: center; padding: 6px; }
+.lt-info { min-width: 0; flex: 1; }
+.lt-title { font-weight: 800; font-size: 1.05em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lt-meta { font-size: .8em; opacity: .8; font-weight: 600; }
+.lt-video .lt { flex-direction: column; align-items: stretch; }
+.lt-video .lt-player { width: 100%; flex: 1; aspect-ratio: auto; }
+.lt-idle .lt-player { opacity: .4; }

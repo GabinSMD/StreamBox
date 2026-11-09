@@ -215,6 +215,17 @@
       ],
     },
     {
+      id: 'lecteur', icon: '🎧', name: 'Lecteur (demandes de musique)', overlay: 'overlays/lecteur.html', size: [640, 160],
+      tagline: 'Joue la file des demandes !sr du chat (YouTube) dans OBS, avec le titre et le pseudo de la personne qui l’a demandé.',
+      replaces: ['Nightbot Song Requests', 'StreamElements Media Request'],
+      note: 'Nécessite un compte StreamBox : enregistre cet overlay dans ton compte et colle son lien court dans OBS. Coche « Contrôler l’audio via OBS » dans la source. Les réglages de la file (qui peut demander, durée max, volume…) sont sur la page Demandes de musique.',
+      fields: [
+        { key: 'style', label: 'Affichage', type: 'select', default: 'carte', options: [['carte', 'Petite vidéo + titre'], ['video', 'Vidéo en grand + titre']] },
+        { key: 'hideidle', label: 'Cacher quand la file est vide', type: 'checkbox', default: true },
+        size(20), font, accent,
+      ],
+    },
+    {
       id: 'discord', icon: '📣', name: 'Annonces Discord', overlay: 'overlays/discord.html', size: [520, 300],
       tagline: 'Annonce ton live sur Discord dès qu’il commence, poste un récap à la fin, et laisse tes modos écrire sur Discord depuis le chat.',
       replaces: ['bots d’annonce de live (MEE6, Streamcord…)'],
@@ -324,6 +335,7 @@
 
   window.SB_PAGES = [
     { id: 'subathon-live', icon: '⏱️', name: 'Subathon en direct + page viewers', href: 'subathon.html', tagline: 'Le timer tourne sur le relais, même OBS fermé. Une page publique montre aux viewers le temps restant et les paliers, et leur permet de proposer et voter des idées.', replaces: ['marathon-timer.com', 'pages de subathon faites à la main'] },
+    { id: 'sr', icon: '🎶', name: 'Demandes de musique', href: 'sr.html', tagline: 'Tes viewers demandent des morceaux avec !sr (YouTube ou Spotify) : file d’attente, limites, modération, page publique.', replaces: ['Nightbot Song Requests', 'StreamElements Media Request'] },
     { id: 'bot', icon: '🤖', name: 'Bot de chat', href: 'bot.html', tagline: 'Commandes, messages automatiques, modération et remerciements. Il tourne 24 h/24 sur le relais, même OBS fermé.', replaces: ['Nightbot', 'Moobot', 'Fossabot', 'Cloudbot'] },
     { id: 'panneau', icon: '🎛️', name: 'Panneau de contrôle', href: 'panneau.html', tagline: 'Des boutons pour piloter sondages, giveaways, subathon, roue, objectifs et scènes OBS, sans taper de commandes. Utilisable comme dock OBS.', replaces: ['Kloot', 'Poltergeist', 'Xenon'] },
     { id: 'integrations', icon: '🔌', name: 'Intégrations', href: 'integrations.html', tagline: 'Twitch, OBS, Discord, Spotify, Deezer, YouTube Music, Ko-fi, StreamElements, Streamlabs : ce que chaque service apporte et comment le brancher.', replaces: [] },

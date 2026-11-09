@@ -49,6 +49,11 @@ Ensuite, redéploie (`wrangler deploy`) pour activer les messages automatiques.
 
 Les streamers qui le choisissent tapent `/mod StreamBoxBot` dans leur chat pour que la modération marche.
 
+### Demandes de musique (facultatif)
+
+- **Recherche YouTube par titre et durée maximum** : crée une clé API « YouTube Data API v3 » sur https://console.cloud.google.com (gratuite, 10 000 unités par jour, soit environ 100 recherches), puis `wrangler secret put YOUTUBE_API_KEY`. Sans clé, les viewers envoient un lien YouTube.
+- **Spotify** : si le site a son propre Client ID Spotify, `wrangler secret put SPOTIFY_CLIENT_ID` (sinon, celui enregistré par chaque streamer est utilisé).
+
 > ⚠️ Ne perds pas `ENCRYPTION_KEY` : sans elle, les jetons enregistrés ne peuvent plus être lus, et chaque streamer devra les ressaisir. Ces mêmes identifiants servent aussi à l'extension, pour trouver le début des VODs Twitch.
 
 ## Brancher Ko-fi
