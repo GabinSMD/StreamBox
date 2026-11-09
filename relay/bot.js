@@ -10,7 +10,7 @@ export const DEFAULT_BOT = {
     { name: '!discord', aliases: [], response: 'Rejoins le Discord : https://discord.gg/ton-lien', level: 'everyone', cooldown: 10, userCooldown: 0, enabled: true, count: 0 },
     { name: '!bonjour', aliases: ['!salut'], response: 'Bienvenue {user} ! 👋', level: 'everyone', cooldown: 5, userCooldown: 30, enabled: true, count: 0 },
   ],
-  builtins: { commandes: true, uptime: true, followage: true, so: true, addcom: true, permit: true },
+  builtins: { commandes: true, uptime: true, followage: true, so: true, addcom: true, permit: true, clip: true },
   timers: [{ message: 'Pense à follow la chaîne si le live te plaît 💜', interval: 20, minLines: 10, enabled: false }],
   mod: {
     permitSecs: 60,
@@ -157,13 +157,23 @@ export async function onChat(cfg, st, ev, api, channel) {
 
   if (B.commandes && (name === '!commandes' || name === '!commands')) {
     const list = cfg.commands.filter((c) => c.enabled && LEVELS[c.level] <= level).map((c) => c.name);
-    const builtins = [B.uptime && '!uptime', B.followage && '!followage'].filter(Boolean);
+    const builtins = [B.uptime && '!uptime', B.followage && '!followage', B.clip && '!clip'].filter(Boolean);
     return api.say(`Commandes : ${[...list, ...builtins].join(' ') || 'aucune'}`.slice(0, 480));
   }
   if (B.uptime && name === '!uptime') return api.say(st.live && st.startedAt ? `${channel} est en live depuis ${fmtDur(now - st.startedAt)}.` : `${channel} n’est pas en live.`);
   if (B.followage && name === '!followage') {
     const f = await api.followedAt(ev.userId).catch(() => null);
     return api.say(f ? `${ev.name} suit ${channel} depuis ${fmtSince(f)}.` : `${ev.name} ne suit pas encore ${channel}.`, ev.messageId);
+  }
+  if (B.clip && name === '!clip') { // clip des 30 dernières secondes, posté aussi sur Discord si un webhook est enregistré
+    if (!st.live) return api.say(`${channel} n’est pas en live : pas de clip possible.`);
+    if (!isMod && now - (st.clipAt || 0) < 30000) return null; // un clip toutes les 30 s au plus
+    st.clipAt = now;
+    const c = await api.clip().catch((e) => ({ error: e.message }));
+    if (!c || !c.id) return api.say(`Impossible de créer le clip${c && c.error ? ' : ' + c.error : ''}.`);
+    const url = 'https://clips.twitch.tv/' + c.id;
+    await api.discord(`🎬 Nouveau clip de ${channel}, créé par ${ev.name} : ${url}`).catch(() => {});
+    return api.say(`🎬 Clip créé par ${ev.name} : ${url}`);
   }
   if (B.so && name === '!so' && isMod && touser) {
     const u = await api.user(touser).catch(() => null);

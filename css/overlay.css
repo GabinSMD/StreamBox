@@ -305,3 +305,40 @@ img.emote { height: 1.6em; vertical-align: middle; margin: -0.3em 0.1em; }
 .pf.yt { background: #ff0033; } .pf.yt::after { content: '▶'; font-size: .8em; }
 .msg.paid { box-shadow: inset 4px 0 0 #ffb300; }
 .paid-amount { color: #ffb300; }
+
+/* ---------- Compteurs ---------- */
+.ct { position: absolute; left: 12px; top: 12px; display: flex; flex-direction: column; gap: 10px; }
+.ct-ligne .ct { flex-direction: row; flex-wrap: wrap; }
+.ct-row { display: flex; align-items: center; gap: .6em; transition: transform .2s; }
+.ct-carte .ct-row { background: rgba(var(--panel-rgb, 16, 12, 26), var(--panel-a, .9)); border-radius: var(--radius, 16px); padding: .35em .8em; border-left: 4px solid var(--accent); box-shadow: 0 8px 24px rgba(0,0,0,.35); }
+.ct-texte .ct-row { text-shadow: 0 2px 6px rgba(0,0,0,.9), 0 0 2px #000; }
+.ct-l { font-weight: 700; }
+.ct-v { font-size: 1.25em; font-weight: 900; color: var(--accent); font-variant-numeric: tabular-nums; min-width: 1.2em; text-align: right; }
+.ct-row.bump { animation: ct-bump .45s ease; }
+@keyframes ct-bump { 40% { transform: scale(1.18); } }
+
+/* ---------- Sons des viewers ---------- */
+.snd { position: absolute; left: 12px; bottom: 12px; display: flex; flex-direction: column; gap: 2px; background: rgba(var(--panel-rgb, 16, 12, 26), var(--panel-a, .92)); border-radius: var(--radius, 16px); padding: 10px 16px; border-left: 5px solid var(--accent); box-shadow: 0 10px 30px rgba(0,0,0,.4); opacity: 0; transform: translateY(16px); transition: opacity .3s, transform .3s; }
+.snd-on .snd { opacity: 1; transform: none; }
+.snd-n { font-weight: 800; }
+.snd-by { font-size: .7em; opacity: .8; }
+
+/* ---------- QR code de dons ---------- */
+.qr { position: absolute; right: 12px; bottom: 12px; display: flex; flex-direction: column; align-items: center; gap: 8px; background: rgba(var(--panel-rgb, 16, 12, 26), var(--panel-a, .92)); border-radius: var(--radius, 18px); padding: 14px 16px; box-shadow: 0 10px 30px rgba(0,0,0,.4); border-top: 4px solid var(--accent); opacity: 0; transform: scale(.92); transition: opacity .5s, transform .5s; max-width: calc(100% - 24px); }
+.qr.on { opacity: 1; transform: none; }
+.qr-title { font-weight: 800; text-align: center; }
+.qr-code { width: var(--qr, 220px); height: var(--qr, 220px); border-radius: 10px; overflow: hidden; }
+.qr-code svg { width: 100%; height: 100%; display: block; }
+.qr-label { font-weight: 800; color: var(--accent); }
+.qr-url { font-size: .65em; opacity: .85; overflow-wrap: anywhere; text-align: center; }
+
+/* ---------- Générique de fin ---------- */
+.cr { position: absolute; inset: 0; overflow: hidden; text-align: center; }
+.cr-bg { background: #0b0812; }
+.cr-roll { position: absolute; left: 0; right: 0; top: 0; padding: 0 8%; will-change: transform; text-shadow: 0 2px 8px rgba(0,0,0,.8); }
+.cr-title { font-size: 1.9em; font-weight: 900; margin: 0 0 .3em; }
+.cr-end { margin-top: 1.5em; }
+.cr-sub { margin: 0 0 .2em; opacity: .85; }
+.cr-sec { margin-top: 2.2em; }
+.cr-sec h2 { font-size: 1.05em; color: var(--accent); text-transform: uppercase; letter-spacing: .12em; margin: 0 0 .6em; }
+.cr-sec ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .3em; font-weight: 700; }

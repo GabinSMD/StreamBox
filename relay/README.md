@@ -61,6 +61,10 @@ Rien à configurer. Le relais trouve le salon de chat d'une chaîne Kick (`/kick
 
 Activées depuis la page Statistiques. Pendant le live, l'alarme du compte relève chaque minute les viewers, le titre et la catégorie (API Twitch, jeton d'application) ; hors live, elle vérifie toutes les 5 minutes si le live a commencé. Avec `EVENTSUB_SECRET`, les follows, abos, bits, raids et messages du chat sont aussi comptés (le chat demande les permissions du bot). Les 200 derniers lives sont gardés ; seuls le nombre de chatteurs et le top 10 sont conservés, pas la liste complète.
 
+### Générique de fin et `!clip`
+
+Le générique de fin lit les pseudos notés par les Statistiques (`GET /o/:id/credits` : live en cours, ou dernier live s'il date de moins de 12 h ; 300 pseudos au plus par liste). `!clip` crée le clip avec le compte du streamer (permission `clips:edit`, déjà demandée à la connexion) et le poste sur Discord si un webhook est enregistré dans Mon compte.
+
 ### Panneau de modération
 
 Rien à configurer sur le relais : chaque modo se connecte avec son compte Twitch (permissions de modération demandées à ce moment-là). La page récupère le jeton du modo par `GET /me/twitch-token`, le garde en mémoire et agit directement auprès de Twitch, en son nom.

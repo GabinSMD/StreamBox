@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>StreamBox · QR code de dons</title>
+<link rel="stylesheet" href="../css/overlay.css">
+<script src="../js/i18n.js"></script>
+</head>
+<body>
+<div class="qr" id="card">
+  <div class="qr-title" id="title"></div>
+  <div class="qr-code" id="code" role="img"></div>
+  <div class="qr-label" id="label"></div>
+  <div class="qr-url" id="url"></div>
+</div>
+<script src="../js/config.js"></script>
+<script src="../js/sb.js"></script>
+<script src="../js/vendor/qrcode.js"></script>
+<script>
+/* QR code vers tes pages de dons (Ko-fi, PayPal, Tipeee…), généré dans l'overlay : aucun service extérieur.
+ * Plusieurs liens : ils s'affichent à tour de rôle. Mode « de temps en temps » : visible quelques secondes toutes les N minutes. */
+const c = SB.params({
+  links: 'Ko-fi | https://ko-fi.com/ta_page', title: 'Soutiens le stream 💜', rotate: 12, mode: 'toujours', every: 10, visible: 30,
+  qrsize: 220, showurl: true, dark: '#100c1a', light: '#ffffff', size: 22, font: 'Inter', accent: '#9b5cff', demo: false,
+});
+SB.loadFont(c.font); SB.setAccent(c.accent);
+document.documentElement.style.setProperty('--size', c.size + 'px');
+document.documentElement.style.setProperty('--qr', c.qrsize + 'px');
+const $ = (id) => document.getElementById(id);
+const links = c.links.split('\n').map((l) => { const i = l.indexOf('|'); return i < 0 ? ['', l.trim()] : [l.slice(0, i).trim(), l.slice(i + 1).trim()]; })
+  .filter(([, u]) => /^https?:\/\/\S+$/i.test(u)).slice(0, 6);
+$('title').textContent = c.title;
+
+/* Le QR code est dessiné en SVG (net à toutes les tailles), sans innerHTML */
+function draw(url) {
+  const qr = qrcode(0, 'M'); qr.addData(url); qr.make();
+  const n = qr.getModuleCount(), q = 2, NS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(NS, 'svg'); svg.setAttribute('viewBox', `0 0 ${n + 2 * q} ${n + 2 * q}`); svg.setAttribute('shape-rendering', 'crispEdges');
+  const bg = document.createElementNS(NS, 'rect'); bg.setAttribute('width', n + 2 * q); bg.setAttribute('height', n + 2 * q); bg.setAttribute('fill', c.light); svg.appendChild(bg);
+  let d = '';
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) if (qr.isDark(y, x)) d += `M${x + q},${y + q}h1v1h-1z`;
+  const p = document.createElementNS(NS, 'path'); p.setAttribute('d', d); p.setAttribute('fill', c.dark); svg.appendChild(p);
+  $('code').replaceChildren(svg);
+}
+let i = 0;
+function showLink() {
+  if (!links.length) { $('label').textContent = SB.t('Ajoute un lien de dons dans les réglages'); return; }
+  const [label, url] = links[i % links.length]; i++;
+  draw(url);
+  $('label').textContent = label; $('url').textContent = c.showurl ? url.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '') : '';
+  $('code').setAttribute('aria-label', label || url);
+}
+showLink();
+if (links.length > 1) setInterval(showLink, Math.max(3, c.rotate) * 1000);
+
+// Toujours visible, ou de temps en temps (visible `visible` s toutes les `every` minutes)
+const card = $('card');
+if (c.mode === 'parfois' && !c.demo) {
+  const cycle = () => { card.classList.add('on'); setTimeout(() => card.classList.remove('on'), c.visible * 1000); };
+  cycle(); setInterval(cycle, Math.max(1, c.every) * 60000);
+} else card.classList.add('on');
+SB.remote('qrdons', '', () => { card.classList.add('on'); if (c.mode === 'parfois') setTimeout(() => card.classList.remove('on'), c.visible * 1000); });
+</script>
+</body>
+</html>

@@ -132,7 +132,7 @@ function renderCmds() {
   });
 }
 function renderBuiltins() {
-  const L = { commandes: '!commandes : liste des commandes', uptime: '!uptime : durée du live', followage: '!followage : depuis quand on suit la chaîne', so: '!so @pseudo : shoutout (modos)', addcom: '!addcom / !editcom / !delcom depuis le chat (modos)', permit: '!permit @pseudo : autorise un lien (modos)' };
+  const L = { commandes: '!commandes : liste des commandes', uptime: '!uptime : durée du live', followage: '!followage : depuis quand on suit la chaîne', so: '!so @pseudo : shoutout (modos)', addcom: '!addcom / !editcom / !delcom depuis le chat (modos)', permit: '!permit @pseudo : autorise un lien (modos)', clip: '!clip : crée un clip des 30 dernières secondes (et le poste sur Discord si un webhook est enregistré)' };
   const box = $('builtins'); box.replaceChildren();
   Object.keys(L).forEach((k) => box.appendChild(labeled(L[k], input(cfg.builtins, k, { check: true }), 'check')));
 }

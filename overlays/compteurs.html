@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>StreamBox · Compteurs</title>
+<link rel="stylesheet" href="../css/overlay.css">
+<script src="../js/i18n.js"></script>
+</head>
+<body>
+<div class="ct" id="list"></div>
+<script src="../js/config.js"></script>
+<script src="../js/sb.js"></script>
+<script>
+/* Compteurs (morts, victoires, défis…) pilotés depuis le chat :
+ *   !mort        affiche (rien ne change)       !mort +   !mort +3   !mort -   !mort = 12   !mort reset
+ * La valeur est gardée dans OBS (elle ne se perd pas si la source se recharge). */
+const c = SB.params({
+  channel: '', counters: 'mort | 💀 Morts\nwin | 🏆 Victoires', level: 'mod', style: 'carte', layout: 'colonne',
+  size: 34, font: 'Inter', accent: '#9b5cff', demo: false,
+});
+SB.loadFont(c.font); SB.setAccent(c.accent);
+document.documentElement.style.setProperty('--size', c.size + 'px');
+document.body.classList.add('ct-' + c.style, 'ct-' + c.layout);
+const LEVEL = { everyone: 0, sub: 1, vip: 2, mod: 3 };
+const level = (m) => (m.isBroadcaster ? 4 : m.isMod ? 3 : m.isVip ? 2 : m.isSub ? 1 : 0);
+const defs = c.counters.split('\n').map((l) => l.split('|').map((x) => x.trim())).filter(([id]) => id)
+  .map(([id, label]) => ({ id: id.replace(/^!/, '').toLowerCase().replace(/\s+/g, ''), label: label || id })).slice(0, 8);
+const key = 'sb-compteurs:' + (new URLSearchParams(location.search).get('o') || c.channel || 'local');
+let vals = {};
+try { vals = JSON.parse(localStorage.getItem(key) || '{}'); } catch (e) { /* ignore */ }
+const save = () => { try { localStorage.setItem(key, JSON.stringify(vals)); } catch (e) { /* ignore */ } };
+
+const box = document.getElementById('list'), rows = {};
+defs.forEach((d) => {
+  const row = SB.el('div', 'ct-row');
+  const v = SB.el('b', 'ct-v', String(vals[d.id] || 0));
+  row.append(SB.el('span', 'ct-l', d.label), v);
+  box.appendChild(row); rows[d.id] = { row, v };
+});
+function set(id, n) {
+  vals[id] = Math.max(-999999, Math.min(999999, Math.round(n)));
+  save();
+  const r = rows[id]; r.v.textContent = String(vals[id]);
+  r.row.classList.remove('bump'); void r.row.offsetWidth; r.row.classList.add('bump');
+}
+function onMessage(m) {
+  const d = defs.find((x) => SB.command(m, '!' + x.id) !== null);
+  if (!d || level(m) < LEVEL[c.level]) return;
+  const a = SB.command(m, '!' + d.id).trim().toLowerCase(), cur = vals[d.id] || 0;
+  let r;
+  if (!a) return;
+  if (a === '+' || a === '++') set(d.id, cur + 1);
+  else if (a === '-' || a === '--') set(d.id, cur - 1);
+  else if ((r = a.match(/^([+-])\s*(\d{1,6})$/))) set(d.id, cur + (r[1] === '-' ? -1 : 1) * +r[2]);
+  else if ((r = a.match(/^=?\s*(\d{1,6})$/))) set(d.id, +r[1]);
+  else if (/^(reset|zero|zéro|0)$/.test(a)) set(d.id, 0);
+}
+const chat = new SB.TwitchChat(c.channel);
+chat.on('message', onMessage).connect();
+SB.remote('compteurs', '', (m) => { // le panneau envoie « mort +1 » : on en fait « !mort +1 »
+  const t = m.text.trim(); onMessage(Object.assign(m, { text: t.startsWith('!') ? t : '!' + t }));
+});
+if (c.demo) {
+  const ids = defs.map((d) => d.id);
+  setInterval(() => { const id = ids[Math.floor(Math.random() * ids.length)]; if (id) chat.inject(SB.fake({ user: SB.demoBroadcaster, text: `!${id} +` })); }, 2200);
+}
+SB.hintIfNoChannel(c);
+</script>
+</body>
+</html>

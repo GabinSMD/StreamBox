@@ -244,6 +244,84 @@
       ],
     },
     {
+      id: 'generique', icon: '🎬', name: 'Générique de fin', overlay: 'overlays/generique.html', size: [1920, 1080],
+      tagline: 'Fait défiler les abos, abos offerts, bits, dons, raids, nouveaux follows et chatteurs du live, comme au cinéma.',
+      replaces: ['Crédits de fin de Streamer.bot', 'StreamElements Credits'],
+      note: 'Nécessite un compte StreamBox avec les Statistiques activées : c’est le relais qui note les noms pendant le live. Enregistre cet overlay dans ton compte et mets-le dans ta scène de fin : il redémarre à chaque fois qu’il devient visible.',
+      fields: [
+        { key: 'title', label: 'Titre', type: 'text', default: 'Merci d’avoir regardé ! 💜' },
+        { key: 'end', label: 'Texte de fin', type: 'text', default: 'À la prochaine !' },
+        { key: 'speed', label: 'Vitesse de défilement (pixels par seconde)', type: 'number', default: 60, min: 10, max: 400 },
+        { key: 'loop', label: 'Recommencer en boucle', type: 'checkbox', default: false },
+        { key: 'subs', label: 'Abonnements', type: 'checkbox', default: true },
+        { key: 'gifts', label: 'Abonnements offerts', type: 'checkbox', default: true },
+        { key: 'bits', label: 'Bits', type: 'checkbox', default: true },
+        { key: 'dons', label: 'Dons', type: 'checkbox', default: true },
+        { key: 'raids', label: 'Raids', type: 'checkbox', default: true },
+        { key: 'follows', label: 'Nouveaux follows', type: 'checkbox', default: true },
+        { key: 'chatters', label: 'Chatteurs (les plus actifs d’abord)', type: 'checkbox', default: true },
+        { key: 'maxchat', label: 'Chatteurs affichés au maximum', type: 'number', default: 40, min: 1, max: 100 },
+        { key: 'bg', label: 'Fond noir (sinon transparent)', type: 'checkbox', default: false },
+        size(30), font, accent,
+      ],
+    },
+    {
+      id: 'compteurs', icon: '🔢', name: 'Compteurs', overlay: 'overlays/compteurs.html', size: [500, 300],
+      tagline: 'Morts, victoires, défis… Tes modos les font monter depuis le chat, et ils restent à l’écran.',
+      replaces: ['Compteurs StreamElements / Nightbot', 'Death counter'],
+      commands: [['!mort +', 'Ajoute 1 (ou !mort +3)'], ['!mort -', 'Retire 1'], ['!mort = 12', 'Règle la valeur'], ['!mort reset', 'Remet à zéro']],
+      note: 'Chaque ligne crée un compteur : « mort | 💀 Morts » donne la commande !mort. La valeur est gardée dans OBS, même si la source se recharge.',
+      fields: [
+        channel,
+        { key: 'counters', label: 'Compteurs (un par ligne : commande | libellé)', type: 'textarea', default: 'mort | 💀 Morts\nwin | 🏆 Victoires' },
+        { key: 'level', label: 'Qui peut les modifier', type: 'select', default: 'mod', options: [['mod', 'Modos'], ['vip', 'VIP et modos'], ['sub', 'Abonnés'], ['everyone', 'Tout le monde']] },
+        { key: 'style', label: 'Style', type: 'select', default: 'carte', options: [['carte', 'Cartes'], ['texte', 'Texte avec ombre']] },
+        { key: 'layout', label: 'Disposition', type: 'select', default: 'colonne', options: [['colonne', 'En colonne'], ['ligne', 'En ligne']] },
+        size(34), font, accent,
+      ],
+    },
+    {
+      id: 'sons', icon: '🔉', name: 'Sons des viewers', overlay: 'overlays/sons.html', size: [600, 160],
+      tagline: 'Tes viewers jouent des sons sur le stream avec une commande, des points de chaîne ou des bits.',
+      replaces: ['SoundAlerts'],
+      commands: [['!son tada', 'Joue le son « tada » (selon le niveau et les délais choisis)']],
+      note: 'Un son par ligne : « nom | lien vers un fichier mp3 » (lien https), ou un son intégré : tada, bip, klaxon, tambour, applaudissements. Coche « Contrôler l’audio via OBS » dans la source.',
+      fields: [
+        channel,
+        { key: 'sounds', label: 'Sons (un par ligne : nom | lien ou son intégré)', type: 'textarea', default: 'tada | tada\nklaxon | klaxon\ntambour | tambour\nbip | bip' },
+        { key: 'cmd', label: 'Commande', type: 'text', default: '!son' },
+        { key: 'level', label: 'Qui peut utiliser la commande', type: 'select', default: 'everyone', options: [['everyone', 'Tout le monde'], ['sub', 'Abonnés'], ['vip', 'VIP'], ['mod', 'Modos']] },
+        { key: 'cooldown', label: 'Délai entre deux sons d’un même viewer (s)', type: 'number', default: 60, min: 0 },
+        { key: 'globalcd', label: 'Délai entre deux sons (s)', type: 'number', default: 10, min: 0 },
+        twitch('channel:read:redemptions', 'Connexion Twitch (points de chaîne)'),
+        { key: 'reward', label: 'Récompense « Jouer un son » (le viewer écrit le nom du son)', type: 'text', default: '', help: 'Ou crée une récompense qui porte exactement le nom d’un son.' },
+        { key: 'bits', label: 'Bits minimum pour jouer un son (cheer avec « !son nom », 0 = désactivé)', type: 'number', default: 0, min: 0 },
+        { key: 'volume', label: 'Volume (0 à 1)', type: 'number', default: 0.6, min: 0, max: 1, step: 0.05 },
+        { key: 'maxlen', label: 'Durée maximum d’un son (s)', type: 'number', default: 10, min: 1, max: 60 },
+        { key: 'show', label: 'Afficher le nom du son et du viewer', type: 'checkbox', default: true },
+        size(22), font, accent,
+      ],
+    },
+    {
+      id: 'qrdons', icon: '📱', name: 'QR code de dons', overlay: 'overlays/qrdons.html', size: [400, 420],
+      tagline: 'Un QR code vers ta page Ko-fi, PayPal, Tipeee… que tes viewers scannent avec leur téléphone.',
+      replaces: ['TipStreams'],
+      note: 'Le QR code est généré dans l’overlay : aucun service extérieur. Plusieurs liens s’affichent à tour de rôle.',
+      fields: [
+        { key: 'links', label: 'Liens (un par ligne : nom | lien)', type: 'textarea', default: 'Ko-fi | https://ko-fi.com/ta_page' },
+        { key: 'title', label: 'Titre', type: 'text', default: 'Soutiens le stream 💜' },
+        { key: 'rotate', label: 'Changer de lien toutes les (s)', type: 'number', default: 12, min: 3 },
+        { key: 'mode', label: 'Affichage', type: 'select', default: 'toujours', options: [['toujours', 'Toujours visible'], ['parfois', 'De temps en temps']] },
+        { key: 'every', label: 'De temps en temps : toutes les (min)', type: 'number', default: 10, min: 1 },
+        { key: 'visible', label: 'De temps en temps : visible pendant (s)', type: 'number', default: 30, min: 5 },
+        { key: 'qrsize', label: 'Taille du QR code (px)', type: 'number', default: 220, min: 100, max: 600 },
+        { key: 'showurl', label: 'Afficher le lien sous le QR code', type: 'checkbox', default: true },
+        { key: 'dark', label: 'Couleur du QR code', type: 'color', default: '#100c1a' },
+        { key: 'light', label: 'Fond du QR code', type: 'color', default: '#ffffff' },
+        size(22), font, accent,
+      ],
+    },
+    {
       id: 'tts', icon: '🔊', name: 'Lecture à voix haute (TTS)', overlay: 'overlays/tts.html', size: [700, 200],
       tagline: 'Lit à voix haute les !tts de ton chat, les messages des cheers, des dons et d’une récompense de points de chaîne.',
       replaces: ['TTS de StreamElements / Streamlabs', 'Speechify bots'],
@@ -422,7 +500,7 @@
     { key: 'sejwt', label: 'Jeton JWT StreamElements', type: 'text', default: '', group: 'dons', help: 'StreamElements → Mon compte → Chaînes → Afficher les secrets. ⚠️ Ce jeton donne accès à ton compte StreamElements : ne montre jamais le lien de l’overlay.' },
   ];
   const WITH_DONS = ['alertes', 'subathon', 'objectifs', 'tts'];
-  const PILOTABLE = ['sondage', 'giveaway', 'subathon', 'minuteur', 'alertes', 'objectifs', 'roue', 'tts'];
+  const PILOTABLE = ['sondage', 'giveaway', 'subathon', 'minuteur', 'alertes', 'objectifs', 'roue', 'tts', 'compteurs', 'sons', 'qrdons', 'generique'];
   /* Catégories de l'accueil. Les outils « merged » sont regroupés dans une autre carte (Subathon, Demandes de musique). */
   window.SB_CATEGORIES = [
     { id: 'communaute', icon: '💬', name: 'Chat et communauté', desc: 'Faire vivre ton chat : affichage, bot, sondages, giveaways, jeux.' },
@@ -432,7 +510,7 @@
     { id: 'outils', icon: '🛠️', name: 'Outils pratiques', desc: 'Piloter tes overlays, préparer tes emotes, estimer tes revenus, trouver d’autres outils.' },
   ];
   const CAT = { chat: 'communaute', bot: 'communaute', sondage: 'communaute', giveaway: 'communaute', roue: 'communaute', emotes: 'communaute', moderation: 'communaute', jeux: 'communaute', minijeux: 'communaute',
-    alertes: 'alertes', objectifs: 'alertes', discord: 'alertes', tts: 'alertes',
+    alertes: 'alertes', objectifs: 'alertes', discord: 'alertes', tts: 'alertes', qrdons: 'alertes', sons: 'communaute', compteurs: 'communaute', generique: 'evenements',
     'subathon-live': 'evenements', minuteur: 'evenements', rewind: 'evenements',
     musique: 'musique', sr: 'musique', extension: 'musique',
     panneau: 'outils', stats: 'outils', integrations: 'outils', resizer: 'outils', calc: 'outils', annuaire: 'outils' };
