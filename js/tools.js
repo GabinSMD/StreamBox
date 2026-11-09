@@ -15,7 +15,7 @@
 
   window.SB_TOOLS = [
     {
-      id: 'chat', icon: '💬', name: 'Chat en overlay', overlay: 'overlays/chat.html', size: [420, 640],
+      id: 'chat', icon: '💬', name: 'Chat en overlay', short: 'Ton chat à l’écran, Twitch, Kick et YouTube réunis, avec les emotes.', overlay: 'overlays/chat.html', size: [420, 640],
       tagline: 'Affiche ton chat sur le stream : Twitch, Kick et YouTube réunis, avec les emotes 7TV, BTTV et FFZ.',
       replaces: ['StreamElements Chatbox', 'ChatIS', 'showmy.chat', 'CodingFreaks Chat Overlay'],
       fields: [
@@ -38,7 +38,7 @@
       ],
     },
     {
-      id: 'alertes', icon: '🔔', name: 'Alertes', overlay: 'overlays/alertes.html', size: [800, 400],
+      id: 'alertes', icon: '🔔', name: 'Alertes', short: 'Abos, raids, bits, follows et dons à l’écran, avec ton texte et ton son.', overlay: 'overlays/alertes.html', size: [800, 400],
       tagline: 'Abonnements, subs offerts, raids, bits, follows, points de chaîne et dons, avec ton texte, tes couleurs et un son.',
       replaces: ['Alertes StreamElements / Streamlabs (subs, raids, bits)'],
       commands: [['!testalerte', 'Lance une série d’alertes de test (modos)']],
@@ -113,7 +113,7 @@
       ],
     },
     {
-      id: 'rewind', icon: '⏪', name: 'Rewind : le condensé des temps forts', overlay: 'overlays/rewind.html', size: [1920, 1080],
+      id: 'rewind', icon: '⏪', name: 'Rewind : le condensé des temps forts', short: 'Le résumé des meilleurs moments du live précédent, repérés tout seuls.', overlay: 'overlays/rewind.html', size: [1920, 1080],
       tagline: 'Pendant le live, StreamBox repère les temps forts grâce aux réactions du chat et à ta voix, et enregistre la vidéo. Au stream suivant, il rejoue le condensé.',
       replaces: ['les compilations de clips faites à la main', 'ClipMe / Voding (repérage des temps forts)'],
       commands: [['!rewind', 'Relance le condensé (modos)'], ['!rewind clip', 'Marque l’instant comme temps fort'], ['!rewind stop', 'Arrête le condensé']],
@@ -156,7 +156,7 @@
       ],
     },
     {
-      id: 'objectifs', icon: '🎯', name: 'Objectifs', overlay: 'overlays/objectifs.html', size: [700, 160],
+      id: 'objectifs', icon: '🎯', name: 'Objectifs', short: 'Une barre d’objectif d’abos, de followers, de bits ou de dons.', overlay: 'overlays/objectifs.html', size: [700, 160],
       tagline: 'Barre d’objectif d’abonnés, de followers, de bits ou de dons, avec des paliers successifs et des confettis.',
       replaces: ['objectifs StreamElements / Streamlabs'],
       commands: [['!objectif +5 / -1', 'Ajoute ou retire'], ['!objectif don 15', 'Ajoute un don (objectif dons)'], ['!objectif set 42', 'Règle la valeur'], ['!objectif reset', 'Revient à la valeur de départ']],
@@ -176,7 +176,7 @@
       ],
     },
     {
-      id: 'roue', icon: '🎡', name: 'Roue de la fortune', overlay: 'overlays/roue.html', size: [900, 900],
+      id: 'roue', icon: '🎡', name: 'Roue de la fortune', short: 'Une roue à défis qui tourne sur commande ou tous les X abos.', overlay: 'overlays/roue.html', size: [900, 900],
       tagline: 'Une roue à défis pour tes subathons : elle tourne sur commande, tous les X abos ou pour des bits.',
       replaces: ['Wheel of Item', 'PickerSpin (roue)'],
       commands: [['!roue', 'Fait tourner la roue (modos)']],
@@ -197,7 +197,7 @@
       ],
     },
     {
-      id: 'musique', icon: '🎵', name: 'Musique en cours', overlay: 'overlays/musique.html', size: [600, 140],
+      id: 'musique', icon: '🎵', name: 'Musique en cours', short: 'Le morceau que tu écoutes, depuis Spotify, Deezer, YouTube Music ou Apple Music.', overlay: 'overlays/musique.html', size: [600, 140],
       tagline: 'Affiche le morceau que tu écoutes : Spotify en direct, ou Deezer, YouTube Music et Apple Music via Last.fm.',
       replaces: ['Tuna', 'Amuse', 'Snip'],
       note: 'Spotify : connexion directe, avec la progression du morceau. Deezer, YouTube Music, Apple Music, SoundCloud… : ces plateformes n’ont pas d’API « morceau en cours ». Passe par Last.fm (gratuit) : Deezer et Spotify y envoient nativement ce que tu écoutes (option « Scrobbling » dans leurs réglages). Pour YouTube Music, installe l’extension Web Scrobbler. Coche « Publier la liste » pour que tes viewers retrouvent les musiques dans tes redifs, avec l’extension StreamBox.',
@@ -244,7 +244,7 @@
       ],
     },
     {
-      id: 'shoutout', icon: '📣', name: 'Shoutout vidéo', overlay: 'overlays/shoutout.html', size: [960, 640],
+      id: 'shoutout', icon: '📣', name: 'Shoutout vidéo', short: '!so @pseudo ou un raid joue un clip de la chaîne citée.', overlay: 'overlays/shoutout.html', size: [960, 640],
       tagline: '!so @pseudo ou un raid joue à l’écran un clip de la chaîne citée, avec son nom, son avatar et son dernier jeu.',
       replaces: ['Shoutout vidéo de Streamer.bot', 'Clip shoutout StreamElements'],
       commands: [['!so @pseudo', 'Joue un clip de cette chaîne (modos)']],
@@ -265,7 +265,7 @@
       ],
     },
     {
-      id: 'clips', icon: '🎞️', name: 'Lecteur de clips', overlay: 'overlays/clips.html', size: [1920, 1080],
+      id: 'clips', icon: '🎞️', name: 'Lecteur de clips', short: 'Tes meilleurs clips en boucle pour l’écran « pause ».', overlay: 'overlays/clips.html', size: [1920, 1080],
       tagline: 'Tes meilleurs clips à la suite, en boucle, pour ton écran « pause » ou « bientôt de retour ».',
       replaces: ['Clip player des écrans d’attente'],
       note: 'Coche « Contrôler l’audio via OBS ». Le lecteur s’arrête quand la scène n’est pas affichée. Le lecteur de Twitch ne s’affiche que sur le site publié (pas dans l’aperçu).',
@@ -284,7 +284,7 @@
       ],
     },
     {
-      id: 'etiquettes', icon: '🏷️', name: 'Étiquettes et bandeau', overlay: 'overlays/etiquettes.html', size: [1920, 80],
+      id: 'etiquettes', icon: '🏷️', name: 'Étiquettes et bandeau', short: 'Dernier follow, dernier abo, top don… en liste ou en bandeau défilant.', overlay: 'overlays/etiquettes.html', size: [1920, 80],
       tagline: 'Dernier follow, dernier abo, dernier don, top bits et top don, nombre de followers et d’abonnés, en liste, à tour de rôle ou dans un bandeau défilant.',
       replaces: ['Labels Streamlabs', 'StreamElements Labels', 'Snaz'],
       note: 'Les valeurs sont gardées dans OBS d’un rechargement à l’autre. Les « top » repartent de zéro chaque jour (ou jamais, au choix).',
@@ -309,7 +309,7 @@
       ],
     },
     {
-      id: 'pngtuber', icon: '🐱', name: 'PNGTuber', overlay: 'overlays/pngtuber.html', size: [600, 600],
+      id: 'pngtuber', icon: '🐱', name: 'PNGTuber', short: 'Un avatar qui ouvre la bouche quand tu parles, sans webcam.', overlay: 'overlays/pngtuber.html', size: [600, 600],
       tagline: 'Un avatar qui ouvre la bouche quand tu parles, cligne des yeux et change d’humeur. Pas de webcam, pas de logiciel.',
       replaces: ['Facecam PNGTuber', 'Veadotube mini', 'PNGTuber Plus'],
       commands: [['!humeur content', 'Change d’humeur (modos), « !humeur normal » pour revenir']],
@@ -347,7 +347,7 @@
       ],
     },
     {
-      id: 'generique', icon: '🎬', name: 'Générique de fin', overlay: 'overlays/generique.html', size: [1920, 1080],
+      id: 'generique', icon: '🎬', name: 'Générique de fin', short: 'Le générique de fin : les abos, raids et soutiens du live, comme au cinéma.', overlay: 'overlays/generique.html', size: [1920, 1080],
       tagline: 'Fait défiler les abos, abos offerts, bits, dons, raids, nouveaux follows et chatteurs du live, comme au cinéma, avec un résumé du live écrit ou lu à voix haute.',
       replaces: ['Crédits de fin de Streamer.bot', 'StreamElements Credits'],
       note: 'Nécessite un compte StreamBox avec les Statistiques activées : c’est le relais qui note les noms pendant le live. Enregistre cet overlay dans ton compte et mets-le dans ta scène de fin : il redémarre à chaque fois qu’il devient visible.',
@@ -372,7 +372,7 @@
       ],
     },
     {
-      id: 'compteurs', icon: '🔢', name: 'Compteurs', overlay: 'overlays/compteurs.html', size: [500, 300],
+      id: 'compteurs', icon: '🔢', name: 'Compteurs', short: 'Morts, victoires, défis… des compteurs que tes modos font monter.', overlay: 'overlays/compteurs.html', size: [500, 300],
       tagline: 'Morts, victoires, défis… Tes modos les font monter depuis le chat, et ils restent à l’écran.',
       replaces: ['Compteurs StreamElements / Nightbot', 'Death counter'],
       commands: [['!mort +', 'Ajoute 1 (ou !mort +3)'], ['!mort -', 'Retire 1'], ['!mort = 12', 'Règle la valeur'], ['!mort reset', 'Remet à zéro']],
@@ -387,7 +387,7 @@
       ],
     },
     {
-      id: 'sons', icon: '🔉', name: 'Sons des viewers', overlay: 'overlays/sons.html', size: [600, 160],
+      id: 'sons', icon: '🔉', name: 'Sons des viewers', short: 'Tes viewers jouent des sons avec une commande, des points ou des bits.', overlay: 'overlays/sons.html', size: [600, 160],
       tagline: 'Tes viewers jouent des sons sur le stream avec une commande, des points de chaîne ou des bits.',
       replaces: ['SoundAlerts'],
       commands: [['!son tada', 'Joue le son « tada » (selon le niveau et les délais choisis)']],
@@ -409,7 +409,7 @@
       ],
     },
     {
-      id: 'qrdons', icon: '📱', name: 'QR code de dons', overlay: 'overlays/qrdons.html', size: [400, 420],
+      id: 'qrdons', icon: '📱', name: 'QR code de dons', short: 'Un QR code vers ta page de dons, à scanner depuis un téléphone.', overlay: 'overlays/qrdons.html', size: [400, 420],
       tagline: 'Un QR code vers ta page Ko-fi, PayPal, Tipeee… que tes viewers scannent avec leur téléphone.',
       replaces: ['TipStreams'],
       note: 'Le QR code est généré dans l’overlay : aucun service extérieur. Plusieurs liens s’affichent à tour de rôle.',
@@ -428,7 +428,7 @@
       ],
     },
     {
-      id: 'tts', icon: '🔊', name: 'Lecture à voix haute (TTS)', overlay: 'overlays/tts.html', size: [700, 200],
+      id: 'tts', icon: '🔊', name: 'Lecture à voix haute (TTS)', short: 'Lit à voix haute les messages du chat, des bits ou des dons.', overlay: 'overlays/tts.html', size: [700, 200],
       tagline: 'Lit à voix haute les !tts de ton chat, les messages des cheers, des dons et d’une récompense de points de chaîne.',
       replaces: ['TTS de StreamElements / Streamlabs', 'Speechify bots'],
       commands: [['!tts message', 'Fait lire le message (selon le niveau choisi)'], ['!skiptts', 'Coupe la lecture en cours (modos)']],
@@ -458,7 +458,7 @@
       ],
     },
     {
-      id: 'discord', icon: '📣', name: 'Annonces Discord', overlay: 'overlays/discord.html', size: [520, 300],
+      id: 'discord', icon: '📣', name: 'Annonces Discord', short: 'Annonce ton live sur Discord et y poste le récap à la fin.', overlay: 'overlays/discord.html', size: [520, 300],
       tagline: 'Annonce ton live sur Discord dès qu’il commence, poste un récap à la fin, et laisse tes modos écrire sur Discord depuis le chat.',
       replaces: ['bots d’annonce de live (MEE6, Streamcord…)'],
       commands: [['!discord message', 'Publie le message sur ton salon Discord (modos)']],
@@ -483,7 +483,7 @@
       ],
     },
     {
-      id: 'sondage', icon: '📊', name: 'Sondage par le chat', overlay: 'overlays/sondage.html', size: [520, 420],
+      id: 'sondage', icon: '📊', name: 'Sondage par le chat', short: 'Les viewers votent en tapant 1, 2, 3, les résultats s’affichent en direct.', overlay: 'overlays/sondage.html', size: [520, 420],
       tagline: 'Les viewers votent en tapant 1, 2, 3… Les résultats s’affichent en direct.',
       replaces: ['chat.vote', 'Kloot (sondages)'],
       commands: [
@@ -501,7 +501,7 @@
       ],
     },
     {
-      id: 'giveaway', icon: '🎁', name: 'Giveaway', overlay: 'overlays/giveaway.html', size: [520, 360],
+      id: 'giveaway', icon: '🎁', name: 'Giveaway', short: 'Inscription par mot-clé et tirage au sort équitable, à l’écran.', overlay: 'overlays/giveaway.html', size: [520, 360],
       tagline: 'Les viewers s’inscrivent par mot-clé, puis tirage animé et équitable.',
       replaces: ['PickerSpin', 'Wheel of Item', 'Kloot (giveaways)', 'giveaways des bots'],
       commands: [
@@ -523,7 +523,7 @@
       ],
     },
     {
-      id: 'emotes', icon: '😂', name: 'Emotes à l’écran', overlay: 'overlays/emotes.html', size: [1920, 1080],
+      id: 'emotes', icon: '😂', name: 'Emotes à l’écran', short: '!showemote affiche une emote en grand, et pluie d’emotes en option.', overlay: 'overlays/emotes.html', size: [1920, 1080],
       tagline: '!showemote pour afficher une emote en grand, et pluie d’emotes en option.',
       replaces: ['Show Emote'],
       commands: [['!showemote Kappa', 'Affiche l’emote en grand à l’écran']],
@@ -541,7 +541,7 @@
       ],
     },
     {
-      id: 'minuteur', icon: '⏳', name: 'Écran « Ça commence bientôt »', overlay: 'overlays/minuteur.html', size: [1920, 1080],
+      id: 'minuteur', icon: '⏳', name: 'Écran « Ça commence bientôt »', short: 'Le compte à rebours « Ça commence bientôt » et l’écran d’attente.', overlay: 'overlays/minuteur.html', size: [1920, 1080],
       tagline: 'Compte à rebours avec ton titre, en carte ou en scène animée plein écran.',
       replaces: ['Ambiant Pixel Stream Packs (écrans d’attente)'],
       commands: [
@@ -566,26 +566,26 @@
   ];
 
   window.SB_PAGES = [
-    { id: 'subathon-live', icon: '⏱️', name: 'Subathon', href: 'subathon.html', tagline: 'Timer qui compte tout seul les abos, bits, follows et dons, même OBS fermé. Paliers, happy hour, overlay OBS et page publique où les viewers proposent et votent des idées.', replaces: ['marathon-timer.com'],
+    { id: 'subathon-live', icon: '⏱️', name: 'Subathon', short: 'Un timer de subathon qui compte seul les abos, bits et dons.', href: 'subathon.html', tagline: 'Timer qui compte tout seul les abos, bits, follows et dons, même OBS fermé. Paliers, happy hour, overlay OBS et page publique où les viewers proposent et votent des idées.', replaces: ['marathon-timer.com'],
       links: [['Gérer le subathon', 'subathon.html'], ['Overlay OBS', 'outil.html?id=subathon'], ['Roue à défis', 'outil.html?id=roue']] },
-    { id: 'sr', icon: '🎶', name: 'Demandes de musique', href: 'sr.html', tagline: 'Tes viewers demandent des morceaux avec !sr (YouTube ou Spotify) : file d’attente, limites, modération, page publique.', replaces: ['Nightbot Song Requests', 'StreamElements Media Request'],
+    { id: 'sr', icon: '🎶', name: 'Demandes de musique', short: 'Tes viewers demandent des morceaux avec !sr, sur YouTube ou Spotify.', href: 'sr.html', tagline: 'Tes viewers demandent des morceaux avec !sr (YouTube ou Spotify) : file d’attente, limites, modération, page publique.', replaces: ['Nightbot Song Requests', 'StreamElements Media Request'],
       links: [['Gérer la file', 'sr.html'], ['Overlay Lecteur (YouTube)', 'outil.html?id=lecteur']] },
-    { id: 'minijeux', icon: '🎲', name: 'Mini-jeux du chat', href: 'jeux.html', tagline: 'Points virtuels gagnés en discutant, duels, prédictions, quiz et classement. Tout se joue dans le chat, avec un overlay OBS. Aucune valeur réelle.', replaces: ['StreamElements Loyalty', 'Streamlabs Loyalty', 'DeepBot'],
+    { id: 'minijeux', icon: '🎲', name: 'Mini-jeux du chat', short: 'Points virtuels, duels, paris et quiz pour faire jouer ton chat.', href: 'jeux.html', tagline: 'Points virtuels gagnés en discutant, duels, prédictions, quiz et classement. Tout se joue dans le chat, avec un overlay OBS. Aucune valeur réelle.', replaces: ['StreamElements Loyalty', 'Streamlabs Loyalty', 'DeepBot'],
       links: [['Gérer les jeux', 'jeux.html'], ['Overlay OBS', 'outil.html?id=jeux']] },
-    { id: 'moderation', icon: '🛡️', name: 'Panneau de modération', href: 'moderation.html', tagline: 'Pour toi et tes modos : chat avec sanctions en un clic, fiche du viewer, file AutoMod, journal de l’équipe, demandes de déban, modes du chat, annonces, sondages, prédictions, file des récompenses de points de chaîne, titre et raid. Utilisable comme dock OBS.', replaces: ['Mod View de Twitch', 'Chatterino (modération)', 'Gestion des récompenses de Twitch'] },
-    { id: 'chaine', icon: '🌐', name: 'Page publique de ta chaîne', href: 'compte.html#page', tagline: 'Une page à donner à ton chat : commandes du bot, planning Twitch, liens, file de musique et subathon. !commandes y renvoie.', replaces: ['Page de commandes Nightbot', 'Page de commandes StreamElements', 'Linktree'] },
-    { id: 'bot', icon: '🤖', name: 'Bot de chat', href: 'bot.html', tagline: 'Commandes, messages automatiques, modération et remerciements. Il tourne 24 h/24 sur le relais, même OBS fermé.', replaces: ['Nightbot', 'Moobot', 'Fossabot', 'Cloudbot'] },
-    { id: 'sous-titres', icon: '💬', name: 'Sous-titres traduits en direct', href: 'sous-titres.html', tagline: 'Ta voix transcrite à l’écran et traduite en direct (anglais, espagnol, allemand…), pour tes viewers du monde entier. Gratuit, sans logiciel.', replaces: ['StreamTranslate', 'Web Captioner'],
+    { id: 'moderation', icon: '🛡️', name: 'Panneau de modération', short: 'Sanctions en un clic, AutoMod, sondages et récompenses pour toi et tes modos.', href: 'moderation.html', tagline: 'Pour toi et tes modos : chat avec sanctions en un clic, fiche du viewer, file AutoMod, journal de l’équipe, demandes de déban, modes du chat, annonces, sondages, prédictions, file des récompenses de points de chaîne, titre et raid. Utilisable comme dock OBS.', replaces: ['Mod View de Twitch', 'Chatterino (modération)', 'Gestion des récompenses de Twitch'] },
+    { id: 'chaine', icon: '🌐', name: 'Page publique de ta chaîne', short: 'Une page pour ton chat : commandes, planning, liens et musique.', href: 'compte.html#page', tagline: 'Une page à donner à ton chat : commandes du bot, planning Twitch, liens, file de musique et subathon. !commandes y renvoie.', replaces: ['Page de commandes Nightbot', 'Page de commandes StreamElements', 'Linktree'] },
+    { id: 'bot', icon: '🤖', name: 'Bot de chat', short: 'Commandes, messages automatiques et modération, 24 h/24, même OBS fermé.', href: 'bot.html', tagline: 'Commandes, messages automatiques, modération et remerciements. Il tourne 24 h/24 sur le relais, même OBS fermé.', replaces: ['Nightbot', 'Moobot', 'Fossabot', 'Cloudbot'] },
+    { id: 'sous-titres', icon: '💬', name: 'Sous-titres traduits en direct', short: 'Ta voix sous-titrée à l’écran et traduite pour tes viewers.', href: 'sous-titres.html', tagline: 'Ta voix transcrite à l’écran et traduite en direct (anglais, espagnol, allemand…), pour tes viewers du monde entier. Gratuit, sans logiciel.', replaces: ['StreamTranslate', 'Web Captioner'],
       links: [['Démarrer les sous-titres', 'sous-titres.html'], ['Overlay OBS', 'outil.html?id=soustitres']] },
-    { id: 'automatisations', icon: '⚡', name: 'Automatisations', href: 'automatisations.html', tagline: 'Quand il se passe X, fais Y : un raid change de scène, un abo active un filtre, une récompense affiche une source, avec des sons, des messages et des pauses. Tourne dans OBS.', replaces: ['Streamer.bot', 'SAMMI', 'BetterStreams', 'Triggerfyre'] },
-    { id: 'stats', icon: '📊', name: 'Statistiques des lives', href: 'stats.html', tagline: 'Chaque live enregistré tout seul : viewers minute par minute, chat, follows, abos, bits, raids, dons, catégories. Comparaison avec la période précédente et export CSV.', replaces: ['TwitchTracker', 'StreamsCharts', 'Statistiques du tableau de bord Twitch'] },
-    { id: 'panneau', icon: '🎛️', name: 'Panneau de contrôle', href: 'panneau.html', tagline: 'Des boutons pour piloter sondages, giveaways, subathon, roue, objectifs et scènes OBS, sans taper de commandes. Utilisable comme dock OBS.', replaces: ['Kloot', 'Poltergeist', 'Xenon'] },
-    { id: 'integrations', icon: '🔌', name: 'Intégrations', href: 'integrations.html', tagline: 'Twitch, OBS, Discord, Spotify, Deezer, YouTube Music, Ko-fi, StreamElements, Streamlabs : ce que chaque service apporte et comment le brancher.', replaces: [] },
-    { id: 'extension', icon: '🧩', name: 'Extension « Musiques des redifs »', href: 'integrations.html#extension', tagline: 'Pour tes viewers : dans tes VODs Twitch et tes rediffusions YouTube, la musique qui passait pendant le live, avec les liens pour l’écouter.', replaces: [] },
-    { id: 'testeur', icon: '🧪', name: 'Testeur d’emotes', href: 'testeur-emotes.html', tagline: 'Tes emotes dans un faux chat Twitch et Discord, en sombre et en clair, à leurs vraies tailles, avec une vérification du format, du poids, de la transparence et du contraste.', replaces: ['Emote Tester'] },
-    { id: 'resizer', icon: '🖼️', name: 'Redimensionneur d’emotes', href: 'redimensionneur.html', tagline: 'Une image, et toutes les tailles d’emotes et de badges Twitch, Discord, 7TV, BTTV et FFZ en un clic. Tout reste sur ton ordinateur.', replaces: ['EmoteResizer', 'Emote Resizer', 'Twitch Emote Resizer'] },
-    { id: 'calc', icon: '💰', name: 'Calculateur de revenus', href: 'calculateur.html', tagline: 'Estime ce que te rapportent tes abonnements et tes bits chaque mois.', replaces: ['calculateurs d’EmoteResizer'] },
-    { id: 'annuaire', icon: '🧭', name: 'Annuaire des outils', href: 'annuaire.html', tagline: 'Les autres outils de la communauté (clips, bots, stats…), triés et commentés.', replaces: [] },
+    { id: 'automatisations', icon: '⚡', name: 'Automatisations', short: 'Quand il se passe X, fais Y : un raid change de scène, un abo joue un son…', href: 'automatisations.html', tagline: 'Quand il se passe X, fais Y : un raid change de scène, un abo active un filtre, une récompense affiche une source, avec des sons, des messages et des pauses. Tourne dans OBS.', replaces: ['Streamer.bot', 'SAMMI', 'BetterStreams', 'Triggerfyre'] },
+    { id: 'stats', icon: '📊', name: 'Statistiques des lives', short: 'Viewers minute par minute, chat, follows et abos de chaque live.', href: 'stats.html', tagline: 'Chaque live enregistré tout seul : viewers minute par minute, chat, follows, abos, bits, raids, dons, catégories. Comparaison avec la période précédente et export CSV.', replaces: ['TwitchTracker', 'StreamsCharts', 'Statistiques du tableau de bord Twitch'] },
+    { id: 'panneau', icon: '🎛️', name: 'Panneau de contrôle', short: 'Pilote sondages, giveaways, subathon et sons depuis un dock OBS.', href: 'panneau.html', tagline: 'Des boutons pour piloter sondages, giveaways, subathon, roue, objectifs et scènes OBS, sans taper de commandes. Utilisable comme dock OBS.', replaces: ['Kloot', 'Poltergeist', 'Xenon'] },
+    { id: 'integrations', icon: '🔌', name: 'Intégrations', short: 'Twitch, OBS, Discord, Spotify, Ko-fi… ce que StreamBox sait relier.', href: 'integrations.html', tagline: 'Twitch, OBS, Discord, Spotify, Deezer, YouTube Music, Ko-fi, StreamElements, Streamlabs : ce que chaque service apporte et comment le brancher.', replaces: [] },
+    { id: 'extension', icon: '🧩', name: 'Extension « Musiques des redifs »', short: 'Les musiques de tes VOD, retrouvées pour tes viewers.', href: 'integrations.html#extension', tagline: 'Pour tes viewers : dans tes VODs Twitch et tes rediffusions YouTube, la musique qui passait pendant le live, avec les liens pour l’écouter.', replaces: [] },
+    { id: 'testeur', icon: '🧪', name: 'Testeur d’emotes', short: 'Tes emotes dans un faux chat Twitch et Discord, avant de les publier.', href: 'testeur-emotes.html', tagline: 'Tes emotes dans un faux chat Twitch et Discord, en sombre et en clair, à leurs vraies tailles, avec une vérification du format, du poids, de la transparence et du contraste.', replaces: ['Emote Tester'] },
+    { id: 'resizer', icon: '🖼️', name: 'Redimensionneur d’emotes', short: 'Tes emotes et badges aux bonnes tailles pour Twitch, 7TV, BTTV et FFZ.', href: 'redimensionneur.html', tagline: 'Une image, et toutes les tailles d’emotes et de badges Twitch, Discord, 7TV, BTTV et FFZ en un clic. Tout reste sur ton ordinateur.', replaces: ['EmoteResizer', 'Emote Resizer', 'Twitch Emote Resizer'] },
+    { id: 'calc', icon: '💰', name: 'Calculateur de revenus', short: 'Ce que rapportent tes abonnements et tes bits chaque mois.', href: 'calculateur.html', tagline: 'Estime ce que te rapportent tes abonnements et tes bits chaque mois.', replaces: ['calculateurs d’EmoteResizer'] },
+    { id: 'annuaire', icon: '🧭', name: 'Annuaire des outils', short: 'Les autres outils de la communauté, triés et commentés.', href: 'annuaire.html', tagline: 'Les autres outils de la communauté (clips, bots, stats…), triés et commentés.', replaces: [] },
   ];
   /* Langue des textes affichés par l'overlay (le configurateur propose d'abord la langue du site) */
   const LANG = { key: 'lang', label: 'Langue de l’overlay', type: 'select', default: 'fr', options: [['fr', 'Français'], ['en', 'English'], ['es', 'Español']], help: 'Textes affichés sur ton stream (alertes, sondages, minuteur…). Les messages du chat ne sont jamais traduits.' };

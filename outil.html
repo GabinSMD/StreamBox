@@ -39,7 +39,8 @@
           <input type="text" id="url" readonly aria-label="Lien de l’overlay">
           <button class="btn" type="button" id="copy">Copier</button>
         </div>
-        <div class="preview game" id="preview"><div class="stage" id="stage"><iframe id="frame" title="Aperçu"></iframe></div></div>
+        <p class="need" id="need" role="status" hidden><svg class="ic ic-triangle-alert" aria-hidden="true" focusable="false"><use href="img/icons.svg#triangle-alert"/></svg><span id="needTxt"></span> <button class="btn-link" type="button" id="needGo">Renseigner ma chaîne</button></p>
+        <div class="preview game" id="preview"><span class="demo-tag" id="demoTag" hidden>Démonstration</span><div class="stage" id="stage"><iframe id="frame" title="Aperçu"></iframe></div></div>
         <div class="ptools">
           <label><input type="checkbox" id="demo" checked> Aperçu avec de faux messages</label>
           <label><input type="checkbox" id="gamebg" checked> Fond de jeu</label>
@@ -270,13 +271,21 @@ const isDefault = (f, v) => v === f.default || (f.type === 'checkbox' && !!v ===
   }
   addEventListener('resize', fit);
 
+  const NEEDS_CHANNEL = !!(tool.fields[0] && tool.fields[0].key === 'channel' && !/optionnel/i.test(tool.fields[0].label));
+  $('needTxt').textContent = tool.id === 'chat' ? SB.t('Renseigne ta chaîne pour afficher ton chat.') : SB.t('Renseigne ta chaîne pour obtenir le lien de ton overlay.');
+  $('url').placeholder = SB.t('Le lien apparaîtra ici');
+  $('needGo').addEventListener('click', () => { const c = form.elements.channel; c.scrollIntoView({ block: 'center' }); c.focus(); });
   let timer, lastSrc = '';
   function update() {
     const vals = values();
     try { const keep = Object.assign({}, vals); tool.fields.forEach((f) => (f.type === 'twitch' || f.type === 'spotify') && delete keep[f.key]); localStorage.setItem(KEY, JSON.stringify(keep)); } catch (e) { /* stockage indisponible */ }
-    $('url').value = ACC ? (ovId ? SBA.overlayLink(tool, ovId) : 'Enregistre l’overlay dans ton compte pour obtenir son lien') : overlayUrl(vals);
+    // Chaîne obligatoire mais vide : pas de lien à copier, l'aperçu reste une démonstration
+    const missing = NEEDS_CHANNEL && !String(vals.channel || '').trim();
+    $('need').hidden = !missing; $('copy').disabled = missing;
+    $('url').value = missing ? '' : ACC ? (ovId ? SBA.overlayLink(tool, ovId) : 'Enregistre l’overlay dans ton compte pour obtenir son lien') : overlayUrl(vals);
     if (ACC) scheduleSave(vals);
     const useDemo = $('demo').checked || !vals.channel;
+    $('demoTag').hidden = !useDemo;
     const src = overlayUrl(useDemo ? Object.assign({}, vals, { channel: '', token: '', spotify: '', webhook: '', sejwt: '', sltoken: '', kofi: '' }) : vals, useDemo ? { demo: '1' } : {});
     clearTimeout(timer);
     timer = setTimeout(() => { if (src !== lastSrc) { frame.src = src; lastSrc = src; } }, 350);

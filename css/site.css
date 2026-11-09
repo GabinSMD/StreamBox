@@ -86,7 +86,7 @@ p.sec { color: var(--muted); margin: 0 0 20px; max-width: 72ch; }
 .tool-shot img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .tool-head { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .tool-meta { display: flex; flex-wrap: wrap; gap: 6px; }
-.tool-meta span { font-size: 14px; font-weight: 600; color: var(--muted); background: var(--bg2); border: 1px solid var(--line); border-radius: 99px; padding: 2px 10px; }
+.tool-meta span { font-size: 14px; font-weight: 600; color: var(--muted); background: var(--bg2); border: 1px solid var(--line); border-radius: 99px; padding: 2px 10px; max-width: 100%; overflow-wrap: anywhere; }
 .tool-meta .tag-login { color: var(--accent-ink); border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
 .tool h3 { margin: 0; font-size: 18px; }
 .tool p { margin: 0; color: var(--muted); font-size: 15.5px; flex: 1; }
@@ -127,6 +127,14 @@ details.more summary { cursor: pointer; color: var(--muted); font-weight: 600; f
 
 .urlbar { display: flex; gap: 8px; margin-bottom: 14px; }
 .urlbar input { font-family: var(--font-mono); font-size: 13px; }
+.btn:disabled { opacity: .5; cursor: not-allowed; box-shadow: none; }
+.need { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: -4px 0 14px; padding: 10px 12px; border-radius: 10px; font-size: 14px;
+  background: color-mix(in srgb, var(--warn) 12%, transparent); border: 1px solid color-mix(in srgb, var(--warn) 40%, transparent); }
+.need[hidden] { display: none; }
+.need .ic { color: var(--warn); }
+.need .btn-link { min-height: 32px; padding: 0; background: none; border: 0; font: inherit; font-weight: 600; cursor: pointer; }
+@media (pointer: coarse) { .need .btn-link { min-height: 44px; } }
+.demo-tag { position: absolute; z-index: 2; top: 10px; left: 10px; padding: 3px 10px; border-radius: 99px; font-size: 12px; font-weight: 600; color: #fff; background: rgba(0, 0, 0, .6); pointer-events: none; }
 .preview { position: relative; border-radius: 12px; overflow: hidden; border: 1px solid var(--line);
   background-color: var(--check-a); background-image: linear-gradient(45deg, var(--check-b) 25%, transparent 25%, transparent 75%, var(--check-b) 75%), linear-gradient(45deg, var(--check-b) 25%, transparent 25%, transparent 75%, var(--check-b) 75%);
   background-size: 24px 24px; background-position: 0 0, 12px 12px; }
