@@ -297,3 +297,11 @@ img.emote { height: 1.6em; vertical-align: middle; margin: -0.3em 0.1em; }
 .jx-feed { margin: 0; padding: 0; list-style: none; }
 .jx-feed li { display: block; background: rgba(var(--panel-rgb, 16, 12, 26), var(--panel-a, .8)); border-radius: 10px; padding: 6px 12px; margin-top: 6px; font-size: .7em; font-weight: 600; animation: jx-in .4s ease; }
 @keyframes jx-in { from { opacity: 0; transform: translateY(10px); } }
+
+/* ---------- Chat multiplateforme ---------- */
+.pf { display: inline-flex; align-items: center; justify-content: center; width: 1.15em; height: 1.15em; border-radius: 4px; font-size: .62em; font-weight: 900; margin-right: .3em; vertical-align: .12em; color: #fff; font-family: system-ui, sans-serif; }
+.pf.tw { background: #9146ff; } .pf.tw::after { content: 'T'; }
+.pf.kk { background: #53fc18; color: #0b0b0b; } .pf.kk::after { content: 'K'; }
+.pf.yt { background: #ff0033; } .pf.yt::after { content: '▶'; font-size: .8em; }
+.msg.paid { box-shadow: inset 4px 0 0 #ffb300; }
+.paid-amount { color: #ffb300; }

@@ -53,6 +53,10 @@ Les streamers qui le choisissent tapent `/mod StreamBoxBot` dans leur chat pour 
 
 L'overlay « Lecture à voix haute » peut utiliser une voix générée par **Workers AI** (modèle MeloTTS, français). Elle est déjà déclarée dans `wrangler.toml` (`[ai] binding = "AI"`) : il suffit de redéployer. L'offre gratuite de Workers AI a un quota quotidien, et le relais limite à 20 lectures par minute et par compte.
 
+### Chat multiplateforme (Kick, YouTube)
+
+Rien à configurer. Le relais trouve le salon de chat d'une chaîne Kick (`/kick/:pseudo`, mis en cache 1 h) et lit le chat public d'un live YouTube (`/yt/live/:@pseudo`, `/yt/chat/:video`), comme la fenêtre « chat en pop-up » de YouTube : pas de clé d'API ni de quota. Chaque overlay YouTube ouvert fait un appel au relais toutes les 2 à 5 secondes pendant le live (l'offre gratuite de Workers permet 100 000 appels par jour). Ces deux services n'ont pas d'API officielle pour ça : si Kick ou YouTube changent leur site, il faudra mettre à jour `relay/multichat.js` et `js/multichat.js`.
+
 ### Statistiques des lives
 
 Activées depuis la page Statistiques. Pendant le live, l'alarme du compte relève chaque minute les viewers, le titre et la catégorie (API Twitch, jeton d'application) ; hors live, elle vérifie toutes les 5 minutes si le live a commencé. Avec `EVENTSUB_SECRET`, les follows, abos, bits, raids et messages du chat sont aussi comptés (le chat demande les permissions du bot). Les 200 derniers lives sont gardés ; seuls le nombre de chatteurs et le top 10 sont conservés, pas la liste complète.

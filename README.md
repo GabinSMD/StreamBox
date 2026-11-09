@@ -10,7 +10,7 @@ Une boîte à outils gratuite pour streamers. Elle regroupe dans un seul site ce
 
 | Outil | Type | Remplace (d’après [awesome-twitch](https://github.com/sammwyy/awesome-twitch)) |
 |---|---|---|
-| 💬 Chat en overlay (5 thèmes, emotes 7TV/BTTV/FFZ) | Overlay OBS | ChatIS, showmy.chat, StreamElements Chatbox… |
+| 💬 Chat en overlay : Twitch, Kick et YouTube réunis (5 thèmes, emotes 7TV/BTTV/FFZ, Super Chats) | Overlay OBS | ChatIS, showmy.chat, StreamElements Chatbox… |
 | 🔔 Alertes : subs, resubs, subs offerts, raids, bits, follows, points de chaîne, dons | Overlay OBS | Alertes StreamElements / Streamlabs |
 | 🎯 Objectifs (abonnés, followers, bits, dons, perso) avec paliers | Overlay OBS | Objectifs StreamElements / Streamlabs |
 | 🎡 Roue de la fortune (commande, tous les X abos, bits ; relie le subathon) | Overlay OBS | Wheel of Item, PickerSpin |
@@ -162,7 +162,7 @@ Prochaines étapes :
 - [x] Mini-jeux du chat : points, duels, prédictions, quiz
 - [x] Panneau de modération (sanctions, modes du chat, AutoMod, fiche viewer)
 - [x] Statistiques des lives
-- [ ] Multi-plateforme : chat Kick et YouTube fusionnés
+- [x] Multi-plateforme : chat Kick et YouTube fusionnés (overlay Chat)
 - [ ] Site et overlays en plusieurs langues (anglais, espagnol…)
 - [x] Comptes StreamBox (connexion Twitch, réglages et jetons enregistrés, liens courts)
 

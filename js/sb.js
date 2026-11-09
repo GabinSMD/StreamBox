@@ -295,6 +295,11 @@
       const e = store && tok && store.get(tok);
       if (e) img(e.url, tok); else pending += tok;
     });
+    if (msg.parts) { // Kick, YouTube : morceaux déjà découpés (texte et images)
+      msg.parts.forEach((p) => { if (p.img) img(p.img, p.alt || ''); else pushText(p.text || ''); });
+      flush();
+      return nodes;
+    }
     let cur = 0;
     (msg.emotes || []).forEach((e) => {
       if (e.start < cur) return;
@@ -462,7 +467,7 @@
 
   SB.hintIfNoChannel = function (cfg) {
     if (SB._cfgError) { document.body.appendChild(SB.el('div', 'sb-hint', 'StreamBox : ' + SB._cfgError)); return; }
-    if (cfg.channel || cfg.demo) return;
+    if (cfg.channel || cfg.kick || cfg.youtube || cfg.demo) return;
     const d = SB.el('div', 'sb-hint', 'StreamBox : ajoute ?channel=ta_chaine à l’URL (ou configure l’outil sur le site).');
     document.body.appendChild(d);
   };

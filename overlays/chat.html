@@ -9,9 +9,10 @@
 <div id="chat"></div>
 <script src="../js/config.js"></script>
 <script src="../js/sb.js"></script>
+<script src="../js/multichat.js"></script>
 <script>
 const c = SB.params({
-  channel: '', theme: 'bulles', size: 18, fade: 0, max: 25, hidebots: true, hidecmd: false,
+  channel: '', kick: '', kickroom: '', youtube: '', icons: true, theme: 'bulles', size: 18, fade: 0, max: 25, hidebots: true, hidecmd: false,
   bots: '', align: 'left', badges: true, font: 'Inter', accent: '#9b5cff', anim: true,
   seventv: true, bttv: true, ffz: true, demo: false,
 });
@@ -25,8 +26,11 @@ const BOTS = new Set(['nightbot', 'streamelements', 'streamlabs', 'moobot', 'fos
 const extraBots = new Set(c.bots.split(/[\s,]+/).filter(Boolean).map((s) => s.toLowerCase()));
 const emotes = new SB.EmoteStore();
 
+const multi = [c.channel, c.kick, c.youtube].filter(Boolean).length > 1 || (c.demo && (c.kick || c.youtube));
+const PF = { twitch: ['tw', 'Twitch'], kick: ['kk', 'Kick'], youtube: ['yt', 'YouTube'] };
 function badgeEls(m) {
   const out = [];
+  if (c.icons && multi) { const [cls, title] = PF[m.platform || 'twitch']; const b = SB.el('span', 'pf ' + cls); b.title = title; out.push(b); }
   const add = (cls, letter, title) => { const b = SB.el('span', 'badge ' + cls, letter); b.title = title; out.push(b); };
   if (m.isBroadcaster) add('b', '▶', 'Streamer');
   else if (m.isMod) add('m', '⚔', 'Modérateur');
@@ -43,14 +47,18 @@ function addMessage(m) {
   const row = SB.el('div', 'msg' + (c.anim ? ' anim' : '') + (m.action ? ' action' : ''));
   row.dataset.id = m.id || '';
   row.dataset.login = m.login;
+  row.dataset.uid = m.userId || '';
+  row.dataset.pf = m.platform || 'twitch';
+  if (m.kind === 'superchat' || m.kind === 'sticker') { row.classList.add('paid'); if (m.amount) row.dataset.amount = m.amount; }
   const meta = SB.el('span', 'meta');
-  if (c.badges) badgeEls(m).forEach((b) => meta.appendChild(b));
+  badgeEls(m).forEach((b) => { if (c.badges || b.classList.contains('pf')) meta.appendChild(b); });
   const name = SB.el('span', 'name', m.name);
   name.style.color = SB.nameColor(m);
   meta.appendChild(name);
   if (c.theme !== 'bulles') meta.appendChild(SB.el('span', 'sep', m.action ? '' : ':'));
   const text = SB.el('span', 'text');
   if (m.action) text.style.color = SB.nameColor(m);
+  if (m.amount) text.appendChild(SB.el('b', 'paid-amount', m.amount + ' '));
   SB.messageNodes(m, emotes).forEach((n) => text.appendChild(n));
   row.append(meta, ' ', text);
   box.appendChild(row);
@@ -66,9 +74,24 @@ chat.on('room', (id) => emotes.load(id, c))
     .on('clearmsg', (id) => box.querySelectorAll(`.msg[data-id="${CSS.escape(id)}"]`).forEach((n) => n.remove()))
     .connect();
 
+/* Kick et YouTube : mêmes messages, même affichage (suppressions et bannissements compris) */
+const removeId = (id) => box.querySelectorAll(`.msg[data-id="${CSS.escape(id)}"]`).forEach((n) => n.remove());
+const removeUser = (uid) => box.querySelectorAll(`.msg[data-uid="${CSS.escape(uid)}"]`).forEach((n) => n.remove());
+const others = [];
+if (c.kick || c.kickroom) others.push(new SB.KickChat(c.kick, c.kickroom));
+if (c.youtube) others.push(new SB.YouTubeChat(c.youtube));
+others.forEach((o) => o.on('message', addMessage).on('delete', removeId).on('clearuser', removeUser)
+  .on('clear', (pf) => box.querySelectorAll(`.msg[data-pf="${pf}"]`).forEach((n) => n.remove()))
+  .on('status', (s) => { if (s !== 'connected') console.info('StreamBox :', s); }).connect());
+
 if (c.demo) {
   emotes.load(null, c);
-  const tick = () => { chat.inject(SB.fake({})); setTimeout(tick, 900 + Math.random() * 1600); };
+  const PFS = ['twitch', c.kick && 'kick', c.youtube && 'youtube'].filter(Boolean);
+  const tick = () => {
+    const m = SB.fake({}), pf = PFS[Math.floor(Math.random() * PFS.length)];
+    if (pf !== 'twitch') { m.platform = pf; m.parts = [{ text: m.text }]; m.emotes = []; m.color = pf === 'kick' ? '#53fc18' : null; }
+    chat.inject(m); setTimeout(tick, 900 + Math.random() * 1600);
+  };
   tick();
 }
 SB.hintIfNoChannel(c);
