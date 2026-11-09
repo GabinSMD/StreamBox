@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>StreamBox · Lecteur de clips</title>
+<link rel="stylesheet" href="../css/overlay.css">
+<script src="../js/i18n.js"></script>
+</head>
+<body>
+<div class="cp">
+  <div class="cp-video" id="video"></div>
+  <div class="cp-cap" id="cap"><div class="cp-title" id="title"></div><div class="cp-meta" id="meta"></div></div>
+</div>
+<script src="../js/config.js"></script>
+<script src="../js/sb.js"></script>
+<script src="../js/clips.js"></script>
+<script>
+/* Lecteur de clips pour l'écran « pause » / « bientôt de retour » : tes meilleurs clips à la suite, en boucle.
+ * Il se met en pause quand la source n'est pas visible dans OBS. */
+const c = SB.params({
+  channel: '', token: '', days: 30, count: 20, minviews: 0, shuffle: true, list: '', caption: true, muted: false, maxsecs: 60,
+  size: 22, font: 'Inter', accent: '#9b5cff', demo: false,
+});
+SB.loadFont(c.font); SB.setAccent(c.accent);
+document.documentElement.style.setProperty('--size', c.size + 'px');
+if (!c.caption) document.getElementById('cap').hidden = true;
+const $ = (id) => document.getElementById(id);
+let clips = [], i = 0, visible = true, playing = false, gen = 0;
+
+async function load() {
+  const ids = c.list.split(/[\s,]+/).map((x) => SB.Clips.idFrom(x)).filter(Boolean);
+  if (ids.length) return SB.Clips.byIds(ids, c.token);
+  const u = await SB.Clips.user(c.channel, c.token);
+  if (!u) throw new Error(SB.t('chaîne introuvable'));
+  return (await SB.Clips.list(u.id, c.token, { days: c.days, first: 100 })).filter((x) => x.views >= c.minviews).slice(0, Math.max(1, c.count));
+}
+function order(list) { const a = list.slice(); if (c.shuffle) for (let k = a.length - 1; k > 0; k--) { const j = Math.floor(SB.random() * (k + 1)); [a[k], a[j]] = [a[j], a[k]]; } return a; }
+async function loop() {
+  const my = ++gen; playing = true;
+  while (visible && my === gen && clips.length) {
+    if (i >= clips.length) { i = 0; clips = order(clips); }
+    const clip = clips[i++];
+    $('title').textContent = clip.title;
+    $('meta').textContent = [clip.creator && SB.t('clip de {0}', [clip.creator]), clip.views != null && SB.t('{0} vues', [Number(clip.views).toLocaleString(SB_LANG_TAG)])].filter(Boolean).join(' · ');
+    document.body.classList.add('cp-on');
+    await SB.Clips.play($('video'), clip, { muted: c.muted, maxSecs: c.maxsecs });
+  }
+  if (my === gen) playing = false;
+}
+// OBS : on arrête la lecture quand la scène n'est pas affichée (pas de son caché, pas de clip « vu » pour rien)
+window.addEventListener('obsSourceVisibleChanged', (e) => {
+  visible = !!(e.detail && e.detail.visible);
+  if (!visible) { gen++; playing = false; $('video').replaceChildren(); document.body.classList.remove('cp-on'); }
+  else if (!playing) loop();
+});
+SB.remote('clips', '', (m) => { if (/^(suivant|next|skip)$/i.test(m.text.trim())) { gen++; playing = false; loop(); } });
+
+(async () => {
+  if (c.demo) {
+    const demo = [['Le boss en un seul coup 😱', 'Pixelmaud', 1234], ['Fou rire en plein speedrun', 'Lou', 856], ['Le raid surprise', 'Kevin_le_roux', 432]];
+    let k = 0;
+    const step = () => { const [t, by, v] = demo[k++ % demo.length]; $('title').textContent = t; $('meta').textContent = SB.t('clip de {0}', [by]) + ' · ' + SB.t('{0} vues', [v.toLocaleString(SB_LANG_TAG)]); $('video').replaceChildren(SB.el('div', 'clip-demo', '▶ ' + t)); document.body.classList.add('cp-on'); };
+    step(); setInterval(step, 4000); return;
+  }
+  if (!c.token) { SB._cfgError = SB.t('Connecte-toi avec Twitch dans les réglages : le lecteur a besoin de lire tes clips.'); return SB.hintIfNoChannel(c); }
+  try { clips = order(await load()); if (!clips.length) throw new Error(SB.t('aucun clip trouvé sur cette période')); loop(); }
+  catch (e) { $('title').textContent = e.message; $('meta').textContent = ''; document.body.classList.add('cp-on'); }
+  SB.hintIfNoChannel(c);
+})();
+</script>
+</body>
+</html>

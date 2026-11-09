@@ -26,6 +26,9 @@ Une boîte à outils gratuite pour streamers. Elle regroupe dans un seul site ce
 | 🔊 Lecture à voix haute : `!tts`, cheers, dons, points de chaîne ; voix du navigateur ou voix française du relais | Overlay OBS | TTS StreamElements / Streamlabs |
 | 🧪 Testeur d’emotes : tes emotes dans un faux chat Twitch / Discord (sombre et clair, vraies tailles) avec vérification du format, du poids, de la transparence et du contraste | Page web | Emote Tester |
 | 🐱 PNGTuber : avatar qui parle quand tu parles (micro lu dans OBS), clignements, humeurs ; images envoyées dans ton compte | Overlay OBS | Veadotube mini, PNGTuber Plus |
+| 📣 Shoutout vidéo : `!so @pseudo` (modos) ou un raid joue un clip de la chaîne citée, avec son nom, son avatar et son dernier jeu | Overlay OBS | Shoutout vidéo de Streamer.bot |
+| 🎞️ Lecteur de clips : tes meilleurs clips en boucle pour l’écran « pause », mis en pause quand la scène n’est pas affichée | Overlay OBS | Clip player des écrans d’attente |
+| 🏷️ Étiquettes et bandeau : dernier follow, abo, don, top bits, top don, nombre de followers et d’abonnés, en liste, à tour de rôle ou en bandeau défilant | Overlay OBS | Labels Streamlabs / StreamElements, Snaz |
 | 💬 Sous-titres traduits en direct : ta voix transcrite (Chrome / Edge) et traduite (dans le navigateur ou par Workers AI) | Page web + overlay OBS + relais | StreamTranslate |
 | ⚡ Automatisations : « quand il se passe X, fais Y » (commande, points de chaîne, follow, abo, bits, raid, don, début du live, minuterie → scène, source, filtre, média, replay, overlay, son, voix, chat, Discord, pause) | Page web + source OBS invisible | Streamer.bot, SAMMI |
 | 🎬 Générique de fin : abos, abos offerts, bits, dons, raids, follows et chatteurs du live qui défilent | Overlay OBS + relais | Crédits Streamer.bot |

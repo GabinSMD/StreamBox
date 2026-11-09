@@ -6,7 +6,7 @@
   'use strict';
   const SB = (window.SB = window.SB || {});
   const LEVELS = [['everyone', 'Tout le monde'], ['sub', 'Abonnés'], ['vip', 'VIP'], ['mod', 'Modos']];
-  const TOOLS = [['compteurs', 'Compteurs'], ['sons', 'Sons des viewers'], ['roue', 'Roue'], ['qrdons', 'QR code de dons'], ['generique', 'Générique de fin'], ['minuteur', 'Compte à rebours'], ['sondage', 'Sondage'], ['giveaway', 'Giveaway'], ['objectifs', 'Objectif'], ['alertes', 'Alertes'], ['tts', 'Lecture à voix haute'], ['subathon', 'Subathon'], ['pngtuber', 'PNGTuber (humeur)']];
+  const TOOLS = [['compteurs', 'Compteurs'], ['sons', 'Sons des viewers'], ['roue', 'Roue'], ['qrdons', 'QR code de dons'], ['generique', 'Générique de fin'], ['minuteur', 'Compte à rebours'], ['sondage', 'Sondage'], ['giveaway', 'Giveaway'], ['objectifs', 'Objectif'], ['alertes', 'Alertes'], ['tts', 'Lecture à voix haute'], ['subathon', 'Subathon'], ['pngtuber', 'PNGTuber (humeur)'], ['shoutout', 'Shoutout vidéo (pseudo)'], ['clips', 'Lecteur de clips (« suivant »)'], ['etiquettes', 'Étiquettes (« reset »)']];
 
   /* Déclencheurs : f = champs à remplir dans l'éditeur */
   const TRIGGERS = {

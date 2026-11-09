@@ -87,6 +87,13 @@
         <button class="btn ghost" data-send="generique" data-args="">🎬 Relancer le générique</button></div>
     </section>
 
+    <section class="box pn-card"><h3>📣 Shoutout et clips</h3>
+      <div class="pn-row"><input type="text" id="sologin" placeholder="pseudo" style="max-width:160px">
+        <button class="btn ghost" data-send="shoutout" data-args-fn="so">Shoutout</button>
+        <button class="btn ghost" data-send="clips" data-args="suivant">⏭ Clip suivant</button>
+        <button class="btn ghost" data-send="etiquettes" data-args="reset">🏷️ Remettre les top à zéro</button></div>
+    </section>
+
     <section class="box pn-card"><h3>⏪ Rewind</h3>
       <div class="pn-row"><button class="btn" data-send="rewind" data-args="clip">📸 Marquer un temps fort</button>
         <button class="btn ghost" data-send="rewind" data-args="">Lancer le condensé</button>
@@ -108,6 +115,7 @@ let obs = null;
 try { const s = JSON.parse(localStorage.getItem('sb-panel') || '{}'); if (s.url) $('obsurl').value = s.url; if (s.pass) $('obspass').value = s.pass; } catch (e) { /* ignore */ }
 
 const ARGS = {
+  so: () => $('sologin').value.trim().replace(/^@/, '') || (toast('Écris un pseudo'), null),
   ctplus: () => { const id = $('ctid').value.trim().replace(/^!/, ''); return id ? id + ' +' : (toast('Écris la commande du compteur'), null); },
   ctminus: () => { const id = $('ctid').value.trim().replace(/^!/, ''); return id ? id + ' -' : (toast('Écris la commande du compteur'), null); },
   ctreset: () => { const id = $('ctid').value.trim().replace(/^!/, ''); return id ? id + ' reset' : (toast('Écris la commande du compteur'), null); },

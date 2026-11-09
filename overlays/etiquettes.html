@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>StreamBox · Étiquettes et bandeau</title>
+<link rel="stylesheet" href="../css/overlay.css">
+<script src="../js/i18n.js"></script>
+</head>
+<body>
+<div class="lb" id="box"></div>
+<script src="../js/config.js"></script>
+<script src="../js/sb.js"></script>
+<script src="../js/eventsub.js"></script>
+<script src="../js/dons.js"></script>
+<script>
+/* Étiquettes : dernier follow, dernier abo, dernier don, top bits / top don de la session, nombre de followers et d'abonnés.
+ * En liste, à tour de rôle ou dans un bandeau défilant (avec tes propres messages). Gardées dans OBS d'un rechargement à l'autre. */
+const c = SB.params({
+  channel: '', token: '', items: 'follow,sub,don,topbits', mode: 'liste', messages: '', speed: 80, every: 6, reset: 'jour',
+  tfollow: 'Dernier follow : {name}', tsub: 'Dernier abo : {name}', tdon: 'Dernier don : {name} ({amount})', tcheer: 'Derniers bits : {name} ({count})',
+  ttopbits: 'Top bits : {name} ({count})', ttopdon: 'Top don : {name} ({amount})', tfollowers: '{count} followers', tsubs: '{count} abonnés',
+  size: 24, font: 'Inter', accent: '#9b5cff', demo: false,
+});
+SB.loadFont(c.font); SB.setAccent(c.accent);
+document.documentElement.style.setProperty('--size', c.size + 'px');
+document.documentElement.style.setProperty('--speed', c.speed);
+document.body.classList.add('lb-' + c.mode);
+const box = document.getElementById('box');
+const ITEMS = c.items.split(',').map((x) => x.trim()).filter(Boolean);
+const key = 'sb-etiquettes:' + (new URLSearchParams(location.search).get('o') || c.channel || 'local');
+let S = {}; try { S = JSON.parse(localStorage.getItem(key) || '{}'); } catch (e) { /* ignore */ }
+const today = new Date().toDateString();
+if (c.reset === 'jour' && S.day !== today) { delete S.topbits; delete S.topdon; S.day = today; } // les « top » repartent chaque jour
+const save = () => { try { localStorage.setItem(key, JSON.stringify(S)); } catch (e) { /* ignore */ } render(); };
+const nf = (n) => Number(n || 0).toLocaleString(SB_LANG_TAG);
+
+/* Texte d'une étiquette (null si pas encore de valeur) */
+function text(k) {
+  const v = S[k], T = (tpl, vars) => SB.t(tpl).replace(/\{(\w+)\}/g, (a, n) => (n in vars ? vars[n] : a));
+  switch (k) {
+    case 'follow': return v && T(c.tfollow, { name: v.name });
+    case 'sub': return v && T(c.tsub, { name: v.name, months: v.months || '' });
+    case 'don': return v && T(c.tdon, { name: v.name, amount: SB.formatMoney(v.amount, v.currency) });
+    case 'cheer': return v && T(c.tcheer, { name: v.name, count: nf(v.n) });
+    case 'topbits': return v && T(c.ttopbits, { name: v.name, count: nf(v.n) });
+    case 'topdon': return v && T(c.ttopdon, { name: v.name, amount: SB.formatMoney(v.amount, v.currency) });
+    case 'followers': return v != null && T(c.tfollowers, { count: nf(v) });
+    case 'subs': return v != null && T(c.tsubs, { count: nf(v) });
+  }
+  return null;
+}
+let rot = 0;
+function render() {
+  const parts = ITEMS.map(text).filter(Boolean);
+  const msgs = c.messages.split('\n').map((m) => m.trim()).filter(Boolean);
+  if (c.mode === 'bandeau') {
+    const all = [...parts, ...msgs];
+    const track = SB.el('div', 'lb-track'); track.dataset.i18nSkip = '';
+    for (let r = 0; r < 2; r++) all.forEach((t) => { track.appendChild(SB.el('span', 'lb-item', t)); track.appendChild(SB.el('span', 'lb-sep', '•')); }); // deux fois : défilement sans trou
+    box.replaceChildren(track);
+    const w = track.scrollWidth / 2; track.style.animationDuration = Math.max(5, w / Math.max(10, c.speed)) + 's';
+  } else if (c.mode === 'rotation') {
+    if (!parts.length) return box.replaceChildren();
+    const e = SB.el('div', 'lb-item lb-one', parts[rot % parts.length]); e.dataset.i18nSkip = ''; box.replaceChildren(e);
+  } else box.replaceChildren(...parts.map((t) => { const e = SB.el('div', 'lb-item', t); e.dataset.i18nSkip = ''; return e; }));
+}
+if (c.mode === 'rotation') setInterval(() => { rot++; render(); }, Math.max(2, c.every) * 1000);
+
+/* ---------- Événements ---------- */
+const set = (k, v) => { S[k] = v; save(); };
+const chat = new SB.TwitchChat(c.channel);
+chat.on('usernotice', (n) => {
+  if (n.type === 'sub' || n.type === 'resub') set('sub', { name: n.name, months: n.months });
+  else if (n.type === 'subgift' && !n.isCommunityGift) set('sub', { name: n.recipient || n.name });
+  else if (n.type === 'submysterygift') set('sub', { name: n.name });
+}).on('cheer', (m) => {
+  set('cheer', { name: m.name, n: m.bits });
+  const tot = (S.bitsBy || {}); tot[m.login] = { name: m.name, n: ((tot[m.login] || {}).n || 0) + m.bits }; S.bitsBy = tot; // cumul par viewer sur la session
+  const best = Object.values(tot).sort((a, b) => b.n - a.n)[0]; set('topbits', best);
+}).connect();
+if (c.token) SB.twitchEvents(c, ['follow']).on('follow', (e) => set('follow', { name: e.name }));
+SB.donations(c).on('don', (d) => {
+  set('don', { name: d.name, amount: d.amount, currency: d.currency });
+  if (!S.topdon || d.amount > S.topdon.amount) set('topdon', { name: d.name, amount: d.amount, currency: d.currency });
+});
+// Nombre de followers et d'abonnés (et dernier follow au démarrage), relus toutes les 2 minutes
+async function counts() {
+  if (!c.token || !c.channel) return;
+  try {
+    const u = ((await SB.helix('users?login=' + encodeURIComponent(c.channel), c.token)).data || [])[0]; if (!u) return;
+    const f = await SB.helix(`channels/followers?broadcaster_id=${u.id}&first=1`, c.token).catch(() => null);
+    if (f) { S.followers = f.total; if (f.data && f.data[0] && !S.follow) S.follow = { name: f.data[0].user_name }; }
+    const s = await SB.helix(`subscriptions?broadcaster_id=${u.id}&first=1`, c.token).catch(() => null);
+    if (s && s.total != null) S.subs = Math.max(0, s.total - 1); // le streamer compte comme abonné à sa chaîne
+    save();
+  } catch (e) { console.warn('étiquettes :', e.message); }
+}
+counts(); setInterval(counts, 120000);
+SB.remote('etiquettes', '', (m) => { if (/^(reset|zero|zéro)$/i.test(m.text.trim())) { delete S.topbits; delete S.topdon; delete S.bitsBy; save(); } });
+
+if (c.demo) Object.assign(S, { follow: { name: 'NouveauVenu' }, sub: { name: 'Pixelmaud', months: 14 }, don: { name: 'Lou', amount: 5, currency: 'EUR' }, cheer: { name: 'Max', n: 500 }, topbits: { name: 'Max', n: 1500 }, topdon: { name: 'Généreux', amount: 25, currency: 'EUR' }, followers: 1234, subs: 87 });
+render();
+SB.hintIfNoChannel(c);
+</script>
+</body>
+</html>

@@ -244,6 +244,71 @@
       ],
     },
     {
+      id: 'shoutout', icon: '📣', name: 'Shoutout vidéo', overlay: 'overlays/shoutout.html', size: [960, 640],
+      tagline: '!so @pseudo ou un raid joue à l’écran un clip de la chaîne citée, avec son nom, son avatar et son dernier jeu.',
+      replaces: ['Shoutout vidéo de Streamer.bot', 'Clip shoutout StreamElements'],
+      commands: [['!so @pseudo', 'Joue un clip de cette chaîne (modos)']],
+      note: 'Coche « Contrôler l’audio via OBS » dans la source pour entendre le clip. Le lecteur de Twitch ne s’affiche que sur le site publié (pas dans l’aperçu). Le bot peut aussi répondre au !so dans le chat (Bot de chat → commandes intégrées).',
+      fields: [
+        channel,
+        twitch('', 'Connexion Twitch (pour lire les clips)'),
+        { key: 'cmd', label: 'Commande', type: 'text', default: '!so' },
+        { key: 'raids', label: 'Shoutout automatique à chaque raid', type: 'checkbox', default: true },
+        { key: 'minraid', label: 'Viewers minimum du raid', type: 'number', default: 2, min: 1 },
+        { key: 'days', label: 'Clips des … derniers jours (0 = depuis toujours)', type: 'number', default: 0, min: 0 },
+        { key: 'topn', label: 'Choisir au hasard parmi les … clips les plus vus', type: 'number', default: 10, min: 1, max: 50 },
+        { key: 'maxsecs', label: 'Durée maximum du clip (s)', type: 'number', default: 30, min: 5, max: 60 },
+        { key: 'muted', label: 'Couper le son du clip', type: 'checkbox', default: false },
+        { key: 'text', label: 'Texte au-dessus du nom', type: 'text', default: 'Allez voir {name} !' },
+        { key: 'noclip', label: 'Sans clip : afficher la carte pendant (s)', type: 'number', default: 8, min: 2, max: 30 },
+        size(26), font, accent,
+      ],
+    },
+    {
+      id: 'clips', icon: '🎞️', name: 'Lecteur de clips', overlay: 'overlays/clips.html', size: [1920, 1080],
+      tagline: 'Tes meilleurs clips à la suite, en boucle, pour ton écran « pause » ou « bientôt de retour ».',
+      replaces: ['Clip player des écrans d’attente'],
+      note: 'Coche « Contrôler l’audio via OBS ». Le lecteur s’arrête quand la scène n’est pas affichée. Le lecteur de Twitch ne s’affiche que sur le site publié (pas dans l’aperçu).',
+      fields: [
+        channel,
+        twitch('', 'Connexion Twitch (pour lire tes clips)'),
+        { key: 'days', label: 'Clips des … derniers jours (0 = depuis toujours)', type: 'number', default: 30, min: 0 },
+        { key: 'count', label: 'Nombre de clips (les plus vus)', type: 'number', default: 20, min: 1, max: 100 },
+        { key: 'minviews', label: 'Vues minimum', type: 'number', default: 0, min: 0 },
+        { key: 'list', label: 'Ou une liste de clips précis (liens, un par ligne)', type: 'textarea', default: '', placeholder: 'https://clips.twitch.tv/…' },
+        { key: 'shuffle', label: 'Ordre aléatoire', type: 'checkbox', default: true },
+        { key: 'caption', label: 'Afficher le titre, l’auteur et les vues', type: 'checkbox', default: true },
+        { key: 'muted', label: 'Couper le son', type: 'checkbox', default: false },
+        { key: 'maxsecs', label: 'Durée maximum par clip (s)', type: 'number', default: 60, min: 5, max: 60 },
+        size(22), font, accent,
+      ],
+    },
+    {
+      id: 'etiquettes', icon: '🏷️', name: 'Étiquettes et bandeau', overlay: 'overlays/etiquettes.html', size: [1920, 80],
+      tagline: 'Dernier follow, dernier abo, dernier don, top bits et top don, nombre de followers et d’abonnés, en liste, à tour de rôle ou dans un bandeau défilant.',
+      replaces: ['Labels Streamlabs', 'StreamElements Labels', 'Snaz'],
+      note: 'Les valeurs sont gardées dans OBS d’un rechargement à l’autre. Les « top » repartent de zéro chaque jour (ou jamais, au choix).',
+      fields: [
+        channel,
+        twitch('moderator:read:followers channel:read:subscriptions', 'Connexion Twitch (follows, nombre de followers et d’abonnés)'),
+        { key: 'items', label: 'Étiquettes (dans l’ordre, séparées par des virgules)', type: 'text', default: 'follow,sub,don,topbits', help: 'follow, sub, don, cheer, topbits, topdon, followers, subs' },
+        { key: 'mode', label: 'Affichage', type: 'select', default: 'liste', options: [['liste', 'En liste'], ['rotation', 'Une à la fois, à tour de rôle'], ['bandeau', 'Bandeau défilant']] },
+        { key: 'messages', label: 'Messages du bandeau (un par ligne)', type: 'textarea', default: '', placeholder: 'Pense à follow 💜\nTape !discord pour rejoindre la commu' },
+        { key: 'speed', label: 'Vitesse du bandeau (pixels par seconde)', type: 'number', default: 80, min: 10, max: 400 },
+        { key: 'every', label: 'À tour de rôle : changer toutes les (s)', type: 'number', default: 6, min: 2 },
+        { key: 'reset', label: 'Remettre les « top » à zéro', type: 'select', default: 'jour', options: [['jour', 'Chaque jour'], ['jamais', 'Jamais (ou depuis le panneau)']] },
+        { key: 'tfollow', label: 'Texte : dernier follow', type: 'text', default: 'Dernier follow : {name}', group: 'textes' },
+        { key: 'tsub', label: 'Texte : dernier abo', type: 'text', default: 'Dernier abo : {name}', group: 'textes' },
+        { key: 'tdon', label: 'Texte : dernier don', type: 'text', default: 'Dernier don : {name} ({amount})', group: 'textes' },
+        { key: 'tcheer', label: 'Texte : derniers bits', type: 'text', default: 'Derniers bits : {name} ({count})', group: 'textes' },
+        { key: 'ttopbits', label: 'Texte : top bits', type: 'text', default: 'Top bits : {name} ({count})', group: 'textes' },
+        { key: 'ttopdon', label: 'Texte : top don', type: 'text', default: 'Top don : {name} ({amount})', group: 'textes' },
+        { key: 'tfollowers', label: 'Texte : nombre de followers', type: 'text', default: '{count} followers', group: 'textes' },
+        { key: 'tsubs', label: 'Texte : nombre d’abonnés', type: 'text', default: '{count} abonnés', group: 'textes' },
+        size(24), font, accent,
+      ],
+    },
+    {
       id: 'pngtuber', icon: '🐱', name: 'PNGTuber', overlay: 'overlays/pngtuber.html', size: [600, 600],
       tagline: 'Un avatar qui ouvre la bouche quand tu parles, cligne des yeux et change d’humeur. Pas de webcam, pas de logiciel.',
       replaces: ['Facecam PNGTuber', 'Veadotube mini', 'PNGTuber Plus'],
@@ -544,8 +609,8 @@
     { key: 'sltoken', label: 'Jeton Socket API Streamlabs', type: 'text', default: '', group: 'dons', help: 'Streamlabs → Paramètres → Clés API → Socket API Token.' },
     { key: 'sejwt', label: 'Jeton JWT StreamElements', type: 'text', default: '', group: 'dons', help: 'StreamElements → Mon compte → Chaînes → Afficher les secrets. ⚠️ Ce jeton donne accès à ton compte StreamElements : ne montre jamais le lien de l’overlay.' },
   ];
-  const WITH_DONS = ['alertes', 'subathon', 'objectifs', 'tts'];
-  const PILOTABLE = ['sondage', 'giveaway', 'subathon', 'minuteur', 'alertes', 'objectifs', 'roue', 'tts', 'compteurs', 'sons', 'qrdons', 'generique', 'pngtuber'];
+  const WITH_DONS = ['alertes', 'subathon', 'objectifs', 'tts', 'etiquettes'];
+  const PILOTABLE = ['sondage', 'giveaway', 'subathon', 'minuteur', 'alertes', 'objectifs', 'roue', 'tts', 'compteurs', 'sons', 'qrdons', 'generique', 'pngtuber', 'shoutout', 'clips', 'etiquettes'];
   /* Catégories de l'accueil. Les outils « merged » sont regroupés dans une autre carte (Subathon, Demandes de musique). */
   window.SB_CATEGORIES = [
     { id: 'communaute', icon: '💬', name: 'Chat et communauté', desc: 'Faire vivre ton chat : affichage, bot, sondages, giveaways, jeux.' },
@@ -558,7 +623,7 @@
     alertes: 'alertes', objectifs: 'alertes', discord: 'alertes', tts: 'alertes', qrdons: 'alertes', sons: 'communaute', compteurs: 'communaute', generique: 'evenements',
     'subathon-live': 'evenements', minuteur: 'evenements', rewind: 'evenements',
     musique: 'musique', sr: 'musique', extension: 'musique',
-    panneau: 'outils', automatisations: 'outils', soustitres: 'communaute', 'sous-titres': 'communaute', pngtuber: 'communaute', stats: 'outils', integrations: 'outils', resizer: 'outils', testeur: 'outils', calc: 'outils', annuaire: 'outils' };
+    panneau: 'outils', automatisations: 'outils', soustitres: 'communaute', 'sous-titres': 'communaute', pngtuber: 'communaute', shoutout: 'communaute', clips: 'evenements', etiquettes: 'alertes', stats: 'outils', integrations: 'outils', resizer: 'outils', testeur: 'outils', calc: 'outils', annuaire: 'outils' };
   const MERGED = { subathon: 'subathon-live', lecteur: 'sr', jeux: 'minijeux', soustitres: 'sous-titres' };
   [...window.SB_TOOLS, ...window.SB_PAGES].forEach((t) => { t.cat = CAT[t.id] || 'outils'; if (MERGED[t.id]) t.mergedInto = MERGED[t.id]; });
 
