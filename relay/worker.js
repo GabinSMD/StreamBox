@@ -13,6 +13,9 @@
  *   GET  /tracks/:login?from=&to=     morceaux joués entre deux dates (ms) : public
  *   GET  /yt/:channelId?from=&to=     idem, à partir d'une chaîne YouTube reliée
  *   GET  /twitch/video/:id            début et chaîne d'une VOD Twitch (pour l'extension)
+ *   GET  /kick/:pseudo                identifiant du salon de chat Kick (chat multiplateforme)
+ *   GET  /yt/live/:@pseudo|UC…        vidéo du live YouTube en cours d'une chaîne
+ *   GET  /yt/chat/:video[?c=suite]    nouveaux messages du chat d'un live YouTube (données publiques)
  *
  *
  * Comptes StreamBox (connexion Twitch) :
@@ -63,6 +66,7 @@ import * as SUBA from './subathon.js';
 import * as SR from './sr.js';
 import * as JEUX from './jeux.js';
 import * as STATS from './stats.js';
+import * as MC from './multichat.js';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -129,6 +133,13 @@ export default {
           return room('chan:' + login).fetch('https://room/tracks', { method: 'POST', body: JSON.stringify(t) }).then(withCors);
         }
       }
+      /* ---- Chat multiplateforme (Kick, YouTube) ---- */
+      if (req.method === 'GET' && p[0] === 'kick' && MC.KICK_SLUG.test(p[1] || '')) return cached('kick:' + p[1].toLowerCase(), 3600, () => MC.kickChannel(p[1]));
+      if (req.method === 'GET' && p[0] === 'yt' && p[1] === 'live' && MC.YT_CHANNEL.test(decodeURIComponent(p[2] || ''))) return cached('ytlive:' + decodeURIComponent(p[2]).toLowerCase(), 60, () => MC.ytLive(decodeURIComponent(p[2])));
+      if (req.method === 'GET' && p[0] === 'yt' && p[1] === 'chat' && MC.YT_VIDEO.test(p[2] || '')) {
+        const { status, ...d } = await MC.ytChat(p[2], url.searchParams.get('c'));
+        return json(d, status || 200, { 'Cache-Control': 'no-store' });
+      }
       if (req.method === 'GET' && p[0] === 'yt' && /^UC[\w-]{20,}$/.test(p[1] || '')) {
         const a = await room('yt:' + p[1]).fetch('https://room/alias').then((r) => r.json());
         if (!a.login) return json({ error: 'chaîne YouTube non reliée à StreamBox', tracks: [] }, 404);
@@ -146,6 +157,17 @@ export default {
     }
   },
 };
+
+/* Réponse publique mise en cache quelques minutes (évite de solliciter Kick / YouTube à chaque overlay) */
+async function cached(name, secs, fn) {
+  const key = new Request('https://cache.streambox/' + encodeURIComponent(name));
+  const hit = await caches.default.match(key);
+  if (hit) return withCors(hit);
+  const { status, ...d } = await fn();
+  const res = json(d, status || 200, { 'Cache-Control': `public, max-age=${d.error ? 30 : secs}` });
+  await caches.default.put(key, res.clone());
+  return res;
+}
 
 /* Un don arrivé par la clé Ko-fi / webhook d'un streamer va aussi dans son subathon (si la clé est enregistrée dans son compte) */
 async function donToOwner(env, key, don) {

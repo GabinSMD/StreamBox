@@ -16,7 +16,7 @@
   window.SB_TOOLS = [
     {
       id: 'chat', icon: '💬', name: 'Chat en overlay', overlay: 'overlays/chat.html', size: [420, 640],
-      tagline: 'Affiche ton chat Twitch sur le stream, avec les emotes 7TV, BTTV et FFZ.',
+      tagline: 'Affiche ton chat sur le stream : Twitch, Kick et YouTube réunis, avec les emotes 7TV, BTTV et FFZ.',
       replaces: ['StreamElements Chatbox', 'ChatIS', 'showmy.chat', 'CodingFreaks Chat Overlay'],
       fields: [
         channel,
@@ -31,6 +31,10 @@
         { key: 'bots', label: 'Autres comptes à masquer', type: 'text', default: '', placeholder: 'monbot, autrebot' },
         { key: 'anim', label: 'Animation d’apparition', type: 'checkbox', default: true },
         ...emoteProviders,
+        { key: 'kick', label: 'Chaîne Kick', type: 'text', default: '', placeholder: 'ton_pseudo_kick', group: 'multi', help: 'Le chat Kick s’ajoute au chat Twitch. Sans compte : seulement le chat public.' },
+        { key: 'kickroom', label: 'Identifiant du salon Kick (seulement si la recherche échoue)', type: 'text', default: '', placeholder: '1234567', group: 'multi', help: 'Ouvre kick.com/api/v2/channels/ton_pseudo dans ton navigateur : c’est le nombre après "chatroom":{"id":' },
+        { key: 'youtube', label: 'Chaîne ou live YouTube', type: 'text', default: '', placeholder: '@tachaine (ou lien du live)', group: 'multi', help: 'Avec @tachaine, l’overlay trouve tout seul ton live dès qu’il commence. Les Super Chats sont mis en avant.' },
+        { key: 'icons', label: 'Icône de la plateforme devant chaque pseudo', type: 'checkbox', default: true, group: 'multi' },
       ],
     },
     {
