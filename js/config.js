@@ -6,7 +6,7 @@
  * l'API Twitch (clips du Rewind, infos de la VOD) sont désactivées.
  */
 window.SB_CONFIG = {
-  twitchClientId: '',
+  twitchClientId: 'j2u8uxo89sbgljg5ni1v5idwdthf4b',
   // Spotify (overlay Musique) : https://developer.spotify.com/dashboard, URL de redirection https://<ton-site>/spotify.html
   spotifyClientId: '',
   // Last.fm (overlay Musique : Deezer, YouTube Music, Apple Music…) : https://www.last.fm/api/account/create
