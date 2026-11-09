@@ -75,6 +75,21 @@
     mark(); addEventListener('hashchange', mark);
   }
 
+  /* ---------- Squelette de chargement ----------
+   * Les pages qui attendent le relais ou Twitch cachent leur contenu (#app, ou #in/#out pour Mon compte) :
+   * un squelette en a la forme jusqu'à ce que le contenu, une erreur ou une demande de connexion s'affiche. */
+  const wait = main && (main.querySelector(':scope > #app[hidden]') || (main.querySelector(':scope > #in[hidden]') && main.querySelector(':scope > #out[hidden]')));
+  if (wait) {
+    const sk = document.createElement('div'); sk.className = 'skel-page'; sk.setAttribute('aria-busy', 'true'); sk.setAttribute('aria-label', 'Chargement');
+    ['skel skel-title', 'skel skel-line', 'skel skel-block', 'skel skel-block'].forEach((c) => { const d = document.createElement('div'); d.className = c; sk.appendChild(d); });
+    wait.before(sk);
+    const shown = () => [...main.children].some((c) => c !== sk && c.id && !c.hidden && c.offsetParent !== null);
+    const stop = () => { obs.disconnect(); sk.remove(); };
+    const obs = new MutationObserver(() => { if (shown()) stop(); });
+    obs.observe(main, { attributes: true, attributeFilter: ['hidden'], subtree: true, childList: true });
+    setTimeout(stop, 15000);
+  }
+
   // Pied de page : crédits, licence (AGPL : lien vers le code source), pages légales
   const footer = document.createElement('footer');
   footer.innerHTML = `<div class="wrap foot">

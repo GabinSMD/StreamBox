@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Panneau de modération · StreamBox</title>
 <meta name="description" content="Panneau de modération Twitch pour toi et tes modos : sanctions en un clic, AutoMod, journal, sondages, prédictions et récompenses.">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400..800&family=Tektur:wght@500..800&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400..700&family=Tektur:wght@700&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="css/site.css">
 <script src="js/i18n.js"></script>
 <script src="js/icons.js"></script>
@@ -38,14 +38,14 @@
       </section>
 
       <aside class="md-side">
-        <nav class="md-tabs" id="tabs">
-          <button data-t="automod" class="on">AutoMod <b id="nAutomod"></b></button>
-          <button data-t="journal">Journal</button>
-          <button data-t="unban">Débans <b id="nUnban"></b></button>
-          <button data-t="modes">Chat</button>
-          <button data-t="votes" id="tabVotes" hidden>Sondages</button>
-          <button data-t="points" id="tabPoints" hidden>Points <b id="nPoints"></b></button>
-          <button data-t="livetab" id="tabLive" hidden>Live</button>
+        <nav class="md-tabs" id="tabs" role="tablist" aria-label="Outils de modération">
+          <button role="tab" type="button" data-t="automod" class="on" aria-selected="true">AutoMod <b id="nAutomod"></b></button>
+          <button role="tab" type="button" data-t="journal">Journal</button>
+          <button role="tab" type="button" data-t="unban">Débans <b id="nUnban"></b></button>
+          <button role="tab" type="button" data-t="modes">Chat</button>
+          <button role="tab" type="button" data-t="votes" id="tabVotes" hidden>Sondages</button>
+          <button role="tab" type="button" data-t="points" id="tabPoints" hidden>Points <b id="nPoints"></b></button>
+          <button role="tab" type="button" data-t="livetab" id="tabLive" hidden>Live</button>
         </nav>
         <section class="box md-pane" id="p-automod">
           <p class="bt-help">Messages retenus par AutoMod : ils n’apparaissent dans le chat que si un modo les autorise.</p>
@@ -443,17 +443,19 @@ function bars(items, n) { // barres de résultats [{ title, n, extra }]
 }
 
 /* --- Sondages et prédictions --- */
-let poll = null, pred = null, votesTimer = null;
+let poll = null, pred = null, votesTimer = null, votesLoaded = false, pointsLoaded = false;
+const skel = (n) => Array.from({ length: n }, () => el('div', 'skel skel-row')); // squelette pendant le premier chargement
 const POLL_ST = { ACTIVE: 'en cours', COMPLETED: 'terminé', TERMINATED: 'terminé', ARCHIVED: 'masqué', MODERATED: 'supprimé par Twitch', INVALID: 'invalide' };
 const PRED_ST = { ACTIVE: 'paris ouverts', LOCKED: 'paris fermés', RESOLVED: 'terminée', CANCELED: 'annulée (points rendus)' };
 async function loadVotes() {
   clearTimeout(votesTimer);
   if ($('p-votes').hidden || !bxReady('p-votes')) return;
+  if (!votesLoaded) { $('pollNow').replaceChildren(...skel(1)); $('predNow').replaceChildren(...skel(1)); }
   try {
     const [p, r] = await Promise.all([bx('GET', 'polls?first=1'), bx('GET', 'predictions?first=1')]);
     poll = (p.data || [])[0] || null; pred = (r.data || [])[0] || null;
-    renderPoll(); renderPred();
-  } catch (e) { bxError('p-votes', e); }
+    renderPoll(); renderPred(); votesLoaded = true;
+  } catch (e) { $('pollNow').replaceChildren(); $('predNow').replaceChildren(); bxError('p-votes', e); }
   const busy = (poll && poll.status === 'ACTIVE') || (pred && /ACTIVE|LOCKED/.test(pred.status));
   votesTimer = setTimeout(loadVotes, busy ? 3000 : 15000); // résultats en direct pendant un vote
 }
@@ -520,12 +522,13 @@ const ago = (t) => fmtDur(Math.max(1, Math.floor((Date.now() - Date.parse(t)) / 
 async function loadPoints() {
   clearTimeout(queueTimer);
   if (!bxReady('p-points')) return;
+  if (!pointsLoaded) { $('queue').replaceChildren(...skel(2)); $('rewards').replaceChildren(...skel(2)); }
   try {
     const [mine, all] = await Promise.all([bx('GET', 'channel_points/custom_rewards?only_manageable_rewards=true'), bx('GET', 'channel_points/custom_rewards')]);
     rewards = mine.data || [];
     others = (all.data || []).filter((r) => !rewards.some((m) => m.id === r.id));
-    renderRewards(); await loadQueue();
-  } catch (e) { bxError('p-points', e); }
+    renderRewards(); await loadQueue(); pointsLoaded = true;
+  } catch (e) { $('queue').replaceChildren(); $('rewards').replaceChildren(); bxError('p-points', e); }
 }
 async function loadQueue() {
   clearTimeout(queueTimer);
@@ -570,11 +573,16 @@ function renderRewards() {
       const acts = el('span', 'pn-row');
       const B = (label, fn) => { const b = el('button', 'btn ghost small', label); b.onclick = fn; acts.appendChild(b); };
       const patch = (body, label) => act(label, () => bx('PATCH', 'channel_points/custom_rewards?id=' + r.id, body)).then(loadPoints);
-      B('✏️', () => {
-        const t = prompt('Nom de la récompense', r.title); if (t == null) return;
-        const c = prompt('Prix (points)', r.cost); if (c == null) return;
-        if (!t.trim() || !(parseInt(c, 10) >= 1)) return toast('Nom ou prix invalide');
-        patch({ title: t.trim().slice(0, 45), cost: parseInt(c, 10) }, 'Récompense modifiée');
+      B('✏️', () => { // modification sur place : nom et prix dans la ligne, sans fenêtre
+        const f = el('form', 'bx-edit');
+        const ti = el('input'); ti.type = 'text'; ti.value = r.title; ti.maxLength = 45; ti.required = true; ti.setAttribute('aria-label', 'Nom de la récompense');
+        const co = el('input'); co.type = 'number'; co.value = r.cost; co.min = 1; co.required = true; co.setAttribute('aria-label', 'Prix (points)');
+        const ok = el('button', 'btn small', 'Enregistrer'); ok.type = 'submit';
+        const no = el('button', 'btn ghost small', 'Annuler'); no.type = 'button'; no.onclick = renderRewards;
+        f.append(ti, co, ok, no);
+        f.onsubmit = (e) => { e.preventDefault(); const c = parseInt(co.value, 10); if (!ti.value.trim() || !(c >= 1)) return toast('Nom ou prix invalide'); patch({ title: ti.value.trim().slice(0, 45), cost: c }, 'Récompense modifiée'); };
+        f.addEventListener('keydown', (e) => { if (e.key === 'Escape') renderRewards(); });
+        row.replaceChildren(f); ti.focus(); ti.select();
       });
       B(r.is_paused ? '▶ Reprendre' : '⏸ Pause', () => patch({ is_paused: !r.is_paused }, r.is_paused ? 'Récompense reprise' : 'Récompense en pause'));
       B(r.is_enabled ? 'Masquer' : 'Afficher', () => patch({ is_enabled: !r.is_enabled }, r.is_enabled ? 'Récompense masquée' : 'Récompense affichée'));
@@ -618,7 +626,9 @@ $('teamMods').onchange = () => act($('teamMods').checked ? 'Tes modos peuvent g�
 /* ---------- Onglets ---------- */
 $('tabs').onclick = (e) => {
   const b = e.target.closest('button'); if (!b) return;
-  document.querySelectorAll('#tabs button').forEach((x) => x.classList.toggle('on', x === b));
+  document.querySelectorAll('#tabs button').forEach((x) => { x.classList.toggle('on', x === b); x.setAttribute('aria-selected', String(x === b)); });
+  history.replaceState(null, '', location.pathname + location.search + (b.dataset.t === 'automod' ? '' : '#' + b.dataset.t)); // onglet gardé dans l'adresse
+  b.scrollIntoView({ block: 'nearest', inline: 'nearest' }); // onglet actif toujours visible si la barre défile
   document.querySelectorAll('.md-pane').forEach((p) => { p.hidden = p.id !== 'p-' + b.dataset.t; });
   if (b.dataset.t === 'modes') loadModes();
   if (b.dataset.t === 'livetab') { loadLive().catch((err) => toast(err.message)); loadTeam(); }
@@ -639,7 +649,7 @@ function select(c) {
   users.clear(); $('feed').replaceChildren(); $('automod').replaceChildren(); $('journal').replaceChildren(); $('unban').replaceChildren(); count(); countUnban();
   $('tabLive').hidden = !me.isBroadcasterOf;
   $('tabVotes').hidden = $('tabPoints').hidden = !(me.isBroadcasterOf || viaRelay() || DEMO); // modos : seulement via le relais
-  clearTimeout(votesTimer); clearTimeout(queueTimer); rewards = []; $('nPoints').textContent = '';
+  clearTimeout(votesTimer); clearTimeout(queueTimer); rewards = []; $('nPoints').textContent = ''; votesLoaded = pointsLoaded = false;
   const cur = $('tabs').querySelector('button.on');
   if (cur && cur.hidden) $('tabs').querySelector('[data-t="automod"]').click();
   else if (cur && cur.dataset.t === 'votes') loadVotes();
@@ -692,6 +702,8 @@ function need(text, label, href) {
   $('chan').value = JSON.stringify(pick);
   $('app').hidden = false;
   select(pick);
+  const want = location.hash.slice(1), tb = want && $('tabs').querySelector(`[data-t="${CSS.escape(want)}"]`);
+  if (tb && !tb.hidden) tb.click(); // onglet demandé dans l'adresse (#votes, #points…)
 })();
 
 /* ---------- Mode démo (aperçu sans compte) ---------- */
