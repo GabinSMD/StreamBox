@@ -143,7 +143,8 @@ calculateur.html      Calculateur de revenus
 overlays/*.html       Les overlays OBS
 js/sb.js              Noyau : client chat Twitch, emotes, apparence, liens courts, mode démo
 js/account.js         Compte StreamBox côté site (session, appels au relais)
-compte.html           Mon compte : overlays et intégrations
+compte.html           Mon compte : overlays, intégrations, page publique, images, compte (une section à la fois : #integrations, #page…)
+js/site.js            En-tête, pied de page et barre latérale « Mon espace » (écrans du streamer ; ?dock=1 la masque dans un dock OBS)
 bot.html              Bot de chat
 subathon.html         Gestion du subathon (streamer)
 live.html             Page publique du subathon (viewers)

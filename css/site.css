@@ -642,3 +642,26 @@ ol.sx-list { counter-reset: sx; } ol.sx-list li span::before { counter-increment
   .hm-top, .hm-cats { grid-template-columns: minmax(0, 1fr); }
   .hm-hero .hero-cta .btn { flex: 1 1 100%; justify-content: center; }
 }
+
+/* ---------- Mon espace : barre latérale des écrans du streamer ---------- */
+.esp { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 32px; max-width: 1400px; margin: 0 auto; padding: 0 16px; align-items: start; }
+.esp > main { max-width: none; margin: 0; padding: 0; min-width: 0; }
+.esp-nav { position: sticky; top: 76px; margin-top: 36px; background: var(--bg2); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px; max-height: calc(100vh - 96px); overflow-y: auto; }
+.esp-h { font-size: 12.5px; font-weight: 600; color: var(--muted); margin: 16px 10px 4px; }
+.esp-list > .esp-h:first-child { margin-top: 6px; }
+.esp-nav a { display: flex; align-items: center; padding: 8px 10px; min-height: 36px; border-radius: 8px; color: var(--muted); text-decoration: none; font-weight: 600; font-size: 14.5px; transition: background .15s, color .15s; }
+.esp-nav a:hover { color: var(--text); background: var(--card); }
+.esp-nav a[aria-current="page"] { color: var(--text); background: var(--card-h); }
+.esp-nav a[aria-current="page"] .ic { color: var(--accent-ink); }
+.esp-toggle { display: none; width: 100%; align-items: center; justify-content: space-between; gap: 8px; background: none; border: 0; color: var(--text); font: inherit; font-weight: 700; padding: 8px 10px; min-height: 44px; cursor: pointer; }
+.esp-toggle::after { content: ""; width: 8px; height: 8px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); margin-right: 4px; }
+.esp-nav.open .esp-toggle::after { transform: rotate(-135deg); }
+@media (max-width: 960px) {
+  .esp { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .esp-nav { position: static; margin-top: 16px; max-height: none; padding: 4px; }
+  .esp-toggle { display: flex; }
+  .esp-list { display: none; padding: 0 6px 8px; }
+  .esp-nav.open .esp-list { display: block; }
+}
+@media (prefers-reduced-motion: reduce) { .esp-nav a { transition: none; } }
+body.has-esp .top .wrap, body.has-esp footer .wrap { max-width: 1400px; }

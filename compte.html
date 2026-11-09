@@ -19,19 +19,23 @@
   </div>
 
   <div id="in" hidden>
-    <div class="acc-head">
-      <h2 class="sec" style="margin:36px 0 4px"><svg class="ic ic-user" aria-hidden="true" focusable="false"><use href="img/icons.svg#user"/></svg><span id="who"></span></h2>
-      <button class="btn ghost small" id="logout" type="button">Se déconnecter</button>
-    </div>
+    <section class="acc-sec" data-acc="overlays">
+      <h1 class="sec"><svg class="ic ic-layout-grid" aria-hidden="true" focusable="false"><use href="img/icons.svg#layout-grid"/></svg>Mes overlays</h1>
     <p class="sec">Tes overlays enregistrés. Colle leur lien dans OBS une seule fois : ensuite, tout se règle ici.</p>
     <div class="acc-list" id="overlays"></div>
     <details class="more" style="margin-top:14px"><summary><svg class="ic ic-plus" aria-hidden="true" focusable="false"><use href="img/icons.svg#plus"/></svg>Créer un overlay</summary><div class="pn-row" id="create"></div></details>
 
-    <h2 class="sec"><svg class="ic ic-plug" aria-hidden="true" focusable="false"><use href="img/icons.svg#plug"/></svg>Mes intégrations</h2>
+    </section>
+
+    <section class="acc-sec" data-acc="integrations" hidden>
+      <h1 class="sec"><svg class="ic ic-plug" aria-hidden="true" focusable="false"><use href="img/icons.svg#plug"/></svg>Mes intégrations</h1>
     <p class="sec">Renseignées une fois, utilisées par tous tes overlays. Les jetons sont chiffrés sur le relais, et chaque overlay ne reçoit que ceux dont il a besoin. Une fois enregistrés, ils ne sont plus jamais affichés.</p>
     <div class="grid" id="secrets"></div>
 
-    <h2 class="sec" id="page"><svg class="ic ic-globe" aria-hidden="true" focusable="false"><use href="img/icons.svg#globe"/></svg>Ma page publique</h2>
+    </section>
+
+    <section class="acc-sec" data-acc="page" hidden>
+      <h1 class="sec"><svg class="ic ic-globe" aria-hidden="true" focusable="false"><use href="img/icons.svg#globe"/></svg>Ma page publique</h1>
     <p class="sec">Une page à donner à ton chat : tes commandes, ton planning Twitch, tes liens, la file de musique et le subathon. Quand elle est active, <code>!commandes</code> y renvoie.</p>
     <section class="box pg-box">
       <label class="bt-toggle"><input type="checkbox" id="pgOn"><b>Activer ma page publique</b></label>
@@ -49,14 +53,26 @@
       <div class="pn-row"><button class="btn small" id="pgSave" type="button">Enregistrer</button></div>
     </section>
 
-    <h2 class="sec"><svg class="ic ic-image" aria-hidden="true" focusable="false"><use href="img/icons.svg#image"/></svg>Mes images</h2>
+    </section>
+
+    <section class="acc-sec" data-acc="images" hidden>
+      <h1 class="sec"><svg class="ic ic-image" aria-hidden="true" focusable="false"><use href="img/icons.svg#image"/></svg>Mes images</h1>
     <p class="sec">Images envoyées depuis les réglages des overlays (avatar du PNGTuber…) : 12 au plus. Une image supprimée disparaît des overlays qui l’utilisent.</p>
     <div class="asset-list" id="assets"></div>
 
+    </section>
+
+    <section class="acc-sec" data-acc="compte" hidden>
+      <h1 class="sec"><svg class="ic ic-user" aria-hidden="true" focusable="false"><use href="img/icons.svg#user"/></svg>Mon compte</h1>
+      <div class="acc-head">
+        <p class="sec">Connecté avec le compte Twitch <b id="who"></b>.</p>
+        <button class="btn ghost small" id="logout" type="button">Se déconnecter</button>
+      </div>
     <section class="box danger-zone">
       <h2><svg class="ic ic-trash-2" aria-hidden="true" focusable="false"><use href="img/icons.svg#trash-2"/></svg>Supprimer mon compte</h2>
       <p class="bt-help">Efface définitivement ton compte StreamBox : réglages, overlays et leurs liens, intégrations et jetons, bot, subathon, idées, demandes de musique. Tes abonnements Twitch sont supprimés et l’accès de StreamBox à ton compte Twitch est révoqué. Tes overlays dans OBS cesseront de fonctionner.</p>
       <div class="pn-row"><input type="text" id="confirmLogin" placeholder="Tape ton pseudo pour confirmer" autocomplete="off" style="max-width:280px"><button class="btn danger" id="delete" type="button">Supprimer définitivement</button></div>
+    </section>
     </section>
   </div>
 </main>
@@ -215,6 +231,17 @@ $('pgSave').onclick = async () => {
   try { showPage(await SBA.api('PUT', '/me/page', { enabled: $('pgOn').checked, about: $('pgAbout').value, links, sections, site: location.href.split('#')[0].split('?')[0] })); toast2('Page enregistrée ✓'); }
   catch (e) { toast2('Erreur : ' + e.message); }
 };
+
+/* ---------- Sections (une à la fois, choisie par l'adresse : #integrations, #page…) ---------- */
+function showSection() {
+  const want = location.hash.replace('#', '') || 'overlays';
+  const secs = [...document.querySelectorAll('.acc-sec')];
+  const cur = secs.find((x) => x.dataset.acc === want) || secs[0];
+  secs.forEach((x) => { x.hidden = x !== cur; });
+  window.scrollTo(0, 0);
+}
+addEventListener('hashchange', showSection);
+showSection();
 
 $('login').onclick = () => SBA.login('compte.html');
 $('logout').onclick = () => SBA.logout();
