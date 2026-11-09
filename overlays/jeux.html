@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <title>StreamBox · Mini-jeux du chat</title>
 <link rel="stylesheet" href="../css/overlay.css">
+<script src="../js/i18n.js"></script>
 </head>
 <body>
 <div class="jx" id="root">
@@ -24,7 +25,7 @@ const $ = (id) => document.getElementById(id);
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
 const ovId = new URLSearchParams(location.search).get('o');
 const relay = ((window.SB_CONFIG && SB_CONFIG.relayUrl) || '').replace(/\/$/, '');
-const fmt = (n) => Math.round(n).toLocaleString('fr-FR');
+const fmt = (n) => Math.round(n).toLocaleString(SB_LANG_TAG);
 const secs = (t, now) => Math.max(0, Math.ceil((t - now) / 1000));
 let S = null, skew = 0; // décalage entre l'horloge du relais et celle d'OBS
 

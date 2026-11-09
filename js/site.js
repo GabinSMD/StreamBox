@@ -2,7 +2,7 @@
 (function () {
   const REPO = 'https://github.com/GabinSMD/StreamBox';
   const page = location.pathname.split('/').pop() || 'index.html';
-  const links = [['index.html', 'Outils'], ['integrations.html', 'Intégrations', 'opt-link'], ['annuaire.html', 'Annuaire', 'opt-link'], ['apropos.html', 'À propos']];
+  const links = [['index.html', 'Outils'], ['integrations.html', 'Intégrations', 'opt-link'], ['annuaire.html', 'Annuaire', 'opt-link'], ['apropos.html', 'À propos', 'opt-small']];
   const header = document.createElement('header');
   header.className = 'top';
   header.innerHTML = '<div class="wrap"><a class="logo" href="index.html"><i>▶</i>StreamBox</a><nav></nav></div>';
@@ -21,6 +21,19 @@
     if (SBA.loggedIn()) { acc.href = 'compte.html'; acc.title = 'Mon compte'; label('👤 ' + SBA.session().login, '👤'); }
     else { acc.href = '#'; label('Se connecter avec Twitch', 'Connexion'); acc.onclick = (e) => { e.preventDefault(); SBA.login(); }; }
     nav.appendChild(acc);
+  }
+  // Langue du site (français, anglais, espagnol) : mémorisée, et envoyée au relais pour les réponses du bot
+  if (window.SB && SB.LANGS) {
+    const sel = document.createElement('select');
+    sel.className = 'lang-sel'; sel.setAttribute('aria-label', 'Langue'); sel.title = 'Langue';
+    Object.keys(SB.LANGS).forEach((l) => { const o = document.createElement('option'); o.value = l; o.textContent = l.toUpperCase(); o.title = SB.LANGS[l]; sel.appendChild(o); });
+    sel.value = SB.lang();
+    sel.onchange = async () => {
+      try { localStorage.setItem('sb-lang', sel.value); } catch (e) { /* ignore */ }
+      if (window.SBA && SBA.enabled() && SBA.loggedIn()) await SBA.api('PUT', '/me/lang', { lang: sel.value }).catch(() => {});
+      const u = new URL(location.href); u.searchParams.delete('lang'); location.replace(u.toString());
+    };
+    nav.appendChild(sel);
   }
   document.body.prepend(header);
 

@@ -4,9 +4,10 @@
 <meta charset="utf-8">
 <title>StreamBox · Lecture à voix haute</title>
 <link rel="stylesheet" href="../css/overlay.css">
+<script src="../js/i18n.js"></script>
 </head>
 <body>
-<div class="tts" id="bubble"><div class="tts-by" id="by"></div><div class="tts-text" id="text"></div></div>
+<div class="tts" id="bubble"><div class="tts-by" id="by"></div><div class="tts-text" id="text" data-i18n-skip></div></div>
 <script src="../js/config.js"></script>
 <script src="../js/sb.js"></script>
 <script src="../js/eventsub.js"></script>
@@ -21,6 +22,7 @@ const c = SB.params({
   size: 22, font: 'Inter', accent: '#9b5cff', demo: false,
 });
 SB.loadFont(c.font); SB.setAccent(c.accent);
+if (!SB.query().has('voice')) c.voice = SB.lang(); // voix dans la langue de l'overlay
 document.documentElement.style.setProperty('--size', c.size + 'px');
 const $ = (id) => document.getElementById(id);
 const LEVEL = { everyone: 0, sub: 1, vip: 2, mod: 3 };
@@ -71,10 +73,10 @@ async function next() {
   const item = queue.shift();
   if (!item) return;
   speaking = true; current = item; show(item);
-  const phrase = (c.readname ? `${item.by} dit : ` : '') + item.text;
+  const phrase = (c.readname ? SB.t('{0} dit :', [item.by]) + ' ' : '') + item.text;
   if (c.engine === 'relais' && ovId && relay && !c.demo) {
     try {
-      const r = await fetch(`${relay}/o/${ovId}/tts`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: phrase }) });
+      const r = await fetch(`${relay}/o/${ovId}/tts`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: phrase, lang: SB.lang() }) });
       const d = await r.json();
       if (!d.audio) throw new Error(d.error || 'voix indisponible');
       audio = new Audio(`data:${d.mime || 'audio/mpeg'};base64,${d.audio}`);
@@ -87,7 +89,7 @@ async function next() {
   if (!window.speechSynthesis) return setTimeout(done, 3000);
   const u = new SpeechSynthesisUtterance(phrase);
   const v = pickVoice(); if (v) u.voice = v;
-  u.lang = v ? v.lang : 'fr-FR'; u.rate = c.rate; u.pitch = c.pitch; u.volume = c.volume;
+  u.lang = v ? v.lang : SB_LANG_TAG; u.rate = c.rate; u.pitch = c.pitch; u.volume = c.volume;
   u.onend = done; u.onerror = done;
   speechSynthesis.speak(u);
   setTimeout(() => { if (current === item && !speechSynthesis.speaking) done(); }, 1500); // aucune voix disponible : on n'attend pas

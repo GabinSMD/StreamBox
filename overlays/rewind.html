@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <title>StreamBox · Rewind</title>
 <link rel="stylesheet" href="../css/overlay.css">
+<script src="../js/i18n.js"></script>
 </head>
 <body>
 <div id="rw-stage"></div>
@@ -198,7 +199,7 @@ async function communityClips(local) {
 }
 
 /* =================== 4. LE CONDENSÉ =================== */
-const nf = (n) => Number(n).toLocaleString('fr-FR');
+const nf = (n) => Number(n).toLocaleString(SB_LANG_TAG);
 const fmtDur = (ms) => { const m = Math.round(ms / 60000); return m >= 60 ? `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}` : `${m} min`; };
 const fmtOffset = (ms) => { const m = Math.max(0, Math.floor(ms / 60000)); return `${Math.floor(m / 60)}h${String(m % 60).padStart(2, '0')}`; };
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -255,7 +256,7 @@ function buildSlides(local, moments) {
     s.appendChild(SB.el('div', 'rw-kicker', 'Le stream précédent'));
     s.appendChild(SB.el('h1', 'rw-h1', moments.length ? `${moments.length} temps forts` : 'Ce qu’on a vécu ensemble'));
     const meta = [];
-    if (start) meta.push(new Date(start).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }));
+    if (start) meta.push(new Date(start).toLocaleDateString(SB_LANG_TAG, { weekday: 'long', day: 'numeric', month: 'long' }));
     if (local) meta.push(fmtDur(local.last - local.start) + ' de live');
     if (moments.some((m) => !m.community)) meta.push('repérés grâce aux réactions du chat et à la voix');
     s.appendChild(SB.el('div', 'rw-meta rw-date', meta.join(' · ')));
@@ -397,7 +398,7 @@ function renderDebug() {
   const sess = c.demo ? { highlights: demoMoments } : DB.sessions[DB.sessions.length - 1];
   const list = SB.el('div', 'rw-dlist');
   ((sess && sess.highlights) || []).slice(-4).reverse().forEach((h) => {
-    list.appendChild(SB.el('div', null, `${new Date(h.t).toLocaleTimeString('fr-FR')} · intensité ${Math.round(h.score * 100)} · ${h.kind === 'obs' ? 'vidéo OBS ✓' : h.kind === 'twitch' ? 'clip Twitch ✓' : h.kind === 'demo' ? 'démo' : 'non enregistré' + (h.error ? ' (' + h.error + ')' : '')}`));
+    list.appendChild(SB.el('div', null, `${new Date(h.t).toLocaleTimeString(SB_LANG_TAG)} · intensité ${Math.round(h.score * 100)} · ${h.kind === 'obs' ? 'vidéo OBS ✓' : h.kind === 'twitch' ? 'clip Twitch ✓' : h.kind === 'demo' ? 'démo' : 'non enregistré' + (h.error ? ' (' + h.error + ')' : '')}`));
   });
   dbg.replaceChildren(
     SB.el('div', 'rw-dtitle', 'Analyse des temps forts' + (det.paused ? ' (en pause pendant le récap)' : '')),

@@ -85,7 +85,7 @@
   };
 
   SB.formatMoney = (amount, currency) => {
-    try { return Number(amount).toLocaleString('fr-FR', { style: 'currency', currency: currency || 'EUR' }); }
+    try { return Number(amount).toLocaleString(SB_LANG_TAG, { style: 'currency', currency: currency || 'EUR' }); }
     catch (e) { return amount + ' ' + (currency || ''); }
   };
 })();

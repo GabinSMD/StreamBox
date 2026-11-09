@@ -43,6 +43,13 @@ Pour le relais (comptes, bot, subathon, demandes de musique), voir [`relay/READM
 - **Un nouvel outil** s'ajoute dans `js/tools.js` (champs du configurateur), avec un overlay dans `overlays/` qui sait tourner en `?demo=1`.
 - Teste ta modification (mode démo, et vrai chat si possible), et décris ce que tu as testé dans la pull request.
 
+## Traductions
+
+Écris les textes en français dans le code, comme d'habitude : ils sont traduits à l'affichage grâce à
+`js/i18n/en.json` et `js/i18n/es.json`. Pour ajouter les traductions de tes nouveaux textes (ou une langue),
+voir [tools/i18n/README.md](tools/i18n/README.md). Les messages du chat et ce que tapent les viewers ne
+doivent jamais être traduits : mets `data-i18n-skip` sur l'élément qui les contient.
+
 ## Licence
 
 En contribuant, tu acceptes que ta contribution soit publiée sous la licence du projet, [GNU AGPL-3.0](LICENSE).

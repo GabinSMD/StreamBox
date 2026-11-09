@@ -6,6 +6,7 @@
 <title>Demandes de musique · StreamBox</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
 <link rel="stylesheet" href="css/site.css">
+<script src="js/i18n.js"></script>
 </head>
 <body>
 <main class="wrap">
@@ -32,7 +33,7 @@ const len = (s) => (s ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')
 function row(x, i) {
   const r = el('div', 'sr-item');
   if (x.thumb) { const img = el('img'); img.src = x.thumb; img.alt = ''; r.appendChild(img); }
-  const t = el('div', 'sr-t'); const a = el('a', null, x.title); a.href = x.url || '#'; a.target = '_blank'; a.rel = 'noopener';
+  const t = el('div', 'sr-t'); const a = el('a', null, x.title); a.dataset.i18nSkip = ''; a.href = x.url || '#'; a.target = '_blank'; a.rel = 'noopener';
   t.append(i != null ? el('b', 'lv-num', `${i + 1}. `) : '', a, el('small', null, [x.artist, len(x.duration), 'demandé par ' + x.by].filter(Boolean).join(' · ')));
   r.appendChild(t); return r;
 }

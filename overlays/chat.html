@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <title>StreamBox · Chat</title>
 <link rel="stylesheet" href="../css/overlay.css">
+<script src="../js/i18n.js"></script>
 </head>
 <body>
 <div id="chat"></div>
@@ -56,7 +57,7 @@ function addMessage(m) {
   name.style.color = SB.nameColor(m);
   meta.appendChild(name);
   if (c.theme !== 'bulles') meta.appendChild(SB.el('span', 'sep', m.action ? '' : ':'));
-  const text = SB.el('span', 'text');
+  const text = SB.el('span', 'text'); text.dataset.i18nSkip = ''; // message d'un viewer : jamais traduit
   if (m.action) text.style.color = SB.nameColor(m);
   if (m.amount) text.appendChild(SB.el('b', 'paid-amount', m.amount + ' '));
   SB.messageNodes(m, emotes).forEach((n) => text.appendChild(n));

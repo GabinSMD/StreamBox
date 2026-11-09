@@ -307,7 +307,10 @@ footer .logo { font-size: 17px; }
   .top nav { gap: 12px; }
   .top nav .acc .acc-long { display: none; }
   .top nav .acc .acc-short { display: inline; }
+  .top nav { font-size: 14px; }
+  .lang-sel { padding: 3px 2px; font-size: 12px; width: 46px; }
 }
+@media (max-width: 430px) { .top nav a.opt-small { display: none; } .top nav { gap: 10px; } .top .logo { font-size: 18px; } }
 .jx-form { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
 .jx-form input[type=text], .jx-form textarea { width: 100%; }
 .jx-live { padding: 12px; border-radius: 12px; background: var(--card2, rgba(255,255,255,.04)); display: flex; flex-direction: column; gap: 6px; }
@@ -436,3 +439,5 @@ footer .logo { font-size: 17px; }
 .sx-list li { display: flex; justify-content: space-between; gap: 10px; padding: 5px 0; border-bottom: 1px solid var(--line); }
 ol.sx-list { counter-reset: sx; } ol.sx-list li span::before { counter-increment: sx; content: counter(sx) '. '; color: var(--muted); }
 .sx-page #app > section { margin-bottom: 16px; }
+.lang-sel { flex-shrink: 0; width: 52px; background: var(--bg2); color: var(--muted); border: 1px solid var(--line); border-radius: 8px; padding: 4px 6px; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+@media (max-width: 400px) { .top .logo { font-size: 0; gap: 0; } .top .logo i { font-size: 16px; } }

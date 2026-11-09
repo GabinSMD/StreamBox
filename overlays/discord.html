@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <title>StreamBox · Annonces Discord</title>
 <link rel="stylesheet" href="../css/overlay.css">
+<script src="../js/i18n.js"></script>
 </head>
 <body>
 <div class="panel dc-panel" id="panel" hidden>
@@ -30,7 +31,7 @@ const KEY = 'sb-discord-' + (c.channel.toLowerCase() || 'local');
 let S; try { S = JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { S = {}; }
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { /* ignore */ } };
 
-function log(t) { const d = SB.el('div', null, new Date().toLocaleTimeString('fr-FR') + ' · ' + t); $('log').prepend(d); while ($('log').children.length > 6) $('log').lastElementChild.remove(); }
+function log(t) { const d = SB.el('div', null, new Date().toLocaleTimeString(SB_LANG_TAG) + ' · ' + t); $('log').prepend(d); while ($('log').children.length > 6) $('log').lastElementChild.remove(); }
 const fill = (tpl, v) => tpl.replace(/\{(\w+)\}/g, (_, k) => (v[k] != null ? v[k] : ''));
 function mention() {
   if (c.mention === 'everyone') return { content: '@everyone', allowed_mentions: { parse: ['everyone'] } };
@@ -76,11 +77,11 @@ async function onOffline() {
   S.recapped = st.start; save();
   const top = Object.values(st.chatters).sort((a, b) => b.n - a.n).slice(0, 3);
   const fields = [
-    { name: '💬 Messages', value: st.msgs.toLocaleString('fr-FR'), inline: true },
+    { name: '💬 Messages', value: st.msgs.toLocaleString(SB_LANG_TAG), inline: true },
     { name: '👥 Dans le chat', value: String(Object.keys(st.chatters).length), inline: true },
   ];
   if (st.subs) fields.push({ name: '⭐ Abonnements', value: String(st.subs), inline: true });
-  if (st.bits) fields.push({ name: '💎 Bits', value: st.bits.toLocaleString('fr-FR'), inline: true });
+  if (st.bits) fields.push({ name: '💎 Bits', value: st.bits.toLocaleString(SB_LANG_TAG), inline: true });
   if (st.raids) fields.push({ name: '🚀 Raids', value: String(st.raids), inline: true });
   if (top.length) fields.push({ name: '🏆 Les plus actifs', value: top.map((x, i) => `${['🥇', '🥈', '🥉'][i]} ${x.name} (${x.n})`).join('\n') });
   post({ embeds: [{ title: fill(c.trecap, { channel: c.channel, duration: fmtDur(Date.now() - st.start) }), color, fields, footer: { text: 'Récap StreamBox' } }] }, 'récap du live');

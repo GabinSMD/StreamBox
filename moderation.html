@@ -6,6 +6,7 @@
 <title>Panneau de modération · StreamBox</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
 <link rel="stylesheet" href="css/site.css">
+<script src="js/i18n.js"></script>
 </head>
 <body class="md-body">
 <main class="wrap md-wrap">
@@ -99,7 +100,7 @@
       <a id="cTwitch" target="_blank" rel="noopener">Fiche Twitch ↗</a>
     </div>
     <h4>Messages pendant cette session <small id="cCount"></small></h4>
-    <div class="md-hist" id="cHist"></div>
+    <div class="md-hist" id="cHist" data-i18n-skip></div>
   </div>
 </div>
 
@@ -122,7 +123,7 @@ let T = null, me = null, ch = null, chat = null, es = null, emotes = null;
 const users = new Map(); // login → { id, name, msgs: [] }
 let atBottom = true, unseen = 0, cardUser = null, heldCount = 0;
 const fmtDur = (s) => (s >= 86400 ? `${Math.round(s / 86400)} j` : s >= 3600 ? `${Math.round(s / 3600)} h` : s >= 60 ? `${Math.round(s / 60)} min` : `${s} s`);
-const hhmm = (t) => new Date(t).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+const hhmm = (t) => new Date(t).toLocaleTimeString(SB_LANG_TAG, { hour: '2-digit', minute: '2-digit' });
 const LINK = /(https?:\/\/|www\.)\S+|\b[a-z0-9-]+\.(com|fr|net|org|io|gg|tv|ly|me|xyz|be|ru)\b/i;
 
 /* ---------- Jeton et API Twitch ---------- */
@@ -174,7 +175,7 @@ function addMessage(m) {
     b('🔨', 'Bannir', () => { if (confirm(`Bannir ${m.name} ?`)) ban(u.id); });
   }
   const name = el('button', 'md-name', m.name); name.type = 'button'; name.style.color = SB.nameColor(m); name.onclick = () => openCard(m.login);
-  const text = el('span', 'md-text'); text.append(...SB.messageNodes(m, emotes));
+  const text = el('span', 'md-text'); text.dataset.i18nSkip = ''; text.append(...SB.messageNodes(m, emotes));
   row.append(el('time', null, hhmm(m.ts)), acts, el('span', 'md-b', badgeText(m)), name, el('span', 'md-sep', m.action ? '' : ':'), text);
   if (m.first) row.prepend(el('span', 'md-tag', 'Nouveau'));
   row.onclick = (e) => { if (e.target.closest('a,button')) return; document.querySelectorAll('.md-msg.sel').forEach((r) => r !== row && r.classList.remove('sel')); row.classList.toggle('sel'); }; // écran tactile : touche le message pour voir les actions
@@ -239,7 +240,8 @@ function held(ev) {
   const a = el('button', 'btn small', '✅ Autoriser'); a.onclick = () => go('ALLOW');
   const d = el('button', 'btn ghost small', '✕ Refuser'); d.onclick = () => go('DENY');
   row.append(a, d);
-  box.append(head, el('p', null, (ev.message && ev.message.text) || ''), row);
+  const msgP = el('p', null, (ev.message && ev.message.text) || ''); msgP.dataset.i18nSkip = '';
+  box.append(head, msgP, row);
   $('automod').prepend(box); count();
   if ($('amSound').checked && SB.chime) SB.chime();
 }
@@ -276,7 +278,8 @@ function unbanRow(r) {
   const a = el('button', 'btn small', '✅ Accepter'); a.onclick = () => go('approved');
   const d = el('button', 'btn ghost small', '✕ Refuser'); d.onclick = () => go('denied');
   const row = el('div', 'pn-row'); row.append(a, d);
-  box.append(head, el('p', null, r.text || ''), res, row);
+  const reqP = el('p', null, r.text || ''); reqP.dataset.i18nSkip = '';
+  box.append(head, reqP, res, row);
   $('unban').prepend(box); countUnban();
 }
 function countUnban() { $('nUnban').textContent = $('unban').children.length || ''; }
@@ -363,7 +366,7 @@ $('tabs').onclick = (e) => {
 async function stream() {
   try {
     const s = ((await tw('GET', 'streams?user_id=' + ch.id)).data || [])[0];
-    $('live').textContent = s ? `🔴 ${s.viewer_count.toLocaleString('fr-FR')} viewers · ${fmtDur(Math.floor((Date.now() - Date.parse(s.started_at)) / 1000))}` : 'hors ligne';
+    $('live').textContent = s ? `🔴 ${s.viewer_count.toLocaleString(SB_LANG_TAG)} viewers · ${fmtDur(Math.floor((Date.now() - Date.parse(s.started_at)) / 1000))}` : 'hors ligne';
   } catch (e) { $('live').textContent = ''; }
 }
 function select(c) {

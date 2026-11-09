@@ -6,6 +6,7 @@
 <title>StreamBox, configurer un overlay</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Roboto+Mono&display=swap">
 <link rel="stylesheet" href="css/site.css">
+<script src="js/i18n.js"></script>
 </head>
 <body>
 <main class="wrap">
@@ -55,6 +56,10 @@
 <script src="js/account.js"></script>
 <script src="js/site.js"></script>
 <script>
+/* Valeur affichée au départ : la langue du site pour « lang », les textes par défaut dans la langue du site */
+const initial = (f) => (f.key === 'lang' ? (window.SB_LANG || 'fr') : typeof f.default === 'string' && SB.t ? SB.t(f.default) : f.default);
+// Un texte par défaut (même traduit) n'est pas mis dans le lien : l'overlay le traduit lui-même dans sa langue
+const isDefault = (f, v) => v === f.default || (f.type === 'checkbox' && !!v === !!f.default) || (f.key !== 'lang' && typeof f.default === 'string' && SB.t && v === SB.t(f.default));
 (function () {
   const id = new URLSearchParams(location.search).get('id');
   const tool = SB_TOOLS.find((t) => t.id === id) || SB_TOOLS[0];
@@ -180,7 +185,7 @@
       ['min', 'max', 'step'].forEach((k) => f[k] != null && (input[k] = f[k]));
     }
     input.id = inputId; input.name = f.key;
-    const v = f.key in saved ? saved[f.key] : f.default;
+    const v = f.key in saved ? saved[f.key] : initial(f);
     if (f.type === 'checkbox') input.checked = !!v; else input.value = v;
     const label = document.createElement('label'); label.htmlFor = inputId;
     if (f.type === 'checkbox') { label.appendChild(input); label.append(f.label); wrap.appendChild(label); }
@@ -209,7 +214,7 @@
     const u = new URL(tool.overlay, location.href);
     tool.fields.forEach((f) => {
       const v = vals[f.key];
-      if (v === undefined || v === f.default || (f.type === 'checkbox' && !!v === !!f.default)) return;
+      if (v === undefined || isDefault(f, v)) return;
       u.searchParams.set(f.key, f.type === 'checkbox' ? (v ? '1' : '0') : String(v));
     });
     Object.entries(extra || {}).forEach(([k, v]) => u.searchParams.set(k, v));
@@ -244,7 +249,7 @@
   $('demo').addEventListener('change', update);
   $('gamebg').addEventListener('change', () => preview.classList.toggle('game', $('gamebg').checked));
   $('reset').addEventListener('click', () => {
-    tool.fields.forEach((f) => { const el = form.elements[f.key]; if (f.key === 'channel') return; if (f.type === 'twitch' || f.type === 'spotify') return; if (f.type === 'checkbox') el.checked = f.default; else el.value = f.default; });
+    tool.fields.forEach((f) => { const el = form.elements[f.key]; if (f.key === 'channel') return; if (f.type === 'twitch' || f.type === 'spotify') return; if (f.type === 'checkbox') el.checked = f.default; else el.value = initial(f); });
     update();
   });
   $('copy').addEventListener('click', async () => {
@@ -276,7 +281,7 @@
       if (!el || f.type === 'twitch' || f.type === 'spotify') return;
       const has = u.searchParams.has(f.key), raw = u.searchParams.get(f.key);
       if (f.type === 'checkbox') el.checked = has ? raw === '1' || raw === 'true' : !!f.default;
-      else el.value = has ? raw : f.default;
+      else el.value = has ? raw : initial(f);
       el.dispatchEvent(new Event('input'));
     });
     $('importurl').value = '';
@@ -300,7 +305,7 @@
     tool.fields.forEach((f) => {
       if (isSecret(f)) return;
       const v = vals[f.key];
-      if (v === undefined || v === f.default || (f.type === 'checkbox' && !!v === !!f.default) || v === '') return;
+      if (v === undefined || isDefault(f, v) || v === '') return;
       out[f.key] = v;
     });
     return out;
@@ -360,7 +365,7 @@
         const el = form.elements[f.key]; if (!el) return;
         const has = f.key in o.settings, v = o.settings[f.key];
         if (el.type === 'checkbox') el.checked = f.key === 'discord' ? v === 'compte' : has ? !!v && v !== '0' : !!f.default;
-        else el.value = has ? v : f.default;
+        else el.value = has ? v : initial(f);
         el.dispatchEvent(new Event('input'));
       });
       if (!o.settings.channel && form.elements.channel) form.elements.channel.value = SBA.session().login;
