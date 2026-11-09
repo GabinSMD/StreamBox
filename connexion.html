@@ -4,9 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Connexion Twitch · StreamBox</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap">
+<meta name="description" content="Connexion à StreamBox avec ton compte Twitch.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400..800&family=Tektur:wght@500..800&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="css/site.css">
 <script src="js/i18n.js"></script>
+<script src="js/icons.js"></script>
 </head>
 <body>
 <main class="wrap"><div class="box" style="margin:48px auto;max-width:520px"><h1 id="h">Connexion à Twitch…</h1><p class="lead" id="p"></p></div></main>
@@ -72,7 +74,7 @@ if (q.get('code') && q.get('state')) {
   // Modération : pour les modos (et le streamer) qui utilisent le panneau de modération
   const MOD = 'user:read:moderated_channels moderator:manage:banned_users moderator:manage:chat_messages moderator:manage:chat_settings moderator:manage:automod moderator:manage:shield_mode moderator:manage:announcements moderator:manage:warnings moderator:manage:unban_requests moderator:manage:blocked_terms moderator:read:moderators moderator:read:vips moderator:read:chatters';
   // Gestion du live (streamer seulement) : titre, jeu, raid
-  const LIVE = 'channel:manage:broadcast channel:manage:raids';
+  const LIVE = 'channel:manage:broadcast channel:manage:raids channel:manage:polls channel:manage:predictions channel:manage:redemptions moderation:read';
   const EXTRA = { bot: BOT, mod: MOD, live: MOD + ' ' + LIVE };
   // Les permissions en plus déjà accordées sont redemandées à chaque connexion, pour ne pas les perdre
   let wants = [];

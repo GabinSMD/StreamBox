@@ -4,48 +4,80 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>StreamBox, la boîte à outils des streamers</title>
-<meta name="description" content="Overlays OBS, bot de chat, alertes, subathon, demandes de musique… Tous les outils du streamer au même endroit : gratuits, open source et sans installation.">
+<meta name="description" content="Overlays OBS, bot de chat, alertes, subathon, demandes de musique et panneau de modération. Gratuits, open source et sans installation.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400..800&family=Tektur:wght@500..800&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="css/site.css">
 <script src="js/i18n.js"></script>
+<script src="js/icons.js"></script>
 </head>
-<body>
-<main class="wrap">
-  <section class="hero">
-    <h1>Tous tes outils de stream.<br><span>Un seul site.</span></h1>
-    <p>Overlays OBS, bot de chat, alertes, subathon, demandes de musique… Configure, copie le lien dans OBS, c’est prêt. Rien à installer.</p>
-    <div class="hero-cta">
-      <a class="btn" href="#outils">Découvrir les outils</a>
-      <a class="btn ghost" id="heroAccount" href="compte.html">Se connecter avec Twitch</a>
+<body class="home">
+<main>
+  <section class="hm-hero wrap">
+    <div class="hm-hero-text">
+      <h1>Ton live, sans rien installer.</h1>
+      <p class="hm-lead">Overlays OBS, bot de chat, panneau de modération : gratuits et open source.</p>
+      <div class="hero-cta">
+        <a class="btn btn-lg" href="outils.html">Choisir un outil</a>
+        <a class="btn ghost btn-lg" id="heroAccount" href="compte.html">Se connecter avec Twitch</a>
+      </div>
+      <ul class="hm-facts">
+        <li><svg class="ic ic-check" aria-hidden="true" focusable="false"><use href="img/icons.svg#check"/></svg>Gratuit, sans publicité ni pistage</li>
+        <li><svg class="ic ic-check" aria-hidden="true" focusable="false"><use href="img/icons.svg#check"/></svg>Libre, sous licence AGPL-3.0</li>
+        <li><svg class="ic ic-check" aria-hidden="true" focusable="false"><use href="img/icons.svg#check"/></svg>Un lien à coller dans OBS, rien d’autre</li>
+      </ul>
     </div>
-    <div class="pills">
-      <span class="pill"><b>✓</b> Gratuit</span>
-      <span class="pill"><b>✓</b> Open source</span>
-      <span class="pill"><b>✓</b> Sans installation</span>
-      <span class="pill"><b>✓</b> Sans publicité ni pistage</span>
+    <figure class="hm-shot">
+      <img src="img/accueil-outil.jpg" width="1280" height="800" alt="Le configurateur de l’overlay de chat : réglages à gauche, aperçu en direct à droite, lien à copier en haut" fetchpriority="high">
+      <figcaption>Le chat en overlay : tu règles à gauche, l’aperçu suit en direct.</figcaption>
+    </figure>
+  </section>
+
+  <section class="hm-sec wrap" aria-labelledby="hmTop">
+    <div class="hm-head">
+      <h2 id="hmTop">Les plus utilisés</h2>
+      <a class="hm-more" href="outils.html" id="allLink">Voir tous les outils</a>
+    </div>
+    <div class="hm-top" id="top"></div>
+  </section>
+
+  <section class="hm-sec hm-band" aria-labelledby="hmHow">
+    <div class="wrap">
+      <h2 id="hmHow">Trois étapes, aucune installation</h2>
+      <ol class="hm-steps">
+        <li><b>Choisis un outil</b><span>Règle le style et les options. L’aperçu se met à jour en direct.</span></li>
+        <li><b>Connecte-toi avec Twitch</b><span>Facultatif, mais conseillé : tes overlays sont enregistrés, avec un lien court sans jeton qui se met à jour tout seul.</span></li>
+        <li><b>Colle le lien dans OBS</b><span>Sources, puis Navigateur. Le bot, le subathon et les demandes de musique tournent ensuite tout seuls.</span></li>
+      </ol>
     </div>
   </section>
 
-  <nav class="cat-nav" id="catNav" aria-label="Catégories"></nav>
-  <div id="outils"></div>
-
-  <h2 class="sec" id="comment">Comment ça marche</h2>
-  <p class="sec">Trois étapes, aucune installation.</p>
-  <div class="how">
-    <div><span class="num">1</span><b>Choisis un outil</b><span>Règle le style et les options. L’aperçu se met à jour en direct.</span></div>
-    <div><span class="num">2</span><b>Connecte-toi avec Twitch</b><span>Facultatif, mais conseillé. Tes overlays sont enregistrés, et chacun a un lien court sans jeton, qui se met à jour tout seul.</span></div>
-    <div><span class="num">3</span><b>Colle le lien dans OBS</b><span>Sources → + → Navigateur. Le bot, le subathon et les demandes de musique tournent ensuite tout seuls.</span></div>
-  </div>
-
-  <section class="oss box">
+  <section class="hm-sec hm-split wrap" aria-labelledby="hmMods">
+    <figure class="hm-shot">
+      <img src="img/accueil-moderation.jpg" width="1280" height="800" alt="Le panneau de modération : le chat avec ses actions à gauche, un sondage en cours et ses résultats à droite" loading="lazy">
+    </figure>
     <div>
-      <h2>💜 Open source et fait avec la communauté</h2>
-      <p>StreamBox est libre et gratuit (licence AGPL-3.0). Une idée, un bug, une envie ? Propose-la : elle profitera à tout le monde. Une suggestion ou une contribution au projet principal vaut mieux qu’un fork.</p>
+      <h2 id="hmMods">Tes modos ont leur panneau</h2>
+      <p>Chacun se connecte avec son compte Twitch. Sanctions en un clic, file AutoMod, journal de l’équipe, sondages, prédictions et récompenses de points de chaîne, sur un seul écran qui tient aussi dans un dock OBS.</p>
+      <div class="pn-row"><a class="btn ghost" href="moderation.html?demo=1">Voir la démo</a></div>
     </div>
-    <div class="pn-row">
-      <a class="btn" href="https://github.com/GabinSMD/StreamBox/issues/new?template=suggestion.md" target="_blank" rel="noopener">💡 Proposer une idée</a>
-      <a class="btn ghost" href="apropos.html">En savoir plus</a>
+  </section>
+
+  <section class="hm-sec wrap" aria-labelledby="hmCats">
+    <h2 id="hmCats">Par besoin</h2>
+    <div class="hm-cats" id="cats"></div>
+  </section>
+
+  <section class="hm-sec wrap">
+    <div class="oss box">
+      <div>
+        <h2><svg class="ic ic-heart" aria-hidden="true" focusable="false"><use href="img/icons.svg#heart"/></svg>Open source et fait avec la communauté</h2>
+        <p>Une idée, un bug, une envie ? Propose-la : elle profitera à tout le monde.</p>
+      </div>
+      <div class="pn-row">
+        <a class="btn" href="https://github.com/GabinSMD/StreamBox/issues/new?template=suggestion.md" target="_blank" rel="noopener"><svg class="ic ic-lightbulb" aria-hidden="true" focusable="false"><use href="img/icons.svg#lightbulb"/></svg>Proposer une idée</a>
+        <a class="btn ghost" href="apropos.html">En savoir plus</a>
+      </div>
     </div>
   </section>
 </main>
@@ -53,34 +85,20 @@
 <script src="js/config.js"></script>
 <script src="js/account.js"></script>
 <script src="js/site.js"></script>
+<script src="js/catalogue.js"></script>
 <script>
-const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
-const all = [...SB_TOOLS, ...SB_PAGES].filter((t) => !t.mergedInto);
-const hrefOf = (t) => t.href || 'outil.html?id=' + t.id;
-
-function card(t) {
-  const a = el('a', 'tool'); a.href = hrefOf(t);
-  a.append(el('span', 'ic', t.icon), el('h3', null, t.name), el('p', null, t.tagline));
-  if (t.links) {
-    const row = el('div', 'tool-links');
-    t.links.forEach(([label, href]) => { const l = el('span', 'tool-link', label); l.onclick = (e) => { e.preventDefault(); location.href = href; }; row.appendChild(l); });
-    a.appendChild(row);
-  }
-  if (t.replaces && t.replaces.length) { const r = el('div', 'rep'); r.append('Remplace : '); r.appendChild(el('b', null, t.replaces.join(', '))); a.appendChild(r); }
-  return a;
-}
-
-const box = document.getElementById('outils'), nav = document.getElementById('catNav');
+const C = SB.catalogue;
+// Outils phares : ceux que presque tous les streamers installent en premier
+['chat', 'alertes', 'bot', 'subathon-live', 'moderation', 'sr'].map(C.byId).filter(Boolean).forEach((t) => document.getElementById('top').appendChild(C.card(t, { short: true })));
+document.getElementById('allLink').textContent = SB.t('Voir les {0} outils', [C.all.length]);
 SB_CATEGORIES.forEach((c) => {
-  const items = all.filter((t) => t.cat === c.id);
-  if (!items.length) return;
-  const sec = el('section', 'cat'); sec.id = 'cat-' + c.id;
-  sec.append(el('h2', 'sec', c.icon + ' ' + c.name), el('p', 'sec', c.desc));
-  const grid = el('div', 'grid'); items.forEach((t) => grid.appendChild(card(t))); sec.appendChild(grid);
-  box.appendChild(sec);
-  const l = el('a', 'chip', c.icon + ' ' + c.name); l.href = '#cat-' + c.id; nav.appendChild(l);
+  const n = C.all.filter((t) => t.cat === c.id).length; if (!n) return;
+  const a = document.createElement('a'); a.className = 'hm-cat'; a.href = 'outils.html#cat-' + c.id;
+  const top = document.createElement('span'); top.className = 'hm-cat-top'; top.append(C.icon(c.icon), Object.assign(document.createElement('b'), { textContent: c.name }));
+  a.append(top, Object.assign(document.createElement('span'), { textContent: c.desc }), Object.assign(document.createElement('small'), { textContent: SB.t('{0} outils', [n]) }));
+  document.getElementById('cats').appendChild(a);
 });
-if (window.SBA && SBA.enabled() && SBA.loggedIn()) { const h = document.getElementById('heroAccount'); h.textContent = '👤 Mon compte'; }
+if (window.SBA && SBA.enabled() && SBA.loggedIn()) { const h = document.getElementById('heroAccount'); h.textContent = '👤 Mon espace'; }
 else if (!(window.SBA && SBA.enabled())) document.getElementById('heroAccount').hidden = true;
 </script>
 </body>

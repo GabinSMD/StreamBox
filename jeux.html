@@ -4,13 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Mini-jeux du chat · StreamBox</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<meta name="description" content="Mini-jeux du chat Twitch : points virtuels, duels, prédictions, quiz et classement, sans argent réel.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400..800&family=Tektur:wght@500..800&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="css/site.css">
 <script src="js/i18n.js"></script>
+<script src="js/icons.js"></script>
 </head>
 <body>
 <main class="wrap">
-  <h2 class="sec" style="margin-top:36px">🎲 Mini-jeux du chat</h2>
+  <h1 class="sec" style="margin-top:36px"><svg class="ic ic-dices" aria-hidden="true" focusable="false"><use href="img/icons.svg#dices"/></svg>Mini-jeux du chat</h1>
   <p class="sec">Tes viewers gagnent des points virtuels en discutant, puis les jouent en duels, prédictions et quiz. Tout tourne sur le relais StreamBox, même OBS fermé. Les points n’ont aucune valeur réelle : rien ne s’achète, rien ne se retire.</p>
   <div id="need" class="box" hidden></div>
 
@@ -27,7 +29,7 @@
     <div class="bt-grid">
       <div>
         <section class="box">
-          <h3 class="bt-h">🔮 Prédiction</h3>
+          <h2 class="bt-h"><svg class="ic ic-sparkle" aria-hidden="true" focusable="false"><use href="img/icons.svg#sparkle"/></svg>Prédiction</h2>
           <div id="predNow"></div>
           <div id="predNew" class="jx-form">
             <label class="bt-f"><span>Question</span><input type="text" id="predQ" maxlength="120" placeholder="Le boss tombe du premier coup ?"></label>
@@ -36,7 +38,7 @@
           </div>
         </section>
         <section class="box">
-          <h3 class="bt-h">🧠 Quiz</h3>
+          <h2 class="bt-h"><svg class="ic ic-brain" aria-hidden="true" focusable="false"><use href="img/icons.svg#brain"/></svg>Quiz</h2>
           <div id="quizNow"></div>
           <div id="quizNew" class="jx-form">
             <label class="bt-f"><span>Question</span><input type="text" id="quizQ" maxlength="200" placeholder="Quel est le premier boss du jeu ?"></label>
@@ -46,7 +48,7 @@
           </div>
         </section>
         <section class="box">
-          <h3 class="bt-h">🏆 Classement <small id="players"></small></h3>
+          <h2 class="bt-h"><svg class="ic ic-trophy" aria-hidden="true" focusable="false"><use href="img/icons.svg#trophy"/></svg>Classement <small id="players"></small></h2>
           <div id="top"></div>
           <div class="pn-row">
             <input type="text" id="giveWho" placeholder="pseudo" style="max-width:160px"><input type="number" id="giveN" placeholder="100 ou -100" style="max-width:120px">
@@ -58,7 +60,7 @@
       </div>
       <aside class="bt-side">
         <section class="box">
-          <h3 class="bt-h">⚙️ Réglages</h3>
+          <h2 class="bt-h"><svg class="ic ic-settings" aria-hidden="true" focusable="false"><use href="img/icons.svg#settings"/></svg>Réglages</h2>
           <div id="settings" class="sr-settings"></div>
         </section>
         <div class="bt-save"><span id="dirty"></span><button class="btn" id="save" type="button">Enregistrer</button></div>

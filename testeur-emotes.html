@@ -4,13 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Testeur d’emotes · StreamBox</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<meta name="description" content="Teste tes emotes dans un faux chat Twitch et Discord, en sombre et en clair, avec vérification du format et du poids.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400..800&family=Tektur:wght@500..800&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="css/site.css">
 <script src="js/i18n.js"></script>
+<script src="js/icons.js"></script>
 </head>
 <body>
 <main class="wrap sx-page">
-  <h2 class="sec" style="margin-top:36px">🧪 Testeur d’emotes</h2>
+  <h1 class="sec" style="margin-top:36px"><svg class="ic ic-flask-conical" aria-hidden="true" focusable="false"><use href="img/icons.svg#flask-conical"/></svg>Testeur d’emotes</h1>
   <p class="sec">Vois tes emotes comme tes viewers les verront : dans le chat Twitch et Discord, en thème sombre et clair, à leurs vraies tailles. Tout se passe dans ton navigateur : les images ne sont envoyées nulle part.</p>
   <label class="drop" id="drop" style="display:block;margin-bottom:16px">
     <b>Glisse tes emotes ici ou clique pour les choisir</b>
@@ -20,16 +22,16 @@
 
   <div id="app" hidden>
     <section class="box">
-      <h3 class="bt-h">Tes emotes</h3>
+      <h2 class="bt-h">Tes emotes</h2>
       <div class="et-list" id="list"></div>
     </section>
     <section class="box">
-      <div class="sx-head"><h3 class="bt-h">Dans le chat</h3>
+      <div class="sx-head"><h2 class="bt-h">Dans le chat</h2>
         <label class="md-inline" style="margin:0"><input type="checkbox" id="hidpi"> Écran haute définition (2×)</label></div>
       <div class="et-grid" id="chats"></div>
     </section>
     <section class="box">
-      <h3 class="bt-h">Toutes les tailles</h3>
+      <h2 class="bt-h">Toutes les tailles</h2>
       <p class="bt-help">Réduites comme le fait Twitch (112, 56 et 28 px pour une emote, 72, 36 et 18 px pour un badge), sur fond sombre et clair.</p>
       <div id="sizes"></div>
     </section>

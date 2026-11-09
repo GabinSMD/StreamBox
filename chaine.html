@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chaîne · StreamBox</title>
+<meta name="description" content="Commandes du chat, planning des lives, liens, musique et subathon d’une chaîne Twitch.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400..800&family=Tektur:wght@500..800&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="css/site.css">
+<script src="js/i18n.js"></script>
+<script src="js/icons.js"></script>
+</head>
+<body>
+<main class="wrap ch">
+  <div id="err" class="box" style="margin:48px auto;max-width:560px" hidden></div>
+  <div id="app" hidden>
+    <section class="ch-hero">
+      <img id="avatar" alt="" hidden>
+      <div class="ch-id">
+        <h1><a id="name" target="_blank" rel="noopener"></a></h1>
+        <div class="ch-live" id="live"></div>
+        <p class="ch-about" id="about" data-i18n-skip></p>
+        <div class="ch-links" id="links"></div>
+      </div>
+    </section>
+
+    <div class="ch-grid">
+      <section class="box" id="secCommands" hidden>
+        <div class="ch-h"><h2 class="bt-h"><svg class="ic ic-message-square" aria-hidden="true" focusable="false"><use href="img/icons.svg#message-square"/></svg>Commandes du chat</h2><input type="text" id="q" placeholder="Chercher une commande" aria-label="Chercher une commande"></div>
+        <div id="commands"></div>
+      </section>
+      <div class="ch-col">
+        <section class="box" id="secSchedule" hidden>
+          <h2 class="bt-h"><svg class="ic ic-calendar" aria-hidden="true" focusable="false"><use href="img/icons.svg#calendar"/></svg>Prochains lives</h2>
+          <div id="schedule"></div>
+        </section>
+        <section class="box" id="secSubathon" hidden>
+          <h2 class="bt-h"><svg class="ic ic-timer" aria-hidden="true" focusable="false"><use href="img/icons.svg#timer"/></svg>Subathon en cours</h2>
+          <div class="ch-big" id="subTime"></div>
+          <p class="bt-help" id="subInfo"></p>
+          <a class="btn small" id="subLink">Suivre le subathon et voter</a>
+        </section>
+        <section class="box" id="secMusic" hidden>
+          <h2 class="bt-h"><svg class="ic ic-music" aria-hidden="true" focusable="false"><use href="img/icons.svg#music"/></svg>Musique</h2>
+          <div id="music"></div>
+          <a class="btn small ghost" id="musicLink">Voir toute la file</a>
+        </section>
+      </div>
+    </div>
+    <p class="ch-foot">Page créée avec <a href="index.html">StreamBox</a>, la boîte à outils gratuite des streamers.</p>
+  </div>
+</main>
+<script src="js/config.js"></script>
+<script src="js/account.js"></script>
+<script src="js/site.js"></script>
+<script>
+/* Page publique d'une chaîne : à donner au chat (!commandes y renvoie). Données publiques uniquement,
+ * choisies par le streamer dans « Mon compte ». */
+const $ = (id) => document.getElementById(id);
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+const skip = (e) => { e.dataset.i18nSkip = ''; return e; };
+const chan = (new URLSearchParams(location.search).get('c') || '').toLowerCase().replace(/[^a-z0-9_]/g, '');
+const BUILTIN = { '!uptime': 'depuis combien de temps le live a commencé', '!followage': 'depuis quand tu suis la chaîne', '!clip': 'crée un clip des 30 dernières secondes', '!commandes': 'renvoie vers cette page' };
+const safeUrl = (u) => { try { const x = new URL(u); return /^https?:$/.test(x.protocol) ? x.href : null; } catch (e) { return null; } };
+const fmtDur = (ms) => { const s = Math.max(0, Math.floor(ms / 1000)); return `${Math.floor(s / 3600)}:${String(Math.floor((s % 3600) / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`; };
+let page = null;
+
+function renderCommands() {
+  const q = $('q').value.trim().toLowerCase();
+  const rows = [];
+  const add = (name, aliases, text, builtin) => {
+    if (q && !(name + ' ' + aliases.join(' ') + ' ' + text).toLowerCase().includes(q)) return;
+    const r = el('div', 'ch-cmd');
+    const top = el('div'); const n = skip(el('code', null, name)); top.appendChild(n);
+    if (aliases.length) top.appendChild(skip(el('small', null, ' ' + aliases.join(' '))));
+    r.appendChild(top);
+    if (text) r.appendChild(builtin ? el('p', null, text) : skip(el('p', null, text)));
+    rows.push(r);
+  };
+  (page.commands || []).forEach((c) => add(c.name, c.aliases || [], c.response || ''));
+  (page.builtins || []).filter((b) => b !== '!commandes').forEach((b) => add(b, [], BUILTIN[b] || '', true));
+  $('commands').replaceChildren(...(rows.length ? rows : [el('p', 'bt-help', q ? 'Aucune commande ne correspond.' : 'Pas de commande pour l’instant.')]));
+}
+$('q').addEventListener('input', renderCommands);
+
+function renderSchedule() {
+  const list = page.schedule || [];
+  const out = [];
+  if (page.vacation && Date.parse(page.vacation.end_time) > Date.now()) out.push(el('p', 'note', `En pause jusqu’au ${new Date(page.vacation.end_time).toLocaleDateString(SB_LANG_TAG, { day: 'numeric', month: 'long' })}.`));
+  list.slice(0, 6).forEach((s) => {
+    const d = new Date(s.start), r = el('div', 'ch-sched');
+    const day = el('div', 'ch-day'); day.append(el('b', null, d.toLocaleDateString(SB_LANG_TAG, { weekday: 'short' })), el('span', null, d.toLocaleDateString(SB_LANG_TAG, { day: 'numeric', month: 'short' })));
+    const t = el('div'); t.append(el('b', null, d.toLocaleTimeString(SB_LANG_TAG, { hour: '2-digit', minute: '2-digit' }) + (s.end ? ' – ' + new Date(s.end).toLocaleTimeString(SB_LANG_TAG, { hour: '2-digit', minute: '2-digit' }) : '')));
+    if (s.title) t.appendChild(skip(el('div', null, s.title)));
+    if (s.game) t.appendChild(skip(el('small', null, s.game)));
+    r.append(day, t); out.push(r);
+  });
+  if (!out.length) out.push(el('p', 'bt-help', 'Pas de live prévu dans le planning Twitch.'));
+  $('schedule').replaceChildren(...out);
+}
+
+async function extras() {
+  const R = SBA.relay();
+  if (page.sections.includes('subathon')) {
+    const r = await fetch(`${R}/public/${chan}/subathon`).catch(() => null); const d = r && r.ok ? await r.json() : null;
+    $('secSubathon').hidden = !(d && d.enabled && d.status !== 'ended');
+    if (d && !$('secSubathon').hidden) {
+      const base = Date.now();
+      const tick = () => { $('subTime').textContent = fmtDur(d.status === 'running' ? d.remaining - (Date.now() - base) : d.remaining); };
+      clearInterval(extras.t); tick(); if (d.status === 'running') extras.t = setInterval(tick, 1000);
+      $('subInfo').textContent = d.status === 'running' ? 'Chaque abo, bits ou don ajoute du temps.' : 'Le minuteur est en pause.';
+      $('subLink').href = 'live.html?c=' + chan;
+    }
+  }
+  if (page.sections.includes('music')) {
+    const r = await fetch(`${R}/public/${chan}/sr`).catch(() => null); const d = r && r.ok ? await r.json() : null;
+    $('secMusic').hidden = !(d && d.enabled);
+    if (d && d.enabled) {
+      const row = (x, lead) => { const p = el('div', 'ch-song'); p.append(el('b', null, lead), skip(el('span', null, x.title + (x.artist ? ' · ' + x.artist : '')))); return p; };
+      const items = [];
+      if (d.current) items.push(row(d.current, '▶ '));
+      d.queue.slice(0, 5).forEach((x, i) => items.push(row(x, `${i + 1}. `)));
+      items.push(el('p', 'bt-help', `Pour demander une musique : ${d.cmd} suivi d’un lien ou d’un titre.`));
+      $('music').replaceChildren(...items);
+      $('musicLink').href = 'demandes.html?c=' + chan;
+    }
+  }
+}
+
+async function load() {
+  try {
+    if (!chan) throw new Error('Lien incomplet : il manque ?c=nom_de_la_chaine.');
+    const r = await fetch(`${SBA.relay()}/public/${chan}/page`); const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(r.status === 404 ? 'Cette chaîne n’a pas de page publique StreamBox.' : d.error || 'erreur ' + r.status);
+    page = d;
+    const p = d.profile || {};
+    document.title = (p.name || chan) + ' · StreamBox';
+    $('name').textContent = p.name || chan; $('name').href = 'https://twitch.tv/' + chan;
+    if (p.avatar) { $('avatar').src = p.avatar; $('avatar').hidden = false; } else $('avatar').hidden = true;
+    $('about').textContent = d.about || p.description || '';
+    $('live').replaceChildren();
+    if (d.live) {
+      const a = el('a', 'ch-on'); a.href = 'https://twitch.tv/' + chan; a.target = '_blank'; a.rel = 'noopener';
+      a.append(el('b', null, '🔴 En live'), ' ', skip(el('span', null, d.live.title)), el('small', null, ` · ${d.live.game ? d.live.game + ' · ' : ''}${d.live.viewers.toLocaleString(SB_LANG_TAG)} viewers`));
+      $('live').appendChild(a);
+    } else $('live').appendChild(el('span', 'ch-off', 'Hors ligne'));
+    $('links').replaceChildren(...(d.links || []).map((l) => { const u = safeUrl(l.url); if (!u) return ''; const a = skip(el('a', 'btn small ghost', l.label)); a.href = u; a.target = '_blank'; a.rel = 'noopener nofollow'; return a; }));
+    $('secCommands').hidden = !d.sections.includes('commands');
+    if (!$('secCommands').hidden) renderCommands();
+    $('secSchedule').hidden = !d.sections.includes('schedule');
+    if (!$('secSchedule').hidden) renderSchedule();
+    $('app').hidden = false; $('err').hidden = true;
+    await extras();
+  } catch (e) { $('err').hidden = false; $('err').replaceChildren(el('h2', null, '📺 ' + (chan || 'StreamBox')), el('p', 'lead', e.message)); }
+}
+load(); setInterval(load, 60000);
+</script>
+</body>
+</html>

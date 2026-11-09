@@ -55,6 +55,9 @@
  * Sous-titres en direct (voix reconnue par le navigateur du streamer, traduite) :
  *   POST /me/captions/ticket → ticket d'une minute · GET /captions/:userId?t=ticket (WebSocket de la page Sous-titres)
  *   → chaque phrase est relayée aux overlays « soustitres » (WebSocket /o/:id/ws), traduite par Workers AI si demandé
+ * Équipe (le relais agit au nom du streamer, s'il l'autorise, pour ses modos vérifiés auprès de Twitch) :
+ *   GET/PUT /me/team { mods } · POST /me/team/:broadcasterId { method, path, body } (sondages, prédictions, récompenses)
+ * Page publique de la chaîne : GET/PUT /me/page · GET /public/:login/page (commandes, liens, planning)
  * Images du compte (avatars du PNGTuber…) : POST /me/assets { type, data base64 } · GET /me/assets · DELETE /me/assets/:id
  *   GET /a/:userId/:id  image publique (PNG, GIF, WebP, JPEG ; 500 Ko et 12 images au plus par compte)
  * Mini-jeux du chat (points virtuels, duels, prédictions, quiz) :
@@ -74,6 +77,7 @@ import * as JEUX from './jeux.js';
 import * as STATS from './stats.js';
 import * as MC from './multichat.js';
 import { tr, LANGS } from './i18n.js';
+import * as EQ from './equipe.js';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -296,6 +300,7 @@ const NEEDS = {
   discord: ['token', 'webhook'],
 };
 const SECRET_KEYS = ['spotify', 'spotifycid', 'lastfm', 'lfmkey', 'sejwt', 'sltoken', 'kofi', 'webhook', 'obspass'];
+const TEAM_SCOPES = ['channel:manage:polls', 'channel:manage:predictions', 'channel:manage:redemptions', 'moderation:read'];
 const SCOPES = 'clips:edit moderator:read:followers channel:read:redemptions channel:read:subscriptions';
 const rand = (n = 24) => [...crypto.getRandomValues(new Uint8Array(n))].map((b) => b.toString(36).padStart(2, '0')).join('').slice(0, Math.ceil(n * 1.4));
 const OV_RE = /^[a-z0-9]{20,48}$/;
@@ -343,16 +348,17 @@ async function accountRoutes(req, env, url, p) {
   }
 
   // ---- Subathon public : timer, paliers, idées (lecture libre ; propositions et votes avec une session) ----
-  if (p[0] === 'public' && LOGIN_RE.test(p[1] || '') && ['subathon', 'ideas', 'sr'].includes(p[2])) {
+  if (p[0] === 'public' && LOGIN_RE.test(p[1] || '') && ['subathon', 'ideas', 'sr', 'page'].includes(p[2])) {
     const [ist, idx] = await call('login:' + p[1], '/index');
     if (ist !== 200 || !idx.user_id) return json({ error: 'chaîne inconnue sur StreamBox' }, 404);
     const sid = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
     let viewer = null;
     if (/^[a-z0-9]{20,64}$/.test(sid)) { const [vs, s] = await call('sess:' + sid, '/session-get'); if (vs === 200) viewer = s; }
     const owner = stub('user:' + idx.user_id);
-    const go = (path, body) => owner.fetch('https://acc' + path, { method: 'POST', body: JSON.stringify(body) }).then((r) => withCors(new Response(r.body, { status: r.status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } })));
+    const go = (path, body) => owner.fetch('https://acc' + path, { method: 'POST', headers: { 'X-Env': JSON.stringify({ cid: env.TWITCH_CLIENT_ID, secret: env.TWITCH_CLIENT_SECRET, key: env.ENCRYPTION_KEY || '' }) }, body: JSON.stringify(body) }).then((r) => withCors(new Response(r.body, { status: r.status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } })));
     if (req.method === 'GET' && p[2] === 'subathon') return go('/public-sub', { viewerId: viewer && viewer.user_id });
     if (req.method === 'GET' && p[2] === 'sr') return go('/public-sr', {});
+    if (req.method === 'GET' && p[2] === 'page') return go('/public-page', {});
     if (req.method === 'POST' && p[2] === 'ideas') {
       if (!viewer) return json({ error: 'connecte-toi avec Twitch pour proposer ou voter' }, 401);
       const body = await req.json().catch(() => ({}));
@@ -431,6 +437,19 @@ async function accountRoutes(req, env, url, p) {
     if (p.length === 2 && req.method === 'GET') return fwd('/sr-get', 'POST', {});
     if (p.length === 2 && req.method === 'PUT') return fwd('/sr-save', 'POST', body);
     if (p[2] === 'action' && req.method === 'POST') return fwd('/sr-action', 'POST', body);
+  }
+  if (p[1] === 'team') {
+    if (p.length === 2 && req.method === 'GET') return fwd('/team-get', 'POST', {});
+    if (p.length === 2 && req.method === 'PUT') return fwd('/team-save', 'POST', body);
+    if (/^\d{1,15}$/.test(p[2] || '') && p.length === 3 && req.method === 'POST') { // action pour la chaîne p[2] (la sienne, ou une chaîne où l'on est modo)
+      const r = await stub('user:' + p[2]).fetch('https://acc/team-helix', { method: 'POST', headers: { 'X-Env': envHdr['X-Env'] }, body: JSON.stringify({ caller: sess.user_id, req: body }) });
+      if (r.status === 404 && (await r.clone().json().catch(() => ({}))).error === 'compte inconnu') return json({ error: 'cette chaîne n’utilise pas de compte StreamBox : son streamer doit se connecter à StreamBox et autoriser ses modos' }, 404);
+      return withCors(new Response(r.body, { status: r.status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } }));
+    }
+  }
+  if (p[1] === 'page') {
+    if (p.length === 2 && req.method === 'GET') return fwd('/page-get', 'POST', {});
+    if (p.length === 2 && req.method === 'PUT') return fwd('/page-save', 'POST', body);
   }
   if (p[1] === 'captions' && p[2] === 'ticket' && req.method === 'POST') return fwd('/cap-ticket', 'POST', {});
   if (p[1] === 'assets') {
@@ -672,6 +691,63 @@ export class Account {
         return ok({ text });
       } catch (e) { return err('résumé indisponible : ' + e.message, 502); }
     }
+    /* ---- Équipe : sondages, prédictions et récompenses faits par le relais pour les modos ---- */
+    if (path === '/team-get') return ok(Object.assign({ mods: false }, await st.get('team'), { scopes: TEAM_SCOPES.filter((s) => !(profile.scopes || []).includes(s)) }));
+    if (path === '/team-save') { const t = { mods: !!body.mods }; await st.put('team', t); this._mods = new Map(); return ok(t); }
+    if (path === '/team-helix') {
+      const isOwner = String(body.caller) === String(profile.user_id);
+      const team = (await st.get('team')) || {};
+      if (!isOwner && !team.mods) return err(`${profile.login} n’a pas autorisé ses modos à gérer sondages, prédictions et récompenses depuis StreamBox`, 403);
+      const rq = EQ.teamRequest(body.req || {}, profile.user_id, isOwner);
+      if (rq.error) return err(rq.error, 403);
+      const now = Date.now(); // 90 actions par minute au plus pour toute l'équipe
+      this._team = (this._team || []).filter((t) => now - t < 60000);
+      if (this._team.length >= 90) return err('trop d’actions, réessaie dans un instant', 429);
+      this._team.push(now);
+      const s = await secrets();
+      const access = await this.twitchAccess(s, E);
+      if (!access) return err(`la connexion Twitch de ${profile.login} a expiré : il ou elle doit se reconnecter à StreamBox`, 403);
+      const H = { 'Client-Id': E.cid, Authorization: 'Bearer ' + access, 'Content-Type': 'application/json' };
+      if (!isOwner) { // modo vérifié auprès de Twitch (gardé 5 minutes)
+        this._mods = this._mods || new Map();
+        const hit = this._mods.get(body.caller);
+        if (!hit || now - hit.at > 300000) {
+          const r = await fetch(`https://api.twitch.tv/helix/moderation/moderators?broadcaster_id=${profile.user_id}&user_id=${encodeURIComponent(body.caller)}`, { headers: H });
+          if (r.status === 401 || r.status === 403) return err(`${profile.login} doit se reconnecter à StreamBox pour autoriser cette fonction`, 403);
+          const d = await r.json().catch(() => ({}));
+          this._mods.set(body.caller, { ok: r.ok && (d.data || []).length > 0, at: now });
+        }
+        if (!this._mods.get(body.caller).ok) return err(`tu n’es pas modo de ${profile.login}`, 403);
+      }
+      const r = await fetch(rq.url, { method: rq.method, headers: H, body: rq.body ? JSON.stringify(rq.body) : undefined });
+      const txt = r.status === 204 ? '{}' : await r.text();
+      return new Response(txt || '{}', { status: r.status, headers: { 'Content-Type': 'application/json' } });
+    }
+    /* ---- Page publique de la chaîne ---- */
+    if (path === '/page-get') return ok(Object.assign(EQ.sanitizePage(await st.get('page')), { url: EQ.pageUrl(await st.get('page'), profile.login) }));
+    if (path === '/page-save') { const pg = EQ.sanitizePage(body, await st.get('page')); await st.put('page', pg); return ok(Object.assign({}, pg, { url: EQ.pageUrl(pg, profile.login) })); }
+    if (path === '/public-page') {
+      const pg = await st.get('page');
+      if (!pg || !pg.enabled) return err('pas de page publique pour cette chaîne', 404);
+      const now = Date.now(); // infos Twitch (profil, live, planning) gardées 5 minutes
+      if (!this._pub || now - this._pub.at > 300000) {
+        const x = { at: now };
+        try {
+          const app = await appAccess(E.cid, E.secret);
+          const get = (q) => fetch('https://api.twitch.tv/helix/' + q, { headers: { 'Client-Id': E.cid, Authorization: 'Bearer ' + app } }).then((r) => (r.ok ? r.json() : {})).catch(() => ({}));
+          const [u, s, sc] = await Promise.all([get('users?id=' + profile.user_id), get('streams?user_id=' + profile.user_id), pg.sections.schedule ? get(`schedule?broadcaster_id=${profile.user_id}&first=8`) : {}]);
+          const user = (u.data || [])[0] || {}, live = (s.data || [])[0];
+          x.profile = { name: user.display_name || profile.login, avatar: user.profile_image_url || '', description: user.description || '' };
+          x.live = live ? { title: live.title, game: live.game_name, viewers: live.viewer_count, startedAt: live.started_at } : null;
+          const seg = ((sc.data || {}).segments || []);
+          x.schedule = seg.filter((g) => !g.canceled_until).map((g) => ({ start: g.start_time, end: g.end_time, title: g.title, game: (g.category || {}).name || '' }));
+          x.vacation = (sc.data || {}).vacation || null;
+        } catch (e) { x.error = true; }
+        this._pub = x;
+      }
+      const bot = await st.get('bot');
+      return ok(EQ.publicPage(pg, bot && sanitizeBot(bot, null), profile, { profile: this._pub.profile, live: this._pub.live, schedule: pg.sections.schedule ? this._pub.schedule : undefined, vacation: pg.sections.schedule ? this._pub.vacation : undefined }));
+    }
     if (path.startsWith('/stats-')) return this.statsRoute(path, body, profile, ok, err);
     if (path.startsWith('/jeux-') || path === '/ov-jeux') return this.jeuxRoute(path, body, profile, await secrets(), E, ok, err);
     if (path.startsWith('/bot-')) return this.botRoute(path, body, profile, await secrets(), E, ok, err);
@@ -801,6 +877,7 @@ export class Account {
     const modToken = async () => { const b = await sender(); return b ? [b.user_id, b.access] : [bid, await self.twitchAccess(secrets, E)]; };
     const fail = async (what, r) => { if (r && !r.ok) ctx.state.lastError = `${what} : ${r.status} ${(await r.text().catch(() => '')).slice(0, 160)}`; return r; };
     return {
+      async pageUrl() { return EQ.pageUrl(await self.ctx.storage.get('page'), profile.login); },
       async say(text, reply) {
         text = tr(text, profile.lang); // langue choisie par le streamer sur le site
         const b = await sender();
@@ -830,7 +907,9 @@ export class Account {
 
   /* Console de test : mêmes règles, mais rien n'est envoyé à Twitch */
   dryApi(out, state) {
+    const self = this;
     return {
+      async pageUrl() { const pr = await self.ctx.storage.get('profile'); return EQ.pageUrl(await self.ctx.storage.get('page'), pr && pr.login); },
       async say(text) { out.push({ type: 'message', text }); }, async del() { out.push({ type: 'suppression' }); },
       async timeout(uid, secs) { out.push({ type: 'timeout', secs }); }, async shoutout() { out.push({ type: 'shoutout' }); },
       async channel() { return { game_name: '(jeu en cours)', title: '(titre du live)' }; },

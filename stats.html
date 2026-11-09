@@ -4,13 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Statistiques · StreamBox</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<meta name="description" content="Statistiques de tes lives Twitch : viewers minute par minute, chat, follows, abos, bits et raids.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400..800&family=Tektur:wght@500..800&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="css/site.css">
 <script src="js/i18n.js"></script>
+<script src="js/icons.js"></script>
 </head>
 <body>
 <main class="wrap sx-page">
-  <h2 class="sec" style="margin-top:36px">📊 Statistiques des lives</h2>
+  <h1 class="sec" style="margin-top:36px"><svg class="ic ic-chart-column" aria-hidden="true" focusable="false"><use href="img/icons.svg#chart-column"/></svg>Statistiques des lives</h1>
   <p class="sec">Le relais StreamBox note chaque minute de tes lives (viewers, chat, catégorie) et les événements (follows, abos, bits, raids, dons), même OBS fermé. Rien n’est partagé : ces chiffres ne sont visibles que par toi.</p>
   <div id="need" class="box" hidden></div>
 
@@ -24,14 +26,14 @@
     </section>
 
     <section id="liveBox" class="box" hidden>
-      <h3 class="bt-h">🔴 En direct <small id="liveInfo"></small></h3>
+      <h2 class="bt-h"><svg class="ic ic-radio" aria-hidden="true" focusable="false"><use href="img/icons.svg#radio"/></svg>En direct <small id="liveInfo"></small></h2>
       <div class="sx-tiles" id="liveTiles"></div>
       <div class="sx-chart" id="liveChart"></div>
     </section>
 
     <section class="box">
       <div class="sx-head">
-        <h3 class="bt-h">Vue d’ensemble</h3>
+        <h2 class="bt-h">Vue d’ensemble</h2>
         <div class="sx-seg" id="period" role="group" aria-label="Période"><button data-i="0" class="on" type="button">7 jours</button><button data-i="1" type="button">30 jours</button></div>
       </div>
       <div class="sx-tiles" id="tiles"></div>
@@ -39,21 +41,21 @@
     </section>
 
     <section class="box">
-      <div class="sx-head"><h3 class="bt-h">Mes lives <small id="nLives"></small></h3><button class="btn ghost small" id="csvAll" type="button">Exporter (CSV)</button></div>
+      <div class="sx-head"><h2 class="bt-h">Mes lives <small id="nLives"></small></h2><button class="btn ghost small" id="csvAll" type="button">Exporter (CSV)</button></div>
       <div class="sx-table-wrap"><table class="sx-table" id="lives"><thead><tr><th>Date</th><th>Titre</th><th>Durée</th><th>Moyenne</th><th>Pic</th><th>Messages</th><th>Follows</th><th>Abos</th></tr></thead><tbody></tbody></table></div>
     </section>
 
     <section class="box" id="detail" hidden>
-      <div class="sx-head"><h3 class="bt-h" id="dTitle"></h3><button class="btn ghost small" id="dClose" type="button">✕ Fermer</button></div>
+      <div class="sx-head"><h2 class="bt-h" id="dTitle"></h2><button class="btn ghost small" id="dClose" type="button"><svg class="ic ic-x" aria-hidden="true" focusable="false"><use href="img/icons.svg#x"/></svg>Fermer</button></div>
       <p class="bt-help" id="dInfo"></p>
       <div class="sx-tiles" id="dTiles"></div>
-      <h4 class="sx-h4">Viewers</h4>
+      <h3 class="sx-h4">Viewers</h3>
       <div class="sx-chart" id="dViewers"></div>
-      <h4 class="sx-h4">Messages par minute</h4>
+      <h3 class="sx-h4">Messages par minute</h3>
       <div class="sx-chart short" id="dChat"></div>
       <div class="sx-cols">
-        <div><h4 class="sx-h4">💬 Les plus bavards</h4><ol class="sx-list" id="dTop"></ol></div>
-        <div><h4 class="sx-h4">🎮 Catégories</h4><ul class="sx-list" id="dGames"></ul><h4 class="sx-h4">🚀 Raids reçus</h4><ul class="sx-list" id="dRaids"></ul></div>
+        <div><h3 class="sx-h4"><svg class="ic ic-message-square" aria-hidden="true" focusable="false"><use href="img/icons.svg#message-square"/></svg>Les plus bavards</h3><ol class="sx-list" id="dTop"></ol></div>
+        <div><h3 class="sx-h4"><svg class="ic ic-gamepad-2" aria-hidden="true" focusable="false"><use href="img/icons.svg#gamepad-2"/></svg>Catégories</h3><ul class="sx-list" id="dGames"></ul><h3 class="sx-h4"><svg class="ic ic-rocket" aria-hidden="true" focusable="false"><use href="img/icons.svg#rocket"/></svg>Raids reçus</h3><ul class="sx-list" id="dRaids"></ul></div>
       </div>
       <details class="more"><summary>Voir les données (toutes les 10 minutes)</summary><div class="sx-table-wrap"><table class="sx-table" id="dTable"><thead><tr><th>Heure</th><th>Viewers</th><th>Messages (10 min)</th></tr></thead><tbody></tbody></table></div></details>
       <div class="pn-row" style="margin-top:14px"><button class="btn ghost small" id="dCsv" type="button">Exporter ce live (CSV)</button><button class="btn ghost small" id="dDel" type="button">Supprimer ce live</button></div>

@@ -5,17 +5,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Subathon en direct · StreamBox</title>
 <meta name="description" content="Suis le subathon en direct : temps restant, paliers, idées et votes du chat.">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400..800&family=Tektur:wght@500..800&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="css/site.css">
 <script src="js/i18n.js"></script>
+<script src="js/icons.js"></script>
 </head>
 <body>
 <main class="wrap lv">
   <div id="err" class="box" style="margin:48px auto;max-width:560px" hidden></div>
   <div id="app" hidden>
     <section class="lv-hero">
-      <div class="lv-kicker"><a id="chan" target="_blank" rel="noopener"></a> · <span id="status"></span></div>
       <h1 id="title"></h1>
+      <div class="lv-kicker"><a id="chan" target="_blank" rel="noopener"></a> · <span id="status"></span></div>
       <div class="lv-time" id="time">--:--:--</div>
       <div class="lv-happy" id="happy" hidden></div>
       <div class="lv-meta" id="meta"></div>
@@ -23,19 +24,19 @@
 
     <div class="lv-grid">
       <section class="box">
-        <h3 class="bt-h">🏁 Paliers</h3>
+        <h2 class="bt-h"><svg class="ic ic-flag" aria-hidden="true" focusable="false"><use href="img/icons.svg#flag"/></svg>Paliers</h2>
         <div id="paliers"></div>
       </section>
       <section class="box">
-        <h3 class="bt-h">⏱️ Ce qui ajoute du temps</h3>
+        <h2 class="bt-h"><svg class="ic ic-timer" aria-hidden="true" focusable="false"><use href="img/icons.svg#timer"/></svg>Ce qui ajoute du temps</h2>
         <div class="lv-rules" id="rules"></div>
-        <h3 class="bt-h" style="margin-top:18px">💜 Derniers soutiens</h3>
+        <h2 class="bt-h" style="margin-top:18px"><svg class="ic ic-heart" aria-hidden="true" focusable="false"><use href="img/icons.svg#heart"/></svg>Derniers soutiens</h2>
         <div class="lv-last" id="last"></div>
       </section>
     </div>
 
     <section class="box lv-ideas" id="ideasBox">
-      <h3 class="bt-h">💡 Vos idées <small id="ideasHelp"></small></h3>
+      <h2 class="bt-h"><svg class="ic ic-lightbulb" aria-hidden="true" focusable="false"><use href="img/icons.svg#lightbulb"/></svg>Vos idées <small id="ideasHelp"></small></h2>
       <form class="pn-row" id="ideaForm" hidden>
         <input type="text" id="ideaText" maxlength="140" placeholder="Propose une idée pour le subathon…" autocomplete="off">
         <button class="btn" type="submit">Proposer</button>
@@ -96,7 +97,7 @@ function render() {
   $('paliers').replaceChildren(...(d.paliers.length ? d.paliers.map((p) => {
     const row = el('div', 'lv-pal' + (p.reached ? ' ok' : ''));
     const top = el('div', 'lv-pal-top'); top.append(el('b', null, (p.reached ? '✅ ' : '🔒 ') + p.label), el('span', null, `${nf(Math.min(d.value, p.target))} / ${nf(p.target)} ${unit}`));
-    const bar = el('div', 'lv-bar'); const fill = el('div'); fill.style.width = Math.min(100, (d.value / p.target) * 100) + '%'; bar.appendChild(fill);
+    const bar = el('div', 'lv-bar'); const fill = el('div'); fill.style.setProperty('--p', Math.min(1, d.value / p.target)); bar.appendChild(fill);
     row.append(top, bar); return row;
   }) : [el('p', 'bt-help', 'Pas de palier pour ce subathon.')]));
 

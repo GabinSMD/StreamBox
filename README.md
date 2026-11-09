@@ -37,7 +37,8 @@ Une boîte à outils gratuite pour streamers. Elle regroupe dans un seul site ce
 | 📱 QR code de dons (Ko-fi, PayPal, Tipeee…), généré sans service extérieur | Overlay OBS | TipStreams |
 | 🎬 `!clip` : le bot crée un clip et le poste sur Discord | Bot (relais) | — |
 | 📊 Statistiques des lives : viewers minute par minute, chat, follows, abos, bits, raids, dons, catégories ; tendances et export CSV | Page web + relais | TwitchTracker, StreamsCharts |
-| 🛡️ Panneau de modération : sanctions en un clic, fiche viewer, AutoMod, journal de l’équipe, débans, modes du chat, annonces, titre et raid ; chaque modo avec son compte Twitch | Page web (dock OBS) | Mod View de Twitch |
+| 🛡️ Panneau de modération : sanctions en un clic, fiche viewer, AutoMod, journal de l’équipe, débans, modes du chat, annonces, sondages, prédictions, file des récompenses de points de chaîne, titre et raid ; chaque modo avec son compte Twitch | Page web (dock OBS) + relais | Mod View de Twitch |
+| 🌐 Page publique de la chaîne : commandes du bot, planning Twitch, liens, musique et subathon ; `!commandes` y renvoie | Page web + relais | Pages de commandes Nightbot / StreamElements, Linktree |
 | 🎲 Mini-jeux du chat : points virtuels gagnés en discutant, duels, prédictions, quiz, classement (aucune valeur réelle) | Page web + relais + overlay | Loyalty de StreamElements / Streamlabs |
 | 🎶 Demandes de musique (`!sr`) : YouTube (overlay Lecteur) ou Spotify (file Premium), limites, modération, page publique | Page web + relais + overlay | Song Requests de Nightbot / StreamElements |
 | ⏱️ Subathon en direct : timer sur le relais, page publique pour les viewers (paliers, idées, votes) | Page web + relais | marathon-timer.com |
@@ -131,7 +132,10 @@ python3 -m http.server 8000
 ## Structure
 
 ```
-index.html            Accueil et catalogue
+index.html            Accueil (outils phares, étapes, panneau des modos, catégories)
+outils.html           Catalogue complet des outils, par catégorie
+js/catalogue.js       Cartes d’outils communes à l’accueil et au catalogue
+js/icons.js           Icônes à la place des emojis de l’interface (sprite img/icons.svg, Lucide, licence ISC)
 outil.html            Configurateur générique (formulaire, lien, aperçu)
 annuaire.html         Annuaire des outils externes
 redimensionneur.html  Redimensionneur d'emotes
@@ -139,15 +143,18 @@ calculateur.html      Calculateur de revenus
 overlays/*.html       Les overlays OBS
 js/sb.js              Noyau : client chat Twitch, emotes, apparence, liens courts, mode démo
 js/account.js         Compte StreamBox côté site (session, appels au relais)
-compte.html           Mon compte : overlays et intégrations
+compte.html           Mon compte : overlays, intégrations, page publique, images, compte (une section à la fois : #integrations, #page…)
+js/site.js            En-tête, pied de page et barre latérale « Mon espace » (écrans du streamer ; ?dock=1 la masque dans un dock OBS)
 bot.html              Bot de chat
 subathon.html         Gestion du subathon (streamer)
 live.html             Page publique du subathon (viewers)
+chaine.html           Page publique de la chaîne (commandes, planning, liens)
 relay/subathon.js     Logique du subathon côté relais
 relay/sr.js           Logique des demandes de musique
 sr.html / demandes.html  Gestion / file publique des demandes de musique
 overlays/lecteur.html Lecteur YouTube des demandes
 relay/bot.js          Logique du bot (commandes, modération, messages automatiques, événements)
+relay/equipe.js       Actions faites pour les modos (sondages, prédictions, récompenses) et page publique
 js/highlights.js      Détecteur de temps forts (chat + voix)
 js/obs.js             Client obs-websocket v5
 js/eventsub.js        Client EventSub WebSocket (follows, points de chaîne, début/fin du live)

@@ -4,13 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Gestion du subathon · StreamBox</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Roboto+Mono&display=swap">
+<meta name="description" content="Gère ton subathon : timer, paliers, happy hour et idées votées par le chat.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400..800&family=Tektur:wght@500..800&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="css/site.css">
 <script src="js/i18n.js"></script>
+<script src="js/icons.js"></script>
 </head>
 <body>
 <main class="wrap">
-  <h2 class="sec" style="margin-top:36px">⏱️ Subathon en direct</h2>
+  <h1 class="sec" style="margin-top:36px"><svg class="ic ic-timer" aria-hidden="true" focusable="false"><use href="img/icons.svg#timer"/></svg>Subathon en direct</h1>
   <p class="sec">Le timer tourne sur le relais StreamBox : il compte tout seul les abos, bits et follows, même OBS fermé. Il est partagé entre ton overlay et la page publique de tes viewers.</p>
   <div id="need" class="box" hidden></div>
 
@@ -23,7 +25,7 @@
       <div class="sg-time" id="time">--:--:--</div>
       <div class="bt-help" id="totals"></div>
       <div class="pn-row">
-        <button class="btn" data-a="start">▶ Démarrer</button><button class="btn ghost" data-a="pause">⏸ Pause</button>
+        <button class="btn" data-a="start"><svg class="ic ic-play" aria-hidden="true" focusable="false"><use href="img/icons.svg#play"/></svg>Démarrer</button><button class="btn ghost" data-a="pause"><svg class="ic ic-pause" aria-hidden="true" focusable="false"><use href="img/icons.svg#pause"/></svg>Pause</button>
         <button class="btn ghost" data-a="+1">+1 min</button><button class="btn ghost" data-a="+5">+5 min</button><button class="btn ghost" data-a="+10">+10 min</button><button class="btn ghost" data-a="-5">−5 min</button>
       </div>
       <div class="pn-row">
@@ -42,19 +44,19 @@
     <div class="bt-grid">
       <div>
         <section class="box">
-          <h3 class="bt-h">⚙️ Réglages</h3>
+          <h2 class="bt-h"><svg class="ic ic-settings" aria-hidden="true" focusable="false"><use href="img/icons.svg#settings"/></svg>Réglages</h2>
           <div class="bt-row" id="settings"></div>
-          <h3 class="bt-h" style="margin-top:16px">⏱️ Temps ajouté (minutes)</h3>
+          <h2 class="bt-h" style="margin-top:16px"><svg class="ic ic-timer" aria-hidden="true" focusable="false"><use href="img/icons.svg#timer"/></svg>Temps ajouté (minutes)</h2>
           <div class="bt-row" id="rules"></div>
         </section>
         <section class="box">
-          <h3 class="bt-h">🏁 Paliers <small>Affichés sur la page publique, avec leur progression</small></h3>
+          <h2 class="bt-h"><svg class="ic ic-flag" aria-hidden="true" focusable="false"><use href="img/icons.svg#flag"/></svg>Paliers <small>Affichés sur la page publique, avec leur progression</small></h2>
           <div class="bt-row" id="metric"></div>
           <div id="paliers"></div>
           <button class="btn ghost small" id="addPal" type="button">+ Ajouter un palier</button>
         </section>
         <section class="box">
-          <h3 class="bt-h">💡 Propositions des viewers</h3>
+          <h2 class="bt-h"><svg class="ic ic-lightbulb" aria-hidden="true" focusable="false"><use href="img/icons.svg#lightbulb"/></svg>Propositions des viewers</h2>
           <div class="bt-row" id="ideasCfg"></div>
           <div id="ideas"></div>
         </section>
