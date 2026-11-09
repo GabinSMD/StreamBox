@@ -35,7 +35,7 @@
     },
     {
       id: 'alertes', icon: '🔔', name: 'Alertes', overlay: 'overlays/alertes.html', size: [800, 400],
-      tagline: 'Abonnements, subs offerts, raids et bits, sans connecter ton compte.',
+      tagline: 'Abonnements, subs offerts, raids, bits, follows, points de chaîne et dons, avec ton texte, tes couleurs et un son.',
       replaces: ['Alertes StreamElements / Streamlabs (subs, raids, bits)'],
       commands: [['!testalerte', 'Lance une série d’alertes de test (modos)']],
       note: 'Abonnements, raids et bits marchent sans connexion. Pour les follows et les points de chaîne, connecte-toi avec Twitch : ces événements n’arrivent pas par le chat.',
@@ -334,8 +334,10 @@
   ];
 
   window.SB_PAGES = [
-    { id: 'subathon-live', icon: '⏱️', name: 'Subathon en direct + page viewers', href: 'subathon.html', tagline: 'Le timer tourne sur le relais, même OBS fermé. Une page publique montre aux viewers le temps restant et les paliers, et leur permet de proposer et voter des idées.', replaces: ['marathon-timer.com', 'pages de subathon faites à la main'] },
-    { id: 'sr', icon: '🎶', name: 'Demandes de musique', href: 'sr.html', tagline: 'Tes viewers demandent des morceaux avec !sr (YouTube ou Spotify) : file d’attente, limites, modération, page publique.', replaces: ['Nightbot Song Requests', 'StreamElements Media Request'] },
+    { id: 'subathon-live', icon: '⏱️', name: 'Subathon', href: 'subathon.html', tagline: 'Timer qui compte tout seul les abos, bits, follows et dons, même OBS fermé. Paliers, happy hour, overlay OBS et page publique où les viewers proposent et votent des idées.', replaces: ['marathon-timer.com'],
+      links: [['Gérer le subathon', 'subathon.html'], ['Overlay OBS', 'outil.html?id=subathon'], ['Roue à défis', 'outil.html?id=roue']] },
+    { id: 'sr', icon: '🎶', name: 'Demandes de musique', href: 'sr.html', tagline: 'Tes viewers demandent des morceaux avec !sr (YouTube ou Spotify) : file d’attente, limites, modération, page publique.', replaces: ['Nightbot Song Requests', 'StreamElements Media Request'],
+      links: [['Gérer la file', 'sr.html'], ['Overlay Lecteur (YouTube)', 'outil.html?id=lecteur']] },
     { id: 'bot', icon: '🤖', name: 'Bot de chat', href: 'bot.html', tagline: 'Commandes, messages automatiques, modération et remerciements. Il tourne 24 h/24 sur le relais, même OBS fermé.', replaces: ['Nightbot', 'Moobot', 'Fossabot', 'Cloudbot'] },
     { id: 'panneau', icon: '🎛️', name: 'Panneau de contrôle', href: 'panneau.html', tagline: 'Des boutons pour piloter sondages, giveaways, subathon, roue, objectifs et scènes OBS, sans taper de commandes. Utilisable comme dock OBS.', replaces: ['Kloot', 'Poltergeist', 'Xenon'] },
     { id: 'integrations', icon: '🔌', name: 'Intégrations', href: 'integrations.html', tagline: 'Twitch, OBS, Discord, Spotify, Deezer, YouTube Music, Ko-fi, StreamElements, Streamlabs : ce que chaque service apporte et comment le brancher.', replaces: [] },
@@ -367,6 +369,22 @@
   ];
   const WITH_DONS = ['alertes', 'subathon', 'objectifs'];
   const PILOTABLE = ['sondage', 'giveaway', 'subathon', 'minuteur', 'alertes', 'objectifs', 'roue'];
+  /* Catégories de l'accueil. Les outils « merged » sont regroupés dans une autre carte (Subathon, Demandes de musique). */
+  window.SB_CATEGORIES = [
+    { id: 'communaute', icon: '💬', name: 'Chat et communauté', desc: 'Faire vivre ton chat : affichage, bot, sondages, giveaways, jeux.' },
+    { id: 'alertes', icon: '🔔', name: 'Alertes et objectifs', desc: 'Remercier et célébrer : abos, bits, follows, dons, objectifs, annonces.' },
+    { id: 'evenements', icon: '⏱️', name: 'Subathons et temps forts', desc: 'Les formats spéciaux : subathon, écran d’attente, condensé des temps forts.' },
+    { id: 'musique', icon: '🎵', name: 'Musique', desc: 'Le morceau en cours, les demandes du chat, et les musiques dans tes redifs.' },
+    { id: 'outils', icon: '🛠️', name: 'Outils pratiques', desc: 'Piloter tes overlays, préparer tes emotes, estimer tes revenus, trouver d’autres outils.' },
+  ];
+  const CAT = { chat: 'communaute', bot: 'communaute', sondage: 'communaute', giveaway: 'communaute', roue: 'communaute', emotes: 'communaute',
+    alertes: 'alertes', objectifs: 'alertes', discord: 'alertes',
+    'subathon-live': 'evenements', minuteur: 'evenements', rewind: 'evenements',
+    musique: 'musique', sr: 'musique', extension: 'musique',
+    panneau: 'outils', integrations: 'outils', resizer: 'outils', calc: 'outils', annuaire: 'outils' };
+  const MERGED = { subathon: 'subathon-live', lecteur: 'sr' };
+  [...window.SB_TOOLS, ...window.SB_PAGES].forEach((t) => { t.cat = CAT[t.id] || 'outils'; if (MERGED[t.id]) t.mergedInto = MERGED[t.id]; });
+
   window.SB_TOOLS.forEach((t) => {
     if (WITH_DONS.includes(t.id)) t.fields = t.fields.concat(DONS);
     if (PILOTABLE.includes(t.id)) t.fields = t.fields.concat(REMOTE);

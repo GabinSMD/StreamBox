@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>StreamBox, la boîte à outils des streamers</title>
-<meta name="description" content="Chat en overlay, alertes, sondages, giveaways, emotes, compte à rebours… Tous les outils du streamer au même endroit, gratuits et sans installation.">
+<meta name="description" content="Overlays OBS, bot de chat, alertes, subathon, demandes de musique… Tous les outils du streamer au même endroit : gratuits, open source et sans installation.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
 <link rel="stylesheet" href="css/site.css">
@@ -13,52 +13,74 @@
 <main class="wrap">
   <section class="hero">
     <h1>Tous tes outils de stream.<br><span>Un seul site.</span></h1>
-    <p>Chat en overlay, alertes, sondages, giveaways, emotes, écran d’attente… Configure, copie le lien dans OBS, et c’est prêt. Rien à installer, aucun compte à connecter.</p>
+    <p>Overlays OBS, bot de chat, alertes, subathon, demandes de musique… Configure, copie le lien dans OBS, c’est prêt. Rien à installer.</p>
+    <div class="hero-cta">
+      <a class="btn" href="#outils">Découvrir les outils</a>
+      <a class="btn ghost" id="heroAccount" href="compte.html">Se connecter avec Twitch</a>
+    </div>
     <div class="pills">
       <span class="pill"><b>✓</b> Gratuit</span>
+      <span class="pill"><b>✓</b> Open source</span>
       <span class="pill"><b>✓</b> Sans installation</span>
-      <span class="pill"><b>✓</b> Sans compte ni mot de passe</span>
-      <span class="pill"><b>✓</b> Emotes 7TV · BTTV · FFZ</span>
+      <span class="pill"><b>✓</b> Sans publicité ni pistage</span>
     </div>
   </section>
 
-  <h2 class="sec">Overlays pour OBS</h2>
-  <p class="sec">À ajouter comme « Source navigateur » dans OBS, Streamlabs Desktop ou Meld.</p>
-  <div class="grid" id="overlays"></div>
-
-  <h2 class="sec">Outils</h2>
-  <p class="sec">Utilitaires qui fonctionnent directement dans ton navigateur.</p>
-  <div class="grid" id="pages"></div>
+  <nav class="cat-nav" id="catNav" aria-label="Catégories"></nav>
+  <div id="outils"></div>
 
   <h2 class="sec" id="comment">Comment ça marche</h2>
   <p class="sec">Trois étapes, aucune installation.</p>
   <div class="how">
-    <div><span class="num">1</span><b>Choisis un outil</b><span>Indique le nom de ta chaîne et règle le style. L’aperçu se met à jour en direct.</span></div>
-    <div><span class="num">2</span><b>Copie le lien</b><span>Connecte-toi avec Twitch : ton overlay est enregistré dans ton compte, avec un lien court qui se met à jour tout seul. Sans compte, les réglages restent dans le lien.</span></div>
-    <div><span class="num">3</span><b>Colle-le dans OBS</b><span>Sources → + → Navigateur → colle l’URL. Tes modos pilotent ensuite sondages, giveaways et minuteur depuis le chat.</span></div>
+    <div><span class="num">1</span><b>Choisis un outil</b><span>Règle le style et les options. L’aperçu se met à jour en direct.</span></div>
+    <div><span class="num">2</span><b>Connecte-toi avec Twitch</b><span>Facultatif, mais conseillé. Tes overlays sont enregistrés, et chacun a un lien court sans jeton, qui se met à jour tout seul.</span></div>
+    <div><span class="num">3</span><b>Colle le lien dans OBS</b><span>Sources → + → Navigateur. Le bot, le subathon et les demandes de musique tournent ensuite tout seuls.</span></div>
   </div>
+
+  <section class="oss box">
+    <div>
+      <h2>💜 Open source et fait avec la communauté</h2>
+      <p>StreamBox est libre et gratuit (licence AGPL-3.0). Une idée, un bug, une envie ? Propose-la : elle profitera à tout le monde. Une suggestion ou une contribution au projet principal vaut mieux qu’un fork.</p>
+    </div>
+    <div class="pn-row">
+      <a class="btn" href="https://github.com/GabinSMD/StreamBox/issues/new?template=suggestion.md" target="_blank" rel="noopener">💡 Proposer une idée</a>
+      <a class="btn ghost" href="apropos.html">En savoir plus</a>
+    </div>
+  </section>
 </main>
 <script src="js/tools.js"></script>
 <script src="js/config.js"></script>
 <script src="js/account.js"></script>
 <script src="js/site.js"></script>
 <script>
-function card(t, href) {
-  const a = document.createElement('a');
-  a.className = 'tool'; a.href = href;
-  a.innerHTML = '<span class="ic"></span><h3></h3><p></p>';
-  a.querySelector('.ic').textContent = t.icon;
-  a.querySelector('h3').textContent = t.name;
-  a.querySelector('p').textContent = t.tagline;
-  if (t.replaces && t.replaces.length) {
-    const r = document.createElement('div'); r.className = 'rep';
-    r.append('Remplace : '); const b = document.createElement('b'); b.textContent = t.replaces.join(', '); r.append(b);
-    a.appendChild(r);
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+const all = [...SB_TOOLS, ...SB_PAGES].filter((t) => !t.mergedInto);
+const hrefOf = (t) => t.href || 'outil.html?id=' + t.id;
+
+function card(t) {
+  const a = el('a', 'tool'); a.href = hrefOf(t);
+  a.append(el('span', 'ic', t.icon), el('h3', null, t.name), el('p', null, t.tagline));
+  if (t.links) {
+    const row = el('div', 'tool-links');
+    t.links.forEach(([label, href]) => { const l = el('span', 'tool-link', label); l.onclick = (e) => { e.preventDefault(); location.href = href; }; row.appendChild(l); });
+    a.appendChild(row);
   }
+  if (t.replaces && t.replaces.length) { const r = el('div', 'rep'); r.append('Remplace : '); r.appendChild(el('b', null, t.replaces.join(', '))); a.appendChild(r); }
   return a;
 }
-SB_TOOLS.forEach((t) => document.getElementById('overlays').appendChild(card(t, 'outil.html?id=' + t.id)));
-SB_PAGES.forEach((t) => document.getElementById('pages').appendChild(card(t, t.href)));
+
+const box = document.getElementById('outils'), nav = document.getElementById('catNav');
+SB_CATEGORIES.forEach((c) => {
+  const items = all.filter((t) => t.cat === c.id);
+  if (!items.length) return;
+  const sec = el('section', 'cat'); sec.id = 'cat-' + c.id;
+  sec.append(el('h2', 'sec', c.icon + ' ' + c.name), el('p', 'sec', c.desc));
+  const grid = el('div', 'grid'); items.forEach((t) => grid.appendChild(card(t))); sec.appendChild(grid);
+  box.appendChild(sec);
+  const l = el('a', 'chip', c.icon + ' ' + c.name); l.href = '#cat-' + c.id; nav.appendChild(l);
+});
+if (window.SBA && SBA.enabled() && SBA.loggedIn()) { const h = document.getElementById('heroAccount'); h.textContent = '👤 Mon compte'; }
+else if (!(window.SBA && SBA.enabled())) document.getElementById('heroAccount').hidden = true;
 </script>
 </body>
 </html>
