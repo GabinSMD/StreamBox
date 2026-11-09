@@ -114,7 +114,7 @@ chat.on('status', (s) => { status.chat = s === 'connected' ? 'connecté' : 'déc
   .on('room', (id) => emotes.load(id))
   .on('message', (m) => {
     const cmd = SB.command(m, c.cmd);
-    if (m.isMod && cmd !== null) { /stop/i.test(cmd) ? stop() : play(); return; }
+    if (m.isMod && cmd !== null) { onCommand(cmd); return; }
     if (BOTS.has(m.login) || playing) return;
     det.addMessage(m);
     record((s) => {
@@ -159,6 +159,13 @@ if (c.save === 'obs' && !c.demo) {
     })
     .connect();
 }
+function onCommand(a) {
+  if (/^stop$/i.test(a)) stop();
+  else if (/^(clip|marquer)$/i.test(a)) { if (!playing) det.force(); }
+  else play();
+}
+const onRemote = (m) => onCommand(SB.command(m, c.cmd) || '');
+SB.remote('rewind', c.cmd, onRemote, obs || undefined);
 
 /* =================== 3. API TWITCH =================== */
 let userId = null;
@@ -208,6 +215,7 @@ function caption(h, rank, total, start) {
     const parts = [];
     if (h.reasons && h.reasons.includes('chat')) parts.push('🔥 Le chat s’enflamme');
     if (h.reasons && h.reasons.includes('voix')) parts.push('🎙️ Grosse réaction');
+    if (h.reasons && h.reasons.includes('manuel')) parts.push('📸 Choisi par le streamer');
     line.textContent = parts.join(' · ') || '⭐ Temps fort';
   }
   main.appendChild(line);

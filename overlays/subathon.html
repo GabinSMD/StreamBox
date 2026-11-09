@@ -15,10 +15,12 @@
   </div>
   <div class="sa-floats" id="floats"></div>
 </div>
+<script src="../js/config.js"></script>
 <script src="../js/sb.js"></script>
+<script src="../js/eventsub.js"></script>
 <script>
 const c = SB.params({
-  channel: '', title: 'Subathon', start: 4, cap: 0,
+  channel: '', token: '', follow: 0, reward: '', rewardmin: 5, title: 'Subathon', start: 4, cap: 0,
   sub1: 5, sub2: 10, sub3: 20, prime: 5, bits: 1, don: 1, raid: 0, raidmin: 10,
   cmd: '!subathon', autostart: false, style: 'carte', tsize: 90, size: 18,
   showstats: true, showlast: true, font: 'Inter', accent: '#9b5cff', demo: false,
@@ -200,6 +202,11 @@ chat.on('usernotice', onNotice)
   .on('cheer', (m) => { if (c.bits) { S.totals.bits += m.bits; addTime(m.bits / 100 * c.bits, `${m.name} (${m.bits} bits)`, 'bits'); } })
   .on('message', onMessage)
   .connect();
+// Follows et points de chaîne (connexion Twitch) : « reward » = nom de la récompense qui ajoute du temps
+SB.twitchEvents(c, ['follow', 'points'])
+  .on('follow', (e) => { if (c.follow) addTime(c.follow, `${e.name} (follow)`, 'follow'); })
+  .on('points', (e) => { if (c.reward && e.reward.trim().toLowerCase() === c.reward.trim().toLowerCase()) addTime(c.rewardmin, `${e.name} (${e.reward})`, 'points'); });
+SB.remote('subathon', c.cmd, onMessage);
 if (c.autostart && S.status === 'idle') start();
 
 if (c.demo) {

@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>StreamBox · Roue</title>
+<link rel="stylesheet" href="../css/overlay.css">
+</head>
+<body>
+<div class="wheel-wrap" id="wrap">
+  <div class="wheel-title" id="title"></div>
+  <div class="wheel-box">
+    <canvas id="wheel"></canvas>
+    <div class="wheel-pointer"></div>
+  </div>
+  <div class="wheel-result" id="result"></div>
+</div>
+<script src="../js/sb.js"></script>
+<script>
+const c = SB.params({
+  channel: '', segments: 'Défi pompes\n+10 min\nChanger de jeu\nViewer choisit la musique\n-5 min\nAccent belge pendant 10 min\n+30 min*0.5\nRien du tout',
+  title: 'Roue de la fortune', cmd: '!roue', everysubs: 0, bits: 0, duration: 6, linger: 8, hide: true, sound: true, volume: 0.3,
+  size: 28, font: 'Inter', accent: '#9b5cff', demo: false,
+});
+SB.loadFont(c.font); SB.setAccent(c.accent);
+document.documentElement.style.setProperty('--size', c.size + 'px');
+const $ = (id) => document.getElementById(id);
+$('title').textContent = c.title;
+
+/* Segments : une ligne par case, « Texte*poids » pour changer la probabilité (1 par défaut) */
+const segs = c.segments.split(/\n|\|/).map((l) => l.trim()).filter(Boolean).map((l) => {
+  const m = l.match(/^(.*?)\s*\*\s*(\d+(?:[.,]\d+)?)$/);
+  return { label: m ? m[1] : l, weight: m ? parseFloat(m[2].replace(',', '.')) : 1 };
+});
+const N = segs.length || 1;
+const canvas = $('wheel'), ctx = canvas.getContext('2d');
+const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#9b5cff';
+function hsl(i) { // couleurs alternées autour de la couleur principale
+  const tmp = document.createElement('div'); tmp.style.color = accent; document.body.appendChild(tmp);
+  const [r, g, b] = getComputedStyle(tmp).color.match(/\d+/g).map(Number); tmp.remove();
+  const max = Math.max(r, g, b) / 255, min = Math.min(r, g, b) / 255, l = (max + min) / 2;
+  let h = 0; const d = max - min;
+  if (d) { const R = r / 255, G = g / 255, B = b / 255; h = max === R ? ((G - B) / d) % 6 : max === G ? (B - R) / d + 2 : (R - G) / d + 4; h *= 60; }
+  return `hsl(${(h + i * (360 / Math.max(N, 6))) % 360}, 70%, ${i % 2 ? 48 : 58}%)`;
+}
+const colors = segs.map((_, i) => hsl(i));
+let angle = 0; // rotation actuelle (radians)
+
+function size() {
+  const s = Math.min(innerWidth, innerHeight - 160) * 0.95;
+  const dpr = window.devicePixelRatio || 1;
+  canvas.style.width = canvas.style.height = s + 'px';
+  canvas.width = canvas.height = Math.round(s * dpr);
+  draw();
+}
+function draw() {
+  const W = canvas.width, R = W / 2 - 6 * (window.devicePixelRatio || 1);
+  ctx.clearRect(0, 0, W, W);
+  ctx.save(); ctx.translate(W / 2, W / 2); ctx.rotate(angle);
+  const step = (Math.PI * 2) / N;
+  segs.forEach((sg, i) => {
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, R, i * step, (i + 1) * step); ctx.closePath();
+    ctx.fillStyle = colors[i]; ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,.25)'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.save(); ctx.rotate(i * step + step / 2);
+    ctx.fillStyle = '#fff'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    const fs = Math.max(12, Math.min(R * 0.09, (R * 0.8) / Math.max(6, sg.label.length) * 1.7));
+    ctx.font = `800 ${fs}px ${getComputedStyle(document.body).fontFamily}`;
+    ctx.shadowColor = 'rgba(0,0,0,.5)'; ctx.shadowBlur = 4;
+    ctx.fillText(sg.label.length > 26 ? sg.label.slice(0, 25) + '…' : sg.label, R - 18, 0);
+    ctx.restore();
+  });
+  ctx.restore();
+  ctx.beginPath(); ctx.arc(W / 2, W / 2, R * 0.12, 0, Math.PI * 2); ctx.fillStyle = '#16121f'; ctx.fill();
+  ctx.lineWidth = 6; ctx.strokeStyle = accent; ctx.stroke();
+}
+addEventListener('resize', size); size();
+
+function tickSound() {
+  if (!c.sound) return;
+  try {
+    const a = SB._ctx || (SB._ctx = new (window.AudioContext || window.webkitAudioContext)());
+    const o = a.createOscillator(), g = a.createGain();
+    o.type = 'square'; o.frequency.value = 1400; g.gain.value = c.volume * 0.25;
+    g.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + 0.04);
+    o.connect(g).connect(a.destination); o.start(); o.stop(a.currentTime + 0.05);
+  } catch (e) { /* audio indisponible */ }
+}
+
+function pick() {
+  const total = segs.reduce((s, x) => s + x.weight, 0);
+  let r = SB.random() * total;
+  for (let i = 0; i < N; i++) { if ((r -= segs[i].weight) < 0) return i; }
+  return N - 1;
+}
+
+const queue = []; let spinning = false, hideTimer = null;
+function request(by) { queue.push(by || ''); if (!spinning) spin(); }
+
+function spin() {
+  const by = queue.shift();
+  if (by === undefined) { spinning = false; if (c.hide) hideTimer = setTimeout(() => document.body.classList.add('wheel-hidden'), c.linger * 1000); return; }
+  spinning = true; clearTimeout(hideTimer);
+  document.body.classList.remove('wheel-hidden', 'wheel-won');
+  $('result').textContent = by ? `Lancée par ${by}…` : '';
+  const i = pick(), step = (Math.PI * 2) / N;
+  // Le pointeur est en haut (−90°) : on vise une position au hasard dans la case choisie
+  const inside = (0.15 + SB.random() * 0.7) * step;
+  const want = -Math.PI / 2 - (i * step + inside);
+  const startA = angle;
+  let end = want; while (end > startA - Math.PI * 2 * 5) end -= Math.PI * 2; // au moins 5 tours
+  const t0 = performance.now(), D = c.duration * 1000;
+  let lastSeg = null;
+  const frame = (now) => {
+    const k = Math.min(1, (now - t0) / D);
+    const e = 1 - Math.pow(1 - k, 4); // ralentit à la fin
+    angle = startA + (end - startA) * e;
+    draw();
+    const under = Math.floor((((-Math.PI / 2 - angle) % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2) / step);
+    if (under !== lastSeg) { lastSeg = under; tickSound(); }
+    if (k < 1) return requestAnimationFrame(frame);
+    angle = ((angle % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+    done(segs[i]);
+  };
+  requestAnimationFrame(frame);
+}
+
+function done(sg) {
+  $('result').textContent = '🎉 ' + sg.label;
+  document.body.classList.add('wheel-won');
+  if (c.sound) SB.chime(c.volume);
+  // « +10 min » / « -5 min » : envoyé au timer de subathon via le panneau OBS (si connecté)
+  const m = sg.label.match(/^([+-])\s*(\d+(?:[.,]\d+)?)\s*(min|h)\b/i);
+  if (m && SB._remoteObs && SB._remoteObs.ready) {
+    const mins = parseFloat(m[2].replace(',', '.')) * (m[3].toLowerCase() === 'h' ? 60 : 1);
+    SB._remoteObs.call('BroadcastCustomEvent', { eventData: { streambox: { tool: 'subathon', args: m[1] + mins } } }).catch(() => {});
+  }
+  setTimeout(spin, 2500);
+}
+
+/* Déclencheurs */
+let subCount = 0;
+function onMessage(m) {
+  if (SB.command(m, c.cmd) !== null && m.isMod) request(m.login === 'panneau' ? '' : m.name);
+}
+const chat = new SB.TwitchChat(c.channel);
+chat.on('message', onMessage)
+  .on('cheer', (m) => { if (c.bits && m.bits >= c.bits) request(m.name); })
+  .on('usernotice', (n) => {
+    if (!c.everysubs) return;
+    const k = n.type === 'submysterygift' || n.type === 'anonsubmysterygift' ? n.giftCount : ['sub', 'resub'].includes(n.type) || (/subgift/.test(n.type) && !n.isCommunityGift) ? 1 : 0;
+    for (let j = 0; j < k; j++) if (++subCount % c.everysubs === 0) request(n.name);
+  })
+  .connect();
+SB.remote('roue', c.cmd, onMessage);
+
+if (c.hide && !c.demo) document.body.classList.add('wheel-hidden');
+if (c.demo) { request('Pixelmaud'); setInterval(() => { if (!spinning) request(SB.demoUsers[Math.floor(Math.random() * 7)].login); }, (c.duration + 5) * 1000); }
+SB.hintIfNoChannel(c);
+</script>
+</body>
+</html>

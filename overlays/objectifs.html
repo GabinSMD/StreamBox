@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>StreamBox · Objectif</title>
+<link rel="stylesheet" href="../css/overlay.css">
+</head>
+<body>
+<div class="goal" id="goal">
+  <div class="goal-head"><span class="goal-title" id="title"></span><span class="goal-num" id="num"></span></div>
+  <div class="goal-track"><div class="goal-fill" id="fill"></div><div class="goal-shine"></div></div>
+  <div class="goal-next" id="next"></div>
+</div>
+<div id="confetti"></div>
+<script src="../js/config.js"></script>
+<script src="../js/sb.js"></script>
+<script src="../js/eventsub.js"></script>
+<script>
+const c = SB.params({
+  channel: '', token: '', type: 'subs', title: '', start: 0, target: 50, next: '', auto: true,
+  cmd: '!objectif', style: 'carte', size: 22, font: 'Inter', accent: '#9b5cff', demo: false,
+});
+SB.loadFont(c.font); SB.setAccent(c.accent);
+document.documentElement.style.setProperty('--size', c.size + 'px');
+document.body.classList.add('g-' + c.style);
+const $ = (id) => document.getElementById(id);
+const LABEL = { subs: ['Objectif abonnés', 'abos'], follows: ['Objectif followers', 'followers'], bits: ['Objectif bits', 'bits'], dons: ['Objectif dons', '€'], perso: ['Objectif', ''] }[c.type] || ['Objectif', ''];
+const targets = [c.target, ...c.next.split(/[\s,;]+/).map(Number).filter((n) => n > c.target)].sort((a, b) => a - b);
+
+const KEY = 'sb-goal-' + (c.demo ? 'demo' + Math.random() : (c.channel.toLowerCase() || 'local') + '-' + c.type);
+let S;
+try { S = JSON.parse(localStorage.getItem(KEY)) || null; } catch (e) { S = null; }
+if (!S || S.start !== c.start) S = { value: c.start, start: c.start };
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { /* ignore */ } };
+
+let shownTarget = null, lastValue = null;
+function currentTarget() { return targets.find((t) => S.value < t) || targets[targets.length - 1]; }
+function render() {
+  const t = currentTarget();
+  const prevT = targets.filter((x) => x < t).pop();
+  if (shownTarget != null && lastValue != null && lastValue < shownTarget && S.value >= shownTarget) celebrate(); // palier franchi
+  shownTarget = t; lastValue = S.value;
+  const done = S.value >= t;
+  $('title').textContent = c.title || LABEL[0];
+  const fmt = (n) => Number(n).toLocaleString('fr-FR', { maximumFractionDigits: 2 });
+  $('num').textContent = `${fmt(S.value)} / ${fmt(t)}${LABEL[1] === '€' ? ' €' : ''}`;
+  $('fill').style.width = Math.min(100, (S.value / t) * 100) + '%';
+  document.body.classList.toggle('goal-done', done);
+  $('next').textContent = done ? 'Objectif atteint ! Merci 💜' : (prevT ? `Palier ${fmt(prevT)} atteint · ` : '') + `encore ${fmt(t - S.value)} ${LABEL[1]}`.trim();
+}
+function add(n) { if (!n) return; S.value = Math.max(0, Math.round((S.value + n) * 100) / 100); save(); render(); }
+
+function celebrate() {
+  const box = $('confetti');
+  for (let i = 0; i < 60; i++) {
+    const p = SB.el('i');
+    p.style.left = SB.random() * 100 + '%';
+    p.style.background = ['var(--accent)', '#ff5ca8', '#ffd34d', '#3cc8ff', '#7dff9b'][i % 5];
+    p.style.animationDelay = SB.random() * 0.6 + 's';
+    p.style.setProperty('--x', (SB.random() * 200 - 100) + 'px');
+    box.appendChild(p);
+    setTimeout(() => p.remove(), 3200);
+  }
+  $('goal').classList.remove('pop'); void $('goal').offsetWidth; $('goal').classList.add('pop');
+}
+
+function onMessage(m) {
+  const a = SB.command(m, c.cmd);
+  if (a === null || !m.isMod) return;
+  let r;
+  if ((r = a.match(/^(?:don\s+)?([+-]?\d+(?:[.,]\d+)?)$/i))) add(parseFloat(r[1].replace(',', '.')));
+  else if ((r = a.match(/^set\s+(\d+(?:[.,]\d+)?)$/i))) { S.value = parseFloat(r[1].replace(',', '.')); save(); render(); }
+  else if (/^reset$/i.test(a)) { S.value = c.start; save(); render(); }
+}
+
+const chat = new SB.TwitchChat(c.channel);
+chat.on('message', onMessage)
+  .on('usernotice', (n) => {
+    if (c.type !== 'subs') return;
+    if (n.type === 'sub' || n.type === 'resub') add(1);
+    else if ((n.type === 'subgift' || n.type === 'anonsubgift') && !n.isCommunityGift) add(1);
+    else if (n.type === 'submysterygift' || n.type === 'anonsubmysterygift') add(n.giftCount);
+  })
+  .on('cheer', (m) => { if (c.type === 'bits') add(m.bits); })
+  .connect();
+if (c.type === 'follows') SB.twitchEvents(c, ['follow']).on('follow', () => add(1));
+SB.remote('objectifs', c.cmd, onMessage);
+
+// Valeur de départ réelle depuis l'API Twitch (followers ou abonnés), si connecté
+(async () => {
+  if (!c.auto || c.demo || !c.token || !window.SB_CONFIG || !SB_CONFIG.twitchClientId || !c.channel || !['follows', 'subs'].includes(c.type)) return;
+  try {
+    const id = (await SB.helix('users?login=' + encodeURIComponent(c.channel), c.token)).data[0].id;
+    const d = await SB.helix(c.type === 'follows' ? `channels/followers?broadcaster_id=${id}&first=1` : `subscriptions?broadcaster_id=${id}&first=1`, c.token);
+    if (typeof d.total === 'number') { S.value = d.total; save(); shownTarget = null; lastValue = null; render(); }
+  } catch (e) { console.warn('Total Twitch indisponible :', e.message); }
+})();
+
+render();
+if (c.demo) {
+  S.value = Math.max(0, c.target - 6); render();
+  setInterval(() => { if (S.value >= targets[targets.length - 1]) { S.value = Math.max(0, c.target - 6); shownTarget = null; lastValue = null; render(); } else add(1); }, 1500);
+}
+SB.hintIfNoChannel(c);
+</script>
+</body>
+</html>

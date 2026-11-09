@@ -64,7 +64,7 @@ setInterval(tick, 200); tick();
 
 // Contrôle par le chat (modos) : !timer 15 | !timer +5 | !timer -2 | !timer pause | !timer reprendre
 const chat = new SB.TwitchChat(c.channel);
-chat.on('message', (m) => {
+function onMessage(m) {
   const a = SB.command(m, c.cmd);
   if (a === null || !m.isMod) return;
   const left = paused != null ? paused : target - Date.now();
@@ -79,7 +79,9 @@ chat.on('message', (m) => {
     if (paused != null) paused = ms; else target = Date.now() + ms;
   }
   tick();
-}).connect();
+}
+chat.on('message', onMessage).connect();
+SB.remote('minuteur', c.cmd, onMessage);
 </script>
 </body>
 </html>

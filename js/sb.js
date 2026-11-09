@@ -391,6 +391,25 @@
   SB.demoBroadcaster = { login: 'TaChaine', color: '#9146FF', broadcaster: true };
 
   /* Petit bandeau d'aide si aucune chaîne n'est configurée */
+  /* ---------- Panneau de contrôle (via OBS) ----------
+   * Le panneau (panneau.html) envoie un BroadcastCustomEvent par obs-websocket :
+   *   { streambox: { tool: 'sondage', args: 'fin' } }
+   * L'overlay le reçoit et le traite comme la commande « <cmd> <args> » tapée par le streamer.
+   * Activé si l'URL contient remote=1 ou obspass=… ; obs = client OBS déjà ouvert (facultatif). */
+  SB.remote = function (tool, cmd, handler, obs) {
+    const q = new URLSearchParams(location.search);
+    if (!obs && !(q.get('remote') === '1' || q.has('obspass'))) return;
+    const listen = (o) => o.on('CustomEvent', (d) => {
+      const s = d && d.streambox;
+      if (!s || (s.tool !== tool && s.tool !== '*')) return;
+      handler(SB.fake({ user: { login: 'panneau', broadcaster: true }, text: (cmd + ' ' + (s.args || '')).trim() }));
+    });
+    if (obs) { listen(obs); return; }
+    const go = () => { const o = new SB.OBS(q.get('obsurl') || 'ws://127.0.0.1:4455', q.get('obspass') || ''); listen(o); o.connect(); SB._remoteObs = o; };
+    if (SB.OBS) go();
+    else { const sc = document.createElement('script'); sc.src = new URL('../js/obs.js', location.href).href; sc.onload = go; document.head.appendChild(sc); }
+  };
+
   SB.hintIfNoChannel = function (cfg) {
     if (cfg.channel || cfg.demo) return;
     const d = SB.el('div', 'sb-hint', 'StreamBox : ajoute ?channel=ta_chaine à l’URL (ou configure l’outil sur le site).');

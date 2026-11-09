@@ -97,6 +97,7 @@ setInterval(() => { if (poll && poll.open) { if (Date.now() >= poll.endsAt) end(
 
 const chat = new SB.TwitchChat(c.channel);
 chat.on('message', onMessage).connect();
+SB.remote('sondage', c.cmd, onMessage);
 
 if (c.demo) {
   const run = () => {
