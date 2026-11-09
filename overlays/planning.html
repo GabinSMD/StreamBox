@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>StreamBox · Planning des lives</title>
+<link rel="stylesheet" href="../css/overlay.css">
+<script src="../js/i18n.js"></script>
+</head>
+<body>
+<div class="pl" id="card" hidden>
+  <div class="pl-head"><span class="pl-title" id="title"></span><span class="pl-pause" id="pause" hidden></span></div>
+  <div class="pl-list" id="list"></div>
+</div>
+<script src="../js/config.js"></script>
+<script src="../js/sb.js"></script>
+<script src="../js/planning.js"></script>
+<script>
+/* Planning des lives, tiré du planning Twitch de la chaîne (aucune connexion nécessaire : il est public).
+ * En liste ou en semaine ; mis à jour toutes les 10 minutes. */
+const c = SB.params({
+  channel: '', title: 'Planning de la semaine', mode: 'liste', days: 7, showgame: true, showoff: true, max: 6,
+  size: 22, font: 'Inter', accent: '#9b5cff', demo: false,
+});
+SB.loadFont(c.font); SB.setAccent(c.accent);
+document.documentElement.style.setProperty('--size', c.size + 'px');
+const $ = (id) => document.getElementById(id);
+const P = SB.planning;
+$('title').textContent = c.title;
+$('card').classList.add(c.mode === 'semaine' ? 'pl-week' : 'pl-col');
+
+function render(data) {
+  const days = P.days(data, Math.max(1, Math.min(14, c.days)));
+  const rows = [];
+  let shown = 0;
+  days.forEach((d) => {
+    if (c.mode === 'semaine') { rows.push(col(d)); return; }
+    if (!d.items.length) { if (c.showoff) rows.push(row(d, null)); return; }
+    d.items.forEach((g) => { if (shown++ < c.max) rows.push(row(d, g)); });
+  });
+  const v = data.vacation;
+  $('pause').hidden = !(v && Date.parse(v.end) > Date.now());
+  if (!$('pause').hidden) $('pause').textContent = SB.t('En pause jusqu’au {0}', [P.dayNum(v.end)]);
+  const any = days.some((d) => d.items.length);
+  if (!any && c.mode !== 'semaine') rows.splice(0, rows.length, SB.el('div', 'pl-empty', SB.t('Pas de live prévu pour le moment.')));
+  $('list').replaceChildren(...rows);
+  $('card').hidden = false;
+}
+function dayCell(d) {
+  const b = SB.el('div', 'pl-day');
+  b.append(SB.el('b', null, P.weekday(d.date)), SB.el('span', null, d.today ? SB.t('aujourd’hui') : P.dayNum(d.date)));
+  return b;
+}
+function info(g) {
+  const i = SB.el('div', 'pl-info');
+  const time = SB.el('div', 'pl-time', P.time(g.start) + (g.end ? ' – ' + P.time(g.end) : ''));
+  if (P.isLive(g)) time.prepend(SB.el('span', 'pl-live', SB.t('En direct')));
+  i.append(time, SB.el('div', 'pl-name', g.title || g.game || SB.t('Live')));
+  if (c.showgame && g.game && g.title) i.appendChild(SB.el('div', 'pl-game', g.game));
+  return i;
+}
+function row(d, g) {
+  const r = SB.el('div', 'pl-row' + (d.today ? ' today' : '') + (g ? '' : ' off') + (g && P.isLive(g) ? ' live' : ''));
+  r.append(dayCell(d), g ? info(g) : SB.el('div', 'pl-info pl-rest', SB.t('Pas de live')));
+  return r;
+}
+function col(d) {
+  const r = SB.el('div', 'pl-row' + (d.today ? ' today' : '') + (d.items.length ? '' : ' off'));
+  r.appendChild(dayCell(d));
+  if (!d.items.length) r.appendChild(SB.el('div', 'pl-info pl-rest', SB.t('Repos')));
+  d.items.slice(0, 2).forEach((g) => r.appendChild(info(g)));
+  return r;
+}
+
+let last = null;
+async function refresh() {
+  try { last = await P.load(c.channel); render(last); document.querySelectorAll('.sb-hint').forEach((x) => x.remove()); }
+  catch (e) { document.querySelectorAll('.sb-hint').forEach((x) => x.remove()); document.body.appendChild(SB.el('div', 'sb-hint', 'StreamBox : ' + e.message)); }
+}
+if (c.demo) render(P.demo(c.channel));
+else if (!c.channel) SB.hintIfNoChannel(c);
+else { refresh(); setInterval(refresh, 10 * 60000); setInterval(() => last && render(last), 60000); } // « En direct » et « Aujourd’hui » suivent l’heure
+</script>
+</body>
+</html>

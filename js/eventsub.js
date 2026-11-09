@@ -16,6 +16,10 @@
     automodUpdate: { type: 'automod.message.update', version: '2', cond: (b, u) => ({ broadcaster_user_id: b, moderator_user_id: u }), raw: true },
     moderate: { type: 'channel.moderate', version: '2', cond: (b, u) => ({ broadcaster_user_id: b, moderator_user_id: u }), raw: true },
     unbanRequest: { type: 'channel.unban_request.create', version: '1', cond: (b, u) => ({ broadcaster_user_id: b, moderator_user_id: u }), raw: true },
+    // Hype Train (permission channel:read:hype_train) : l'événement Twitch est transmis tel quel
+    hypeBegin: { type: 'channel.hype_train.begin', version: '2', cond: (b) => ({ broadcaster_user_id: b }), raw: true },
+    hypeProgress: { type: 'channel.hype_train.progress', version: '2', cond: (b) => ({ broadcaster_user_id: b }), raw: true },
+    hypeEnd: { type: 'channel.hype_train.end', version: '2', cond: (b) => ({ broadcaster_user_id: b }), raw: true },
   };
   const RAW = Object.fromEntries(Object.entries(TYPES).filter(([, t]) => t.raw).map(([k, t]) => [t.type, k]));
 

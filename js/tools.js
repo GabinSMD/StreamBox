@@ -409,6 +409,38 @@
       ],
     },
     {
+      id: 'planning', icon: '📅', name: 'Planning des lives', short: 'Tes prochains lives à l’écran, tirés de ton planning Twitch.', overlay: 'overlays/planning.html', size: [560, 600],
+      tagline: 'Tes prochains lives, tirés du planning Twitch : en liste ou en semaine, avec l’heure, le titre et le jeu. Se met à jour tout seul.',
+      replaces: ['planning fait main sur Canva'],
+      note: 'Le planning se règle sur Twitch (Tableau de bord → Paramètres → Chaîne → Planning). Aucune connexion n’est nécessaire : il est public. L’image à partager sur Discord et les réseaux se crée sur la page « Image du planning ».',
+      links: [['Image à partager', 'planning.html']],
+      fields: [
+        channel,
+        { key: 'title', label: 'Titre', type: 'text', default: 'Planning de la semaine' },
+        { key: 'mode', label: 'Affichage', type: 'select', default: 'liste', options: [['liste', 'En liste'], ['semaine', 'En semaine (colonnes)']] },
+        { key: 'days', label: 'Jours affichés', type: 'select', default: '7', options: [['7', '7 jours'], ['14', '14 jours']] },
+        { key: 'showoff', label: 'Afficher les jours sans live', type: 'checkbox', default: true },
+        { key: 'showgame', label: 'Afficher le jeu', type: 'checkbox', default: true },
+        { key: 'max', label: 'En liste : nombre de lives au plus', type: 'number', default: 6, min: 1, max: 14 },
+        size(22), font, accent,
+      ],
+    },
+    {
+      id: 'hypetrain', icon: '🚂', name: 'Hype Train', short: 'Le niveau du Hype Train, sa progression et ses meilleurs contributeurs.', overlay: 'overlays/hypetrain.html', size: [640, 220],
+      tagline: 'Le Hype Train Twitch à l’écran : niveau, progression vers le niveau suivant, temps restant, meilleurs contributeurs et record de la chaîne.',
+      replaces: ['Hype Train StreamElements', 'Hype Train Streamlabs'],
+      note: 'Invisible tant qu’il n’y a pas de train. Il apparaît dès que Twitch lance un Hype Train, puis disparaît quelques secondes après la fin.',
+      fields: [
+        channel,
+        twitch('channel:read:hype_train', 'Connexion Twitch (Hype Train)'),
+        { key: 'title', label: 'Titre', type: 'text', default: 'Hype Train' },
+        { key: 'showtop', label: 'Afficher les meilleurs contributeurs', type: 'checkbox', default: true },
+        { key: 'showrecord', label: 'Afficher le record de la chaîne', type: 'checkbox', default: true },
+        { key: 'hold', label: 'Rester affiché après la fin (s)', type: 'number', default: 12, min: 3, max: 120 },
+        size(22), font, accent,
+      ],
+    },
+    {
       id: 'qrdons', icon: '📱', name: 'QR code de dons', short: 'Un QR code vers ta page de dons, à scanner depuis un téléphone.', overlay: 'overlays/qrdons.html', size: [400, 420],
       tagline: 'Un QR code vers ta page Ko-fi, PayPal, Tipeee… que tes viewers scannent avec leur téléphone.',
       replaces: ['TipStreams'],
@@ -621,7 +653,7 @@
     { id: 'outils', icon: '🛠️', name: 'Outils pratiques', desc: 'Piloter tes overlays, préparer tes emotes, estimer tes revenus, trouver d’autres outils.' },
   ];
   const CAT = { chat: 'communaute', bot: 'communaute', sondage: 'communaute', giveaway: 'communaute', roue: 'communaute', emotes: 'communaute', moderation: 'communaute', chaine: 'communaute', jeux: 'communaute', minijeux: 'communaute',
-    alertes: 'alertes', objectifs: 'alertes', discord: 'alertes', tts: 'alertes', qrdons: 'alertes', sons: 'communaute', compteurs: 'communaute', generique: 'evenements',
+    alertes: 'alertes', objectifs: 'alertes', discord: 'alertes', tts: 'alertes', qrdons: 'alertes', planning: 'communaute', hypetrain: 'alertes', sons: 'communaute', compteurs: 'communaute', generique: 'evenements',
     'subathon-live': 'evenements', minuteur: 'evenements', rewind: 'evenements',
     musique: 'musique', sr: 'musique', extension: 'musique',
     panneau: 'outils', automatisations: 'outils', soustitres: 'communaute', 'sous-titres': 'communaute', pngtuber: 'communaute', shoutout: 'communaute', clips: 'evenements', etiquettes: 'alertes', stats: 'outils', integrations: 'outils', resizer: 'outils', testeur: 'outils', calc: 'outils', annuaire: 'outils' };
