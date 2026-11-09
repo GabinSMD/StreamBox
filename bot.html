@@ -161,7 +161,7 @@ function renderMod() {
   box.appendChild(labeled('Durée de !permit (s)', input(m, 'permitSecs', { num: true })));
 }
 function renderEvents() {
-  const T = { follow: '💜 Follow', sub: '⭐ Abonnement ({tier})', resub: '⭐ Réabonnement ({months})', gift: '🎁 Abos offerts ({count})', raid: '🚀 Raid ({viewers})', cheer: '💎 Bits ({bits})' };
+  const T = { follow: '💜 Follow', sub: '⭐ Abonnement ({tier})', resub: '⭐ Réabonnement ({months})', gift: '🎁 Abos offerts ({count})', raid: '🚀 Raid ({viewers})', cheer: '💎 Bits ({bits})', don: '💸 Don ({amount}) : Ko-fi, StreamElements, Streamlabs' };
   const box = $('events'); box.replaceChildren();
   Object.keys(T).forEach((k) => {
     const e = cfg.events[k]; const card = el('div', 'bt-item');

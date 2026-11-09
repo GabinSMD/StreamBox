@@ -233,6 +233,14 @@ if (c.source !== 'relais') {
     } catch (e) { console.warn('subathon du relais :', e.message); }
   };
   sync(); setInterval(sync, 3000);
+  // Streamlabs n'a pas de webhook : l'overlay reçoit le don en direct et le transmet au relais (compté une seule fois)
+  const ovId = new URLSearchParams(location.search).get('o');
+  const slToken = SB.query().get('sltoken');
+  if (ovId && slToken && !c.demo) {
+    const dons = new SB.Donations();
+    dons.on('don', (d) => fetch(`${relay}/o/${ovId}/don`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) }).then(sync).catch((e) => console.warn(e.message)));
+    dons.streamlabs(slToken);
+  }
 }
 
 if (c.demo) {

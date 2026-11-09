@@ -19,7 +19,7 @@
       const key = d.id || [d.source, d.name, d.amount, d.message].join('|') + '|' + Math.floor(Date.now() / 5000);
       if (this.seen.has(key)) return; // même don reçu deux fois
       this.seen.add(key); if (this.seen.size > 300) this.seen.clear();
-      this.emit('don', { source: d.source, name: d.name || 'Anonyme', amount: num(d.amount), currency: (d.currency || 'EUR').toUpperCase(), message: d.message || '' });
+      this.emit('don', { id: d.id || key, source: d.source, name: d.name || 'Anonyme', amount: num(d.amount), currency: (d.currency || 'EUR').toUpperCase(), message: d.message || '' });
     }
     setStatus(src, s) { this.status[src] = s; this.emit('status', this.status); }
 
