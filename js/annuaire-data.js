@@ -21,7 +21,7 @@ window.SB_DIRECTORY = [
   { cat: 'Widgets', name: 'TipStreams', url: 'https://tipstreams.com/widget/', flags: ['Gratuit'], desc: 'QR code de dons unique (crypto, PayPal, Ko-fi…) en overlay.' },
   { cat: 'Widgets', name: 'Vizz.fm', url: 'https://vizz.fm', flags: [], desc: 'Visualiseur musical personnalisable, utilisable comme source OBS.' },
   { cat: 'Widgets', name: 'Kloot', url: 'https://kloot.gg', alt: 'giveaway', flags: [], desc: 'Tableau de contrôle : giveaways, sondages, bandeaux et effets de hype, pilotables depuis le téléphone.' },
-  { cat: 'Widgets', name: 'Marathon Timer', url: 'https://www.marathon-timer.com/en/', alt: 'subathon', flags: [], desc: 'Timer de subathon : chaque abo, bit ou don rallonge le stream.' },
+  { cat: 'Widgets', name: 'Marathon Timer', url: 'https://www.marathon-timer.com/en/', alt: 'subathon-live', flags: [], desc: 'Timer de subathon : chaque abo, bit ou don rallonge le stream.' },
   // Analytics
   { cat: 'Statistiques', name: 'TwitchTracker', url: 'https://twitchtracker.com/', flags: ['Gratuit'], desc: 'Statistiques des chaînes, streams et abonnés, plus des chiffres globaux.' },
   // Bots

@@ -63,6 +63,10 @@
   document.title = tool.name + ' · StreamBox';
   $('name').textContent = tool.icon + ' ' + tool.name;
   $('tagline').textContent = tool.tagline;
+  if (tool.mergedInto) { // overlay qui fait partie d'un outil plus large (Subathon, Demandes de musique)
+    const parent = SB_PAGES.find((x) => x.id === tool.mergedInto);
+    if (parent) { const n = document.createElement('p'); n.className = 'note'; n.append(`Cet overlay fait partie de « ${parent.name} ». `); const l = document.createElement('a'); l.href = parent.href; l.textContent = 'Ouvrir ' + parent.name + ' →'; n.appendChild(l); $('tagline').after(n); }
+  }
   $('sizehint').textContent = tool.size[0] + ' × ' + tool.size[1];
   $('dims').textContent = 'Taille conseillée : ' + tool.size[0] + ' × ' + tool.size[1];
   if (tool.fields.some((f) => f.key === 'sound')) $('audiohint').hidden = false;

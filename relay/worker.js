@@ -25,6 +25,7 @@
  *   PUT    /me/overlays/:id             { name?, settings? } → les overlays ouverts dans OBS se rechargent
  *   POST   /me/overlays/:id/rotate      nouveau lien (l'ancien ne marche plus)
  *   DELETE /me/overlays/:id
+ *   DELETE /me                          supprime le compte (réglages, jetons, liens, abonnements Twitch, accès révoqué)
  *   GET    /o/:id                       réglages + jetons utiles à cet outil seulement (lu par l'overlay)
  *   GET    /o/:id/ws                    WebSocket : « update » quand le streamer modifie l'overlay
  *
@@ -352,6 +353,11 @@ async function accountRoutes(req, env, url, p) {
   const body = req.method === 'GET' || req.method === 'DELETE' ? null : await req.json().catch(() => ({}));
 
   if (p.length === 1 && req.method === 'GET') return fwd('/me', 'POST', {});
+  if (p.length === 1 && req.method === 'DELETE') { // RGPD : suppression complète du compte
+    const r = await fwd('/delete-account', 'POST', {});
+    if (r.status === 200) await call('sess:' + sid, '/session-delete', {});
+    return r;
+  }
   if (p[1] === 'secrets' && req.method === 'PUT') return fwd('/secrets', 'POST', body);
   if (p[1] === 'sr') {
     if (p.length === 2 && req.method === 'GET') return fwd('/sr-get', 'POST', {});
@@ -472,6 +478,25 @@ export class Account {
     if (path.startsWith('/sr-') || path === '/public-sr' || path === '/ov-sr' || path === '/ov-spotify-token') return this.srRoute(path, body, profile, await secrets(), E, ok, err);
     if (path.startsWith('/sub-') || path.startsWith('/public-')) return this.subRoute(path, body, profile, E, ok, err);
 
+    if (path === '/delete-account') {
+      const s = await secrets().catch(() => ({}));
+      const idx = (name) => this.env.ACCOUNT ? this.env.ACCOUNT.get(this.env.ACCOUNT.idFromName(name)).fetch('https://acc/index-delete', { method: 'POST', body: '{}' }) : null;
+      // 1. abonnements EventSub (bot, subathon, demandes de musique)
+      const subs = (await st.get('botsubs')) || [];
+      if (subs.length && E.cid && E.secret) {
+        const app = await appAccess(E.cid, E.secret).catch(() => null);
+        if (app) for (const id of subs) await fetch('https://api.twitch.tv/helix/eventsub/subscriptions?id=' + id, { method: 'DELETE', headers: { 'Client-Id': E.cid, Authorization: 'Bearer ' + app } }).catch(() => {});
+      }
+      // 2. index : pseudo, clé Ko-fi, liens d'overlays
+      await idx('login:' + profile.login);
+      if (s.kofi) await idx('kofikey:' + s.kofi);
+      for (const id of Object.keys((await st.get('overlays')) || {})) await idx('ov:' + id);
+      // 3. accès Twitch révoqué, puis tout est effacé
+      if (s.twitch && s.twitch.access && E.cid) await fetch('https://id.twitch.tv/oauth2/revoke', { method: 'POST', body: new URLSearchParams({ client_id: E.cid, token: s.twitch.access }) }).catch(() => {});
+      await st.deleteAlarm().catch(() => {});
+      await st.deleteAll();
+      return ok({ deleted: true });
+    }
     if (path === '/me') {
       const s = await secrets(); const ov = await overlays();
       return ok({ login: profile.login, scopes: profile.scopes, secrets: Object.fromEntries(SECRET_KEYS.map((k) => [k, !!s[k]])),

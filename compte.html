@@ -27,6 +27,12 @@
     <h2 class="sec">🔌 Mes intégrations</h2>
     <p class="sec">Renseignées une fois, utilisées par tous tes overlays. Les jetons sont chiffrés sur le relais, et chaque overlay ne reçoit que ceux dont il a besoin. Une fois enregistrés, ils ne sont plus jamais affichés.</p>
     <div class="grid" id="secrets"></div>
+
+    <section class="box danger-zone">
+      <h2>🗑️ Supprimer mon compte</h2>
+      <p class="bt-help">Efface définitivement ton compte StreamBox : réglages, overlays et leurs liens, intégrations et jetons, bot, subathon, idées, demandes de musique. Tes abonnements Twitch sont supprimés et l’accès de StreamBox à ton compte Twitch est révoqué. Tes overlays dans OBS cesseront de fonctionner.</p>
+      <div class="pn-row"><input type="text" id="confirmLogin" placeholder="Tape ton pseudo pour confirmer" autocomplete="off" style="max-width:280px"><button class="btn danger" id="delete" type="button">Supprimer définitivement</button></div>
+    </section>
   </div>
 </main>
 <script src="js/config.js"></script>
@@ -138,6 +144,11 @@ function renderSecrets() {
   });
 }
 
+$('delete').onclick = async () => {
+  if ($('confirmLogin').value.trim().toLowerCase() !== (me && me.login)) return toast2('Tape exactement ton pseudo pour confirmer');
+  try { await SBA.deleteAccount(); alert('Ton compte StreamBox a été supprimé.'); location.href = 'index.html'; }
+  catch (e) { toast2('Erreur : ' + e.message); }
+};
 $('login').onclick = () => SBA.login('compte.html');
 $('logout').onclick = () => SBA.logout();
 load();

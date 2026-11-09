@@ -1,5 +1,9 @@
 # StreamBox
 
+[![Licence : AGPL-3.0](https://img.shields.io/badge/licence-AGPL--3.0-9b5cff)](LICENSE) [![Site](https://img.shields.io/badge/site-gabinsmd.github.io%2FStreamBox-ff5ca8)](https://gabinsmd.github.io/StreamBox/)
+
+**Fait par Igatax, inspiré par PiRDub.** Projet open source : toute contribution est la bienvenue (voir [CONTRIBUTING.md](CONTRIBUTING.md)). Une suggestion ou une contribution au projet principal vaut mieux qu'un fork.
+
 Une boîte à outils gratuite pour streamers. Elle regroupe dans un seul site ce qui demande d’habitude une dizaine de services différents. Rien à installer, aucun compte à connecter.
 
 ## Ce qui est inclus
@@ -153,3 +157,13 @@ Prochaines étapes :
 - [ ] Multi-plateforme : chat Kick et YouTube fusionnés
 - [ ] Lecture des messages à voix haute (TTS) et demandes de musiques par le chat
 - [x] Comptes StreamBox (connexion Twitch, réglages et jetons enregistrés, liens courts)
+
+## Contribuer
+
+Idées, bugs, code : tout est bienvenu. Voir [CONTRIBUTING.md](CONTRIBUTING.md).
+- 💡 [Proposer une idée](https://github.com/GabinSMD/StreamBox/issues/new?template=suggestion.md)
+- 🐛 [Signaler un bug](https://github.com/GabinSMD/StreamBox/issues/new?template=bug.md)
+
+## Licence
+
+StreamBox est un logiciel libre sous licence [GNU AGPL-3.0](LICENSE) : tu peux l'utiliser, l'étudier, le modifier et le partager. Une version modifiée, même hébergée en ligne, doit publier son code sous la même licence.
