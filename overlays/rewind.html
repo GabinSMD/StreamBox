@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>StreamBox · Rewind</title>
+<link rel="stylesheet" href="../css/overlay.css">
+</head>
+<body>
+<div id="rw-stage"></div>
+<script src="../js/config.js"></script>
+<script src="../js/sb.js"></script>
+<script>
+const c = SB.params({
+  channel: '', token: '', title: 'Rewind', clips: 5, maxclip: 30, minviews: 0, muted: false,
+  intro: true, stats: true, chatters: true, peaks: true, showclips: true,
+  outro: 'Merci d’avoir été là ! Le stream commence…', auto: 'visible', loop: true, cmd: '!rewind',
+  bg: 'scene', size: 40, font: 'Inter', accent: '#9b5cff', demo: false,
+});
+SB.loadFont(c.font); SB.setAccent(c.accent);
+document.documentElement.style.setProperty('--size', c.size + 'px');
+if (c.bg === 'scene') {
+  document.body.classList.add('rw-scene');
+  [['5%', '10%', c.accent, '140px', '60px'], ['55%', '45%', '#ff5ca8', '-120px', '-80px'], ['65%', '0%', '#3cc8ff', '-60px', '110px']].forEach(([l, t, col, dx, dy], i) => {
+    const b = SB.el('div', 'blob');
+    Object.assign(b.style, { left: l, top: t, width: '45vw', height: '45vw', background: col, animationDelay: -i * 5 + 's' });
+    b.style.setProperty('--dx', dx); b.style.setProperty('--dy', dy);
+    document.body.prepend(b);
+  });
+}
+const stage = document.getElementById('rw-stage');
+const GAP = 2 * 3600000; // 2 h sans activité = nouveau stream
+const BOTS = new Set(['nightbot', 'streamelements', 'streamlabs', 'moobot', 'fossabot', 'wizebot', 'soundalerts', 'sery_bot']);
+
+/* =================== 1. ENREGISTREUR ===================
+ * Tant que la source existe dans OBS (même cachée), on note l'activité du chat.
+ * Les données restent dans le stockage local d'OBS et servent au Rewind du stream suivant. */
+const KEY = 'sb-rewind-' + (c.channel.toLowerCase() || 'local');
+let DB;
+try { DB = JSON.parse(localStorage.getItem(KEY)) || { sessions: [] }; } catch (e) { DB = { sessions: [] }; }
+let live = null; // { start: ms } si l'API dit que la chaîne est en live
+let dirty = false;
+
+function currentSession(t) {
+  let s = DB.sessions[DB.sessions.length - 1];
+  const liveStart = live && live.start;
+  const isNew = !s || (liveStart ? s.start < liveStart - 600000 : t - s.last > GAP);
+  if (isNew) {
+    s = { start: liveStart || t, last: t, msgs: 0, chatters: {}, emotes: {}, subs: 0, gifts: 0, bits: 0, raids: [], minutes: {} };
+    DB.sessions.push(s);
+    DB.sessions = DB.sessions.slice(-5);
+  }
+  s.last = t;
+  return s;
+}
+function record(fn) {
+  if (c.demo) return;
+  if (c.token && SB_CONFIG.twitchClientId && !live) return; // on sait qu'on est hors live : on n'enregistre pas
+  fn(currentSession(Date.now()));
+  dirty = true;
+}
+function save() {
+  if (!dirty) return; dirty = false;
+  DB.sessions.forEach((s) => { // on garde les données compactes
+    const top = Object.entries(s.chatters).sort((a, b) => b[1].n - a[1].n).slice(0, 100);
+    s.chatters = Object.fromEntries(top);
+    s.emotes = Object.fromEntries(Object.entries(s.emotes).sort((a, b) => b[1].n - a[1].n).slice(0, 30));
+  });
+  try { localStorage.setItem(KEY, JSON.stringify(DB)); } catch (e) { /* stockage plein ou indisponible */ }
+}
+setInterval(save, 20000);
+addEventListener('beforeunload', save);
+
+const emotes = new SB.EmoteStore();
+const chat = new SB.TwitchChat(c.channel);
+chat.on('room', (id) => emotes.load(id))
+  .on('message', (m) => {
+    if (m.isMod && SB.command(m, c.cmd) !== null) { /stop/i.test(SB.command(m, c.cmd)) ? stop() : play(); return; }
+    if (BOTS.has(m.login)) return;
+    record((s) => {
+      s.msgs++;
+      const ch = s.chatters[m.login] || (s.chatters[m.login] = { n: 0, name: m.name });
+      ch.n++;
+      const min = Math.floor((Date.now() - s.start) / 60000);
+      s.minutes[min] = (s.minutes[min] || 0) + 1;
+      SB.extractEmotes(m, emotes).forEach((e) => { const x = s.emotes[e.name] || (s.emotes[e.name] = { n: 0, url: e.url }); x.n++; });
+      if (m.bits) s.bits += m.bits;
+    });
+  })
+  .on('usernotice', (n) => record((s) => {
+    if (n.type === 'sub' || n.type === 'resub') s.subs++;
+    else if ((n.type === 'subgift' || n.type === 'anonsubgift') && !n.isCommunityGift) { s.subs++; s.gifts++; }
+    else if (n.type === 'submysterygift' || n.type === 'anonsubmysterygift') { s.subs += n.giftCount; s.gifts += n.giftCount; }
+    else if (n.type === 'raid') s.raids.push({ name: n.name, viewers: n.viewers });
+  }))
+  .connect();
+
+/* =================== 2. API TWITCH (clips + VOD) =================== */
+let userId = null;
+async function api(path) { return SB.helix(path, c.token); }
+async function refreshLive() {
+  if (!c.token || !SB_CONFIG.twitchClientId || !c.channel) return;
+  try {
+    if (!userId) userId = ((await api('users?login=' + encodeURIComponent(c.channel))).data[0] || {}).id;
+    if (!userId) return;
+    const st = (await api('streams?user_id=' + userId)).data[0];
+    live = st ? { start: Date.parse(st.started_at) } : null;
+  } catch (e) { console.warn(e); }
+}
+refreshLive(); setInterval(refreshLive, 120000);
+
+function parseVodDuration(s) {
+  const m = String(s).match(/(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?/);
+  return ((+m[1] || 0) * 3600 + (+m[2] || 0) * 60 + (+m[3] || 0)) * 1000;
+}
+
+async function fetchPrevious(local) {
+  const out = { vod: null, clips: [], error: null };
+  if (!c.token || !SB_CONFIG.twitchClientId) return out;
+  try {
+    await refreshLive();
+    if (!userId) throw new Error('Chaîne introuvable');
+    const vods = (await api(`videos?user_id=${userId}&type=archive&first=5`)).data || [];
+    const before = live ? live.start - 300000 : Infinity;
+    const v = vods.find((x) => Date.parse(x.created_at) < before);
+    let from, to;
+    if (v) { out.vod = { title: v.title, start: Date.parse(v.created_at), duration: parseVodDuration(v.duration) }; from = out.vod.start; to = from + out.vod.duration; }
+    else if (local) { from = local.start; to = local.last; }
+    else { to = live ? live.start : Date.now(); from = to - 7 * 86400000; }
+    const iso = (t) => new Date(t).toISOString();
+    const clips = (await api(`clips?broadcaster_id=${userId}&started_at=${iso(from - 600000)}&ended_at=${iso(to + 3600000)}&first=50`)).data || [];
+    out.clips = clips.filter((x) => x.view_count >= c.minviews).sort((a, b) => b.view_count - a.view_count).slice(0, c.clips);
+    out.from = from;
+  } catch (e) { out.error = e.message; console.warn(e); }
+  return out;
+}
+
+/* =================== 3. LECTEUR DU RÉCAP =================== */
+const fmtDur = (ms) => { const m = Math.round(ms / 60000); return m >= 60 ? `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}` : `${m} min`; };
+const fmtOffset = (ms) => { const m = Math.floor(ms / 60000); return `${Math.floor(m / 60)}h${String(m % 60).padStart(2, '0')}`; };
+const nf = (n) => Number(n).toLocaleString('fr-FR');
+
+function slide(cls) { const s = SB.el('div', 'rw-slide ' + (cls || '')); return s; }
+function heading(s, kicker, title) { s.appendChild(SB.el('div', 'rw-kicker', kicker)); if (title) s.appendChild(SB.el('h1', 'rw-h1', title)); }
+
+function peaksOf(sess) {
+  const arr = Object.entries(sess.minutes).map(([k, v]) => [+k, v]).sort((a, b) => b[1] - a[1]);
+  const out = [];
+  for (const [min, n] of arr) { if (out.length >= 3) break; if (out.every((p) => Math.abs(p.min - min) > 5)) out.push({ min, n }); }
+  return out.sort((a, b) => a.min - b.min);
+}
+
+function buildSlides(local, prev, demo) {
+  const S = [];
+  const start = prev.vod ? prev.vod.start : local && local.start;
+  const duration = prev.vod ? prev.vod.duration : local && local.last - local.start;
+  if (c.intro) S.push({ dur: 6000, make: () => {
+    const s = slide('rw-intro');
+    s.appendChild(SB.el('div', 'rw-logo', '⏪ ' + c.title));
+    s.appendChild(SB.el('div', 'rw-kicker', 'Le stream précédent'));
+    if (prev.vod) s.appendChild(SB.el('h1', 'rw-h1', prev.vod.title));
+    const meta = [];
+    if (start) meta.push(new Date(start).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }));
+    if (duration) meta.push(fmtDur(duration) + ' de live');
+    s.appendChild(SB.el('div', 'rw-meta rw-date', meta.join(' · ')));
+    return s;
+  } });
+
+  if (local && c.stats) S.push({ dur: 8000, make: () => {
+    const s = slide(); heading(s, 'En chiffres', 'Ce qu’on a vécu ensemble');
+    const grid = SB.el('div', 'rw-tiles');
+    const tile = (n, l) => { const t = SB.el('div', 'rw-tile'); t.append(SB.el('b', null, nf(n)), SB.el('span', null, l)); grid.appendChild(t); };
+    tile(local.msgs, 'messages');
+    tile(Object.keys(local.chatters).length, 'personnes dans le chat');
+    if (local.subs) tile(local.subs, local.gifts ? `abos (dont ${local.gifts} offerts)` : 'abos');
+    if (local.bits) tile(local.bits, 'bits');
+    if (local.raids.length) tile(local.raids.length, local.raids.length > 1 ? 'raids' : 'raid');
+    s.appendChild(grid);
+    const top = Object.entries(local.emotes).sort((a, b) => b[1].n - a[1].n)[0];
+    if (top) {
+      const e = SB.el('div', 'rw-emote');
+      const img = document.createElement('img'); img.src = top[1].url; img.alt = top[0];
+      e.append(img, SB.el('span', null, `Emote du stream : ${top[0]} (×${nf(top[1].n)})`));
+      s.appendChild(e);
+    }
+    return s;
+  } });
+
+  const chatters = local ? Object.entries(local.chatters).sort((a, b) => b[1].n - a[1].n).slice(0, 5) : [];
+  if (c.chatters && chatters.length >= 3) S.push({ dur: 7000, make: () => {
+    const s = slide(); heading(s, 'Merci à vous', 'Les plus bavards du chat');
+    const pod = SB.el('div', 'rw-podium');
+    [1, 0, 2].forEach((i) => {
+      const [, ch] = chatters[i];
+      const p = SB.el('div', 'rw-step rw-step' + (i + 1));
+      p.append(SB.el('div', 'rw-medal', ['🥇', '🥈', '🥉'][i]), SB.el('div', 'rw-name', ch.name), SB.el('div', 'rw-count', nf(ch.n) + ' messages'));
+      pod.appendChild(p);
+    });
+    s.appendChild(pod);
+    if (chatters.length > 3) s.appendChild(SB.el('div', 'rw-meta', 'Et aussi : ' + chatters.slice(3).map(([, ch]) => ch.name).join(', ')));
+    return s;
+  } });
+
+  const peaks = local ? peaksOf(local) : [];
+  if (c.peaks && peaks.length) S.push({ dur: 7000, make: () => {
+    const s = slide(); heading(s, 'Moments forts', 'Quand le chat s’est enflammé');
+    const max = Math.max(...peaks.map((p) => p.n));
+    peaks.forEach((p) => {
+      const row = SB.el('div', 'rw-peak');
+      const bar = SB.el('div', 'rw-peakbar'); bar.style.width = Math.max(12, (p.n / max) * 100) + '%';
+      const track = SB.el('div', 'rw-track'); track.appendChild(bar);
+      row.append(SB.el('b', null, 'à ' + fmtOffset(p.min * 60000)), track, SB.el('span', null, nf(p.n) + ' messages/min'));
+      s.appendChild(row);
+    });
+    return s;
+  } });
+
+  if (c.showclips && prev.clips.length) {
+    S.push({ dur: 3500, make: () => { const s = slide('rw-intro'); heading(s, 'Les meilleurs moments', `Top ${prev.clips.length} des clips`); return s; } });
+    prev.clips.slice().reverse().forEach((clip, i, arr) => {
+      const rank = arr.length - i;
+      const offset = prev.from ? Date.parse(clip.created_at) - prev.from : null;
+      const hot = local && offset != null && peaks.some((p) => Math.abs(p.min * 60000 - (Date.parse(clip.created_at) - local.start)) < 5 * 60000);
+      S.push({ dur: (Math.min(clip.duration || 30, c.maxclip) + 2) * 1000, make: () => {
+        const s = slide('rw-clip');
+        const cap = SB.el('div', 'rw-cap');
+        cap.append(SB.el('span', 'rw-rank', '#' + rank), SB.el('span', 'rw-ctitle', clip.title));
+        if (hot) cap.appendChild(SB.el('span', 'rw-hot', '🔥 pic du chat'));
+        cap.appendChild(SB.el('span', 'rw-cmeta', `clippé par ${clip.creator_name} · ${nf(clip.view_count)} vues`));
+        const frame = SB.el('div', 'rw-frame');
+        if (demo) {
+          frame.classList.add('rw-fake');
+          frame.append(SB.el('div', null, '▶ ' + clip.title), SB.el('small', null, 'Aperçu : le vrai clip Twitch sera lu ici'));
+        } else if (!location.hostname) {
+          frame.classList.add('rw-fake');
+          frame.appendChild(SB.el('div', null, 'Les clips Twitch ne peuvent être lus que depuis un site hébergé (pas en fichier local).'));
+        } else {
+          const f = document.createElement('iframe');
+          f.allow = 'autoplay; fullscreen';
+          f.src = `https://clips.twitch.tv/embed?clip=${encodeURIComponent(clip.id)}&parent=${location.hostname}&autoplay=true&muted=${c.muted}`;
+          frame.appendChild(f);
+        }
+        s.append(frame, cap);
+        return s;
+      } });
+    });
+  }
+
+  S.push({ dur: c.loop ? 6000 : 0, make: () => {
+    const s = slide('rw-intro');
+    s.appendChild(SB.el('div', 'rw-logo', '⏪ ' + c.title));
+    s.appendChild(SB.el('h1', 'rw-h1', c.outro));
+    if (prev.error) s.appendChild(SB.el('div', 'rw-meta', 'Clips indisponibles : ' + prev.error));
+    return s;
+  } });
+  return S;
+}
+
+let runId = 0;
+function show(el) {
+  const old = stage.firstElementChild;
+  if (old) { old.classList.add('rw-out'); setTimeout(() => old.remove(), 600); }
+  stage.appendChild(el);
+}
+function stop() { runId++; stage.replaceChildren(); }
+
+async function play() {
+  const id = ++runId;
+  save();
+  const local = c.demo ? demoSession() : pickPrevious();
+  const prev = c.demo ? demoClips() : await fetchPrevious(local);
+  if (id !== runId) return;
+  const slides = buildSlides(local, prev, c.demo);
+  if (slides.length <= 1 && !local) {
+    const s = slide('rw-intro');
+    s.appendChild(SB.el('div', 'rw-logo', '⏪ ' + c.title));
+    s.appendChild(SB.el('h1', 'rw-h1', 'Pas encore de récap'));
+    s.appendChild(SB.el('div', 'rw-meta', c.token ? 'Aucun clip trouvé pour le stream précédent.' : 'Le Rewind enregistre ce stream : le récap sera prêt au prochain.'));
+    show(s); return;
+  }
+  for (;;) {
+    for (const sl of slides) {
+      if (id !== runId) return;
+      show(sl.make());
+      if (!sl.dur) return; // dernière diapo affichée en continu
+      await new Promise((r) => setTimeout(r, sl.dur));
+    }
+    if (!c.loop) return;
+  }
+}
+
+function pickPrevious() {
+  const now = Date.now();
+  const list = DB.sessions.filter((s) => s.msgs > 0);
+  const cur = list.find((s) => (live ? s.start >= live.start - 600000 : now - s.last < 30 * 60000));
+  const done = list.filter((s) => s !== cur);
+  return done[done.length - 1] || null;
+}
+
+/* Déclenchement : quand la source devient visible dans OBS, au chargement, ou par !rewind */
+// Dans OBS, l'événement obsSourceVisibleChanged relance le récap depuis le début à chaque affichage de la scène.
+if (c.auto !== 'commande') play();
+if (c.auto === 'visible') addEventListener('obsSourceVisibleChanged', (e) => { if (e.detail && e.detail.visible) play(); });
+
+/* =================== Données de démo =================== */
+function demoSession() {
+  const start = Date.now() - 26 * 3600000;
+  const chatters = {};
+  SB.demoUsers.forEach((u, i) => (chatters[u.login.toLowerCase()] = { n: [412, 260, 233, 198, 120, 88, 75][i], name: u.login }));
+  return { start, last: start + 4.3 * 3600000, msgs: 4821, chatters, subs: 37, gifts: 20, bits: 6400, raids: [{ name: 'Amigo', viewers: 80 }],
+    emotes: { LUL: { n: 312, url: SB.twitchEmoteUrl('425618', '3.0') } }, minutes: { 42: 120, 43: 160, 95: 214, 180: 175, 230: 90 } };
+}
+function demoClips() {
+  const t = ['Le clutch impossible en 1v4', 'Il a vraiment fait ça ?!', 'Fou rire en direct', 'Le boss en 3 secondes', 'La chute du siècle'];
+  return { from: Date.now() - 26 * 3600000, clips: t.slice(0, c.clips).map((title, i) => ({ id: 'demo' + i, title, creator_name: SB.demoUsers[i].login, view_count: [1840, 920, 610, 430, 220][i], duration: 6, created_at: new Date(Date.now() - 26 * 3600000 + (95 + i * 30) * 60000).toISOString() })) };
+}
+SB.hintIfNoChannel(c);
+</script>
+</body>
+</html>

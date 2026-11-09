@@ -12,6 +12,8 @@ Une boîte à outils gratuite pour streamers. Elle regroupe dans un seul site ce
 | 🎁 Giveaway avec tirage animé (aléatoire Web Crypto) | Overlay OBS | PickerSpin, Wheel of Item |
 | 😂 `!showemote` et pluie d’emotes | Overlay OBS | Show Emote |
 | ⏳ Écran « Ça commence bientôt » avec compte à rebours | Overlay OBS | Packs d’écrans d’attente |
+| ⏱️ Timer de subathon (abos, subs offerts, bits, dons, raids, happy hour, durée max, sauvegarde) | Overlay OBS | marathon-timer.com |
+| ⏪ Rewind : récap du stream précédent (chiffres, podium, pics du chat, top clips) | Overlay OBS | |
 | 🖼️ Redimensionneur d’emotes et de badges | Page web | EmoteResizer, Twitch Emote Resizer |
 | 💰 Calculateur de revenus | Page web | Calculateurs divers |
 | 🧭 Annuaire des autres outils (clips, bots, stats…) | Page web | |
@@ -23,6 +25,15 @@ Une boîte à outils gratuite pour streamers. Elle regroupe dans un seul site ce
 - **Réglages dans l’URL** : le configurateur (`outil.html?id=…`) génère un lien que l’on colle dans OBS (Source navigateur). Il n’y a aucune base de données.
 - **Contrôle depuis le chat** : le streamer et ses modos pilotent sondages, giveaways et minuteur avec des commandes (`!sondage`, `!giveaway tirage`, `!timer +5`…).
 - **Mode démo** : ajoute `&demo=1` à n’importe quel overlay pour voir de faux messages et événements. C’est ce qu’utilise l’aperçu du configurateur.
+
+## Connexion Twitch (pour les clips du Rewind)
+
+Le Rewind lit les clips via l’API Twitch. Pour l’activer sur ton site :
+
+1. Crée une application sur https://dev.twitch.tv/console/apps : type de client **Public**, URL de redirection `https://<ton-site>/connexion.html` (et `http://localhost:8000/connexion.html` pour tester en local).
+2. Copie le *Client ID* dans `js/config.js` (`twitchClientId`).
+
+La connexion n’utilise aucun secret et ne demande aucune permission (scope vide) : le jeton ne peut lire que des données publiques. Sans connexion, le Rewind fonctionne quand même, mais il ne montre que les statistiques du chat enregistrées pendant le stream.
 
 ## Lancer en local
 
@@ -51,7 +62,8 @@ js/annuaire-data.js   Données de l'annuaire
 Ce qui demande une connexion à un compte Twitch (OAuth et EventSub), donc un petit backend :
 
 - [ ] Alertes de **follows** et de **points de chaîne** (absentes du chat anonyme)
-- [ ] Objectifs (abonnés, followers) et subathon automatique
+- [ ] Objectifs (abonnés, followers), et follows et dons Tipeee / StreamElements / Ko-fi automatiques dans le subathon
+- [ ] Roue de la fortune du subathon
 - [ ] Bot de chat : commandes personnalisées, minuteurs, modération
 - [ ] Panneau de contrôle (dock OBS) pour piloter les overlays sans commandes
 - [ ] Multi-plateforme : chat Kick et YouTube fusionnés

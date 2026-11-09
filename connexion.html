@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Connexion Twitch · StreamBox</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap">
+<link rel="stylesheet" href="css/site.css">
+</head>
+<body>
+<main class="wrap"><div class="box" style="margin:48px auto;max-width:520px"><h1 id="h">Connexion à Twitch…</h1><p class="lead" id="p"></p></div></main>
+<script src="js/config.js"></script>
+<script src="js/site.js"></script>
+<script>
+/* Flux OAuth « implicite » : aucun secret, aucune permission demandée (scope vide).
+ * Le jeton reste dans le navigateur (localStorage) et sert uniquement à lire des données publiques. */
+const KEY = 'sb-twitch-token';
+const safeReturn = (r) => (r && /^[\w\-./?=&%]+$/.test(r) && !r.includes('//') ? r : 'index.html');
+const hash = new URLSearchParams(location.hash.slice(1));
+const q = new URLSearchParams(location.search);
+const say = (h, p) => { document.getElementById('h').textContent = h; document.getElementById('p').textContent = p || ''; };
+
+if (hash.get('access_token')) {
+  let expected = null;
+  try { expected = sessionStorage.getItem('sb-oauth-state'); } catch (e) { /* ignore */ }
+  const [nonce, ...ret] = (hash.get('state') || '').split('|');
+  if (expected && nonce !== expected) say('Connexion refusée', 'La réponse de Twitch ne correspond pas à la demande. Réessaie.');
+  else {
+    try { localStorage.setItem(KEY, hash.get('access_token')); } catch (e) { /* ignore */ }
+    say('Connecté !', 'Retour à l’outil…');
+    location.replace(safeReturn(decodeURIComponent(ret.join('|'))));
+  }
+} else if (q.get('error') || hash.get('error')) {
+  say('Connexion annulée', q.get('error_description') || hash.get('error_description') || '');
+} else if (!SB_CONFIG.twitchClientId) {
+  say('Connexion Twitch non configurée', 'Le propriétaire du site doit renseigner twitchClientId dans js/config.js (voir le README).');
+} else {
+  const nonce = Math.random().toString(36).slice(2);
+  try { sessionStorage.setItem('sb-oauth-state', nonce); } catch (e) { /* ignore */ }
+  const u = new URL('https://id.twitch.tv/oauth2/authorize');
+  u.searchParams.set('client_id', SB_CONFIG.twitchClientId);
+  u.searchParams.set('redirect_uri', location.origin + location.pathname);
+  u.searchParams.set('response_type', 'token');
+  u.searchParams.set('scope', '');
+  u.searchParams.set('state', nonce + '|' + encodeURIComponent(safeReturn(q.get('retour'))));
+  location.replace(u.toString());
+}
+</script>
+</body>
+</html>

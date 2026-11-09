@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>StreamBox · Subathon</title>
+<link rel="stylesheet" href="../css/overlay.css">
+</head>
+<body>
+<div class="sa-wrap">
+  <div class="sa-box" id="box">
+    <div class="sa-top"><span class="kicker" id="title"></span><span class="sa-happy" id="happy" hidden></span></div>
+    <div class="sa-time" id="time">--:--:--</div>
+    <div class="sa-stats" id="stats"></div>
+    <div class="sa-last" id="last"></div>
+  </div>
+  <div class="sa-floats" id="floats"></div>
+</div>
+<script src="../js/sb.js"></script>
+<script>
+const c = SB.params({
+  channel: '', title: 'Subathon', start: 4, cap: 0,
+  sub1: 5, sub2: 10, sub3: 20, prime: 5, bits: 1, don: 1, raid: 0, raidmin: 10,
+  cmd: '!subathon', autostart: false, style: 'carte', tsize: 90, size: 18,
+  showstats: true, showlast: true, font: 'Inter', accent: '#9b5cff', demo: false,
+});
+SB.loadFont(c.font); SB.setAccent(c.accent);
+document.body.classList.add('sa-' + c.style);
+document.documentElement.style.setProperty('--tsize', c.tsize + 'px');
+document.documentElement.style.setProperty('--size', c.size + 'px');
+const $ = (id) => document.getElementById(id);
+$('title').textContent = c.title;
+if (!c.showstats) $('stats').hidden = true;
+if (!c.showlast) $('last').hidden = true;
+
+/* ---------- État persistant (survit au rechargement de la source OBS) ---------- */
+const KEY = 'sb-subathon-' + (c.demo ? 'demo-' + Math.random() : c.channel.toLowerCase() || 'local');
+const fresh = () => ({
+  status: 'idle',                 // idle | running | paused | ended
+  left: c.start * 3600000,        // temps restant quand pas en cours
+  endAt: 0,                       // horodatage de fin quand en cours
+  startedAt: 0, pausedAt: 0, pausedTotal: 0,
+  happyMult: 1, happyUntil: 0,
+  totals: { subs: 0, gifts: 0, bits: 0, don: 0, added: 0 },
+  last: [],
+});
+let S;
+try { S = JSON.parse(localStorage.getItem(KEY)) || fresh(); } catch (e) { S = fresh(); }
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { /* stockage indisponible */ } };
+
+const remaining = () => S.status === 'running' ? Math.max(0, S.endAt - Date.now()) : S.left;
+const multiplier = () => (S.happyUntil > Date.now() ? S.happyMult : 1);
+
+function capMs() { // fin au plus tard, en tenant compte des pauses
+  if (!c.cap || !S.startedAt) return Infinity;
+  return S.startedAt + c.cap * 3600000 + S.pausedTotal + (S.status === 'paused' ? Date.now() - S.pausedAt : 0);
+}
+
+function setRemaining(ms) {
+  ms = Math.max(0, ms);
+  if (S.status === 'running') {
+    S.endAt = Math.min(Date.now() + ms, capMs());
+  } else {
+    if (c.cap && S.startedAt) ms = Math.min(ms, capMs() - Date.now());
+    S.left = Math.max(0, ms);
+  }
+}
+
+function start() {
+  if (S.status === 'running' || S.status === 'ended') return;
+  if (!S.startedAt) S.startedAt = Date.now();
+  if (S.status === 'paused') S.pausedTotal += Date.now() - S.pausedAt;
+  S.endAt = Date.now() + S.left;
+  S.status = 'running'; save(); render();
+}
+function pause() {
+  if (S.status !== 'running') return;
+  S.left = remaining(); S.status = 'paused'; S.pausedAt = Date.now(); save(); render();
+}
+
+/* Ajoute du temps pour un événement. minutes = valeur de la règle (avant multiplicateur). */
+function addTime(minutes, label, kind) {
+  if (!minutes || S.status === 'ended') return;
+  const mult = kind === 'manuel' ? 1 : multiplier();
+  const ms = minutes * 60000 * mult;
+  const before = remaining();
+  setRemaining(before + ms);
+  const real = remaining() - before;
+  S.totals.added += Math.max(0, real);
+  S.last.unshift({ label, ms: real, t: Date.now() });
+  S.last = S.last.slice(0, 4);
+  save(); float(real, label, real < ms); render();
+}
+
+/* ---------- Durées : "10", "+10", "1h30", "45s", "1:30:00" ---------- */
+function parseDur(s) {
+  s = String(s || '').trim().toLowerCase().replace(',', '.');
+  if (!s) return NaN;
+  if (/^\d+(:\d{1,2}){1,2}$/.test(s)) {
+    const p = s.split(':').map(Number);
+    return (p.length === 3 ? p[0] * 3600 + p[1] * 60 + p[2] : p[0] * 60 + p[1]) * 1000;
+  }
+  if (/^\d+(\.\d+)?$/.test(s)) return parseFloat(s) * 60000; // nombre seul = minutes
+  const re = /(\d+(?:\.\d+)?)\s*(j|d|h|m|min|s)/g;
+  let m, total = 0, found = false;
+  while ((m = re.exec(s))) { found = true; total += parseFloat(m[1]) * { j: 86400, d: 86400, h: 3600, m: 60, min: 60, s: 1 }[m[2]] * 1000; }
+  const tail = s.match(/h(\d+)$/); // "1h30"
+  if (tail) total += parseInt(tail[1], 10) * 60000;
+  return found ? total : NaN;
+}
+
+function fmt(ms) {
+  const s = Math.max(0, Math.ceil(ms / 1000));
+  const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+  const p = (n) => String(n).padStart(2, '0');
+  return (d ? d + 'j ' : '') + `${d ? p(h) : h}:${p(m)}:${p(sec)}`;
+}
+function fmtShort(ms) {
+  const neg = ms < 0; ms = Math.abs(ms);
+  const s = Math.round(ms / 1000), h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+  return (neg ? '−' : '+') + (h ? `${h}h${String(m).padStart(2, '0')}` : `${m}:${String(sec).padStart(2, '0')}`);
+}
+
+/* ---------- Affichage ---------- */
+function float(ms, label, capped) {
+  const f = SB.el('div', 'sa-float' + (ms < 0 ? ' neg' : ''));
+  f.appendChild(SB.el('b', null, fmtShort(ms)));
+  f.append(' ' + label + (capped ? ' (maximum atteint)' : ''));
+  f.style.left = 20 + SB.random() * 60 + '%';
+  $('floats').appendChild(f);
+  setTimeout(() => f.remove(), 3200);
+}
+
+function render() {
+  const left = remaining();
+  if (S.status === 'running' && left <= 0) { S.status = 'ended'; S.left = 0; save(); }
+  $('time').textContent = S.status === 'ended' ? 'Terminé !' : fmt(left);
+  document.body.classList.toggle('sa-paused', S.status === 'paused' || S.status === 'idle');
+  const hp = multiplier() > 1;
+  $('happy').hidden = !hp;
+  if (hp) $('happy').textContent = `Happy hour ×${S.happyMult} · ${fmt(S.happyUntil - Date.now())}`;
+  if (c.showstats) {
+    const elapsed = S.startedAt ? Date.now() - S.startedAt - S.pausedTotal - (S.status === 'paused' ? Date.now() - S.pausedAt : 0) : 0;
+    const status = { idle: 'En attente du départ', paused: 'En pause', running: 'En cours depuis ' + fmt(elapsed), ended: 'Durée totale : ' + fmt(elapsed) }[S.status];
+    const parts = [status, `${S.totals.subs} abos`, `${S.totals.bits} bits`];
+    if (S.totals.don) parts.push(`${S.totals.don} € de dons`);
+    if (c.cap) parts.push(`max ${c.cap} h`);
+    $('stats').textContent = parts.join(' · ');
+  }
+  if (c.showlast) $('last').replaceChildren(...S.last.map((e) => {
+    const d = SB.el('div'); d.appendChild(SB.el('b', null, fmtShort(e.ms))); d.append(' ' + e.label); return d;
+  }));
+}
+setInterval(render, 250);
+render();
+
+/* ---------- Événements Twitch ---------- */
+const tierMin = (plan) => plan === 'Prime' ? c.prime : plan === '3000' ? c.sub3 : plan === '2000' ? c.sub2 : c.sub1;
+const tierName = (plan) => plan === 'Prime' ? 'Prime' : plan === '3000' ? 'palier 3' : plan === '2000' ? 'palier 2' : 'palier 1';
+
+function onNotice(n) {
+  switch (n.type) {
+    case 'sub': case 'resub':
+      S.totals.subs++; addTime(tierMin(n.plan), `${n.name} (abo ${tierName(n.plan)})`, 'sub'); break;
+    case 'subgift': case 'anonsubgift':
+      if (n.isCommunityGift) break; // déjà compté dans submysterygift
+      S.totals.subs++; S.totals.gifts++; addTime(tierMin(n.plan), `${n.name || 'Anonyme'} offre 1 abo`, 'sub'); break;
+    case 'submysterygift': case 'anonsubmysterygift':
+      S.totals.subs += n.giftCount; S.totals.gifts += n.giftCount;
+      addTime(tierMin(n.plan) * n.giftCount, `${n.name || 'Anonyme'} offre ${n.giftCount} abos`, 'sub'); break;
+    case 'raid':
+      if (c.raid && n.viewers >= c.raidmin) addTime(c.raid, `raid de ${n.name} (${n.viewers})`, 'raid'); break;
+  }
+}
+
+function onMessage(m) {
+  const a = SB.command(m, c.cmd);
+  if (a === null || !m.isMod) return;
+  const [sub, ...rest] = a.split(/\s+/);
+  const arg = rest.join(' ');
+  const low = (sub || '').toLowerCase();
+  let ms;
+  if (low === 'start' || low === 'go' || low === 'reprendre' || low === 'play') start();
+  else if (low === 'pause') pause();
+  else if (low === 'set' && !isNaN(ms = parseDur(arg))) { setRemaining(ms); save(); render(); }
+  else if (low === 'don' || low === 'dono') {
+    const amount = parseFloat((rest[0] || '').replace(',', '.'));
+    if (amount > 0) { S.totals.don += amount; addTime(amount * c.don, `don de ${amount} €${rest[1] ? ' de ' + rest.slice(1).join(' ') : ''}`, 'don'); }
+  } else if (low === 'happy' || low === 'happyhour') {
+    if (/^(off|stop|fin)$/i.test(rest[0] || '')) S.happyUntil = 0;
+    else { S.happyMult = parseFloat(rest[0]) || 2; S.happyUntil = Date.now() + (parseDur(rest[1] || '60') || 3600000); }
+    save(); render();
+  } else if (low === 'reset' && /^confirmer$/i.test(arg)) { S = fresh(); save(); render(); }
+  else if (/^[+-]/.test(low) && !isNaN(ms = parseDur(low.slice(1) || arg))) {
+    addTime((low[0] === '-' ? -1 : 1) * ms / 60000, `ajout manuel par ${m.name}`, 'manuel');
+  }
+}
+
+const chat = new SB.TwitchChat(c.channel);
+chat.on('usernotice', onNotice)
+  .on('cheer', (m) => { if (c.bits) { S.totals.bits += m.bits; addTime(m.bits / 100 * c.bits, `${m.name} (${m.bits} bits)`, 'bits'); } })
+  .on('message', onMessage)
+  .connect();
+if (c.autostart && S.status === 'idle') start();
+
+if (c.demo) {
+  start();
+  const u = SB.demoUsers;
+  const fakeN = (i, extra) => Object.assign(SB.fake({ user: u[i % u.length], text: '' }), extra);
+  let k = 0;
+  setInterval(() => {
+    const r = k++ % 5;
+    if (r === 0) onNotice(fakeN(k, { type: 'sub', plan: '1000' }));
+    else if (r === 1) chat.inject(SB.fake({ user: u[k % u.length], text: 'Cheer500 allez !', bits: 500 }));
+    else if (r === 2) onNotice(fakeN(k, { type: 'submysterygift', plan: '1000', giftCount: 5 }));
+    else if (r === 3) onNotice(fakeN(k, { type: 'resub', plan: 'Prime', months: 3 }));
+    else if (r === 4 && k === 5) chat.inject(SB.fake({ user: SB.demoBroadcaster, text: c.cmd + ' happy 2 30m' }));
+  }, 2200);
+}
+SB.hintIfNoChannel(c);
+</script>
+</body>
+</html>

@@ -43,6 +43,7 @@
     </section>
   </div>
 </main>
+<script src="js/config.js"></script>
 <script src="js/tools.js"></script>
 <script src="js/site.js"></script>
 <script>
@@ -79,6 +80,35 @@
     wrap.className = 'field' + (f.type === 'checkbox' ? ' check' : '');
     const inputId = 'f-' + f.key;
     let input;
+    if (f.type === 'twitch') {
+      wrap.appendChild(Object.assign(document.createElement('label'), { textContent: f.label }));
+      input = document.createElement('input'); input.type = 'hidden'; input.name = f.key; wrap.appendChild(input);
+      const status = document.createElement('small'); const btn = document.createElement('button');
+      btn.type = 'button'; btn.className = 'btn ghost'; btn.style.marginTop = '4px';
+      wrap.append(btn, status);
+      const TK = 'sb-twitch-token';
+      let tok = ''; try { tok = localStorage.getItem(TK) || ''; } catch (e) { /* ignore */ }
+      const setOut = (msg) => {
+        input.value = ''; btn.textContent = 'Se connecter avec Twitch';
+        btn.onclick = () => { location.href = 'connexion.html?retour=' + encodeURIComponent('outil.html?id=' + tool.id); };
+        status.textContent = msg || 'Aucune permission demandée : StreamBox lit seulement tes clips publics.';
+      };
+      if (!window.SB_CONFIG || !SB_CONFIG.twitchClientId) { btn.style.display = 'none'; status.textContent = 'Connexion Twitch pas encore configurée sur ce site (twitchClientId dans js/config.js).'; }
+      else if (!tok) setOut();
+      else {
+        input.value = tok; btn.textContent = 'Se déconnecter';
+        btn.onclick = () => { try { localStorage.removeItem(TK); } catch (e) { /* ignore */ } setOut(); update(); };
+        status.textContent = 'Vérification…';
+        fetch('https://id.twitch.tv/oauth2/validate', { headers: { Authorization: 'OAuth ' + tok } })
+          .then((r) => (r.ok ? r.json() : null))
+          .then((d) => {
+            if (!d) { try { localStorage.removeItem(TK); } catch (e) { /* ignore */ } setOut('Connexion expirée : reconnecte-toi.'); update(); return; }
+            status.textContent = `Connecté en tant que ${d.login} (expire dans ${Math.max(1, Math.round(d.expires_in / 86400))} j). Le lien contient ce jeton en lecture seule : ne le montre pas en stream.`;
+          }).catch(() => { status.textContent = 'Connecté (vérification impossible pour le moment).'; });
+      }
+      (i < VISIBLE ? form : (more || form)).appendChild(wrap);
+      return;
+    }
     if (f.type === 'select') {
       input = document.createElement('select');
       f.options.forEach((o) => {
@@ -140,10 +170,10 @@
   let timer, lastSrc = '';
   function update() {
     const vals = values();
-    try { localStorage.setItem(KEY, JSON.stringify(vals)); } catch (e) { /* stockage indisponible */ }
+    try { const keep = Object.assign({}, vals); tool.fields.forEach((f) => f.type === 'twitch' && delete keep[f.key]); localStorage.setItem(KEY, JSON.stringify(keep)); } catch (e) { /* stockage indisponible */ }
     $('url').value = overlayUrl(vals);
     const useDemo = $('demo').checked || !vals.channel;
-    const src = overlayUrl(useDemo ? Object.assign({}, vals, { channel: '' }) : vals, useDemo ? { demo: '1' } : {});
+    const src = overlayUrl(useDemo ? Object.assign({}, vals, { channel: '', token: '' }) : vals, useDemo ? { demo: '1' } : {});
     clearTimeout(timer);
     timer = setTimeout(() => { if (src !== lastSrc) { frame.src = src; lastSrc = src; } }, 350);
   }
@@ -152,7 +182,7 @@
   $('demo').addEventListener('change', update);
   $('gamebg').addEventListener('change', () => preview.classList.toggle('game', $('gamebg').checked));
   $('reset').addEventListener('click', () => {
-    tool.fields.forEach((f) => { const el = form.elements[f.key]; if (f.key === 'channel') return; if (f.type === 'checkbox') el.checked = f.default; else el.value = f.default; });
+    tool.fields.forEach((f) => { const el = form.elements[f.key]; if (f.key === 'channel') return; if (f.type === 'twitch') return; if (f.type === 'checkbox') el.checked = f.default; else el.value = f.default; });
     update();
   });
   $('copy').addEventListener('click', async () => {

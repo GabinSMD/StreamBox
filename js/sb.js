@@ -315,6 +315,22 @@
     return c;
   };
 
+  /* ---------- API Twitch (Helix) ----------
+   * Utilise un jeton « utilisateur » sans aucune permission (scope vide) : il ne permet que de lire
+   * des données publiques (clips, VODs). Il est obtenu via connexion.html.
+   */
+  SB.helix = async function (path, token) {
+    const cid = window.SB_CONFIG && SB_CONFIG.twitchClientId;
+    if (!cid || !token) throw new Error('Connexion Twitch non configurée');
+    const r = await fetch('https://api.twitch.tv/helix/' + path, { headers: { 'Client-Id': cid, Authorization: 'Bearer ' + token } });
+    if (!r.ok) throw new Error('API Twitch : erreur ' + r.status);
+    return r.json();
+  };
+  SB.validateToken = async function (token) {
+    const r = await fetch('https://id.twitch.tv/oauth2/validate', { headers: { Authorization: 'OAuth ' + token } });
+    return r.ok ? r.json() : null; // { login, user_id, expires_in }
+  };
+
   /* ---------- Mode démo ---------- */
   const DEMO_EMOTES = { Kappa: '25', LUL: '425618', HeyGuys: '30259', Kreygasm: '41', SeemsGood: '64138', BibleThump: '86', VoHiYo: '81274', CoolCat: '58127' };
   const DEMO_USERS = [
