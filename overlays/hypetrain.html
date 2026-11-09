@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>StreamBox · Hype Train</title>
+<link rel="stylesheet" href="../css/overlay.css">
+<script src="../js/i18n.js"></script>
+</head>
+<body>
+<div class="ht" id="card" aria-live="polite">
+  <div class="ht-top">
+    <span class="ht-ic" id="ic"></span>
+    <div class="ht-head"><div class="ht-title" id="title"></div><div class="ht-sub" id="sub"></div></div>
+    <div class="ht-lvl" id="lvl"></div>
+  </div>
+  <div class="ht-bar"><div class="ht-fill" id="fill"></div></div>
+  <div class="ht-row"><span id="pts"></span><span id="left"></span></div>
+  <div class="ht-tops" id="tops"></div>
+</div>
+<script src="../js/config.js"></script>
+<script src="../js/sb.js"></script>
+<script src="../js/eventsub.js"></script>
+<script>
+/* Hype Train Twitch : niveau, progression vers le niveau suivant, temps restant, meilleurs contributeurs et record.
+ * Caché tant qu'il n'y a pas de train ; reste affiché quelques secondes à la fin. Permission : channel:read:hype_train. */
+const c = SB.params({
+  channel: '', token: '', title: 'Hype Train', showtop: true, showrecord: true, hold: 12,
+  size: 22, font: 'Inter', accent: '#9b5cff', demo: false,
+});
+SB.loadFont(c.font); SB.setAccent(c.accent);
+document.documentElement.style.setProperty('--size', c.size + 'px');
+const $ = (id) => document.getElementById(id);
+const card = $('card');
+
+// Icône de train (Lucide, ISC), dessinée sans innerHTML
+(() => {
+  const NS = 'http://www.w3.org/2000/svg', svg = document.createElementNS(NS, 'svg');
+  Object.entries({ viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '2', 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true' }).forEach(([k, v]) => svg.setAttribute(k, v));
+  ['M8 3.1V7a4 4 0 0 0 8 0V3.1', 'm9 15-1-1', 'm15 15 1-1', 'M9 19c-2.8 0-5-2.2-5-5v-4a8 8 0 0 1 16 0v4c0 2.8-2.2 5-5 5Z', 'm8 19-2 3', 'm16 22-2-3']
+    .forEach((d) => { const p = document.createElementNS(NS, 'path'); p.setAttribute('d', d); svg.appendChild(p); });
+  $('ic').appendChild(svg);
+})();
+
+let train = null, record = 0, hideTimer = null, lastLevel = 0;
+const fmt = (ms) => { const s = Math.max(0, Math.round(ms / 1000)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+
+function contrib(t) {
+  const name = t.user_name || t.user_login || '?';
+  if (t.type === 'bits') return [name, SB.t('{0} bits', [t.total])];
+  if (t.type === 'subscription') return [name, SB.t('abos')];
+  return [name, ''];
+}
+function draw() {
+  if (!train) return;
+  const ended = !!train.ended_at;
+  card.classList.toggle('golden', train.type === 'golden_kappa');
+  card.classList.toggle('end', ended);
+  $('title').textContent = c.title + (train.type === 'golden_kappa' ? ' · Golden Kappa' : train.type === 'treasure' ? ' · ' + SB.t('Trésor') : '');
+  const lvl = train.level || 1;
+  $('lvl').replaceChildren(document.createTextNode(lvl), SB.el('small', null, SB.t('Niveau')));
+  if (lvl > lastLevel && lastLevel) { card.classList.remove('bump'); void card.offsetWidth; card.classList.add('bump'); }
+  lastLevel = lvl;
+  if (ended) {
+    $('sub').textContent = c.showrecord && lvl >= record && record ? SB.t('Terminé : nouveau record !') : SB.t('Terminé au niveau {0}', [lvl]);
+    $('pts').textContent = SB.t('{0} points au total', [Number(train.total || 0).toLocaleString(SB_LANG_TAG)]);
+    $('left').textContent = '';
+  } else {
+    const pct = train.goal ? Math.min(100, (train.progress / train.goal) * 100) : 0;
+    $('fill').style.width = pct + '%';
+    $('sub').textContent = c.showrecord && record ? SB.t('Record : niveau {0}', [record]) : SB.t('Abos et bits font avancer le train');
+    $('pts').textContent = SB.t('{0} / {1} vers le niveau {2}', [Number(train.progress || 0).toLocaleString(SB_LANG_TAG), Number(train.goal || 0).toLocaleString(SB_LANG_TAG), lvl + 1]);
+    $('left').textContent = train.expires_at ? fmt(Date.parse(train.expires_at) - Date.now()) : '';
+  }
+  $('tops').hidden = !c.showtop || !(train.top_contributions || []).length;
+  $('tops').replaceChildren(...(train.top_contributions || []).slice(0, 3).map((t) => {
+    const [name, what] = contrib(t); const s = SB.el('span'); s.append(SB.el('b', null, name)); if (what) s.append(' ' + what); return s;
+  }));
+  card.classList.add('on');
+}
+function update(ev, ended) {
+  clearTimeout(hideTimer);
+  if (ev.all_time_high_level) record = Math.max(record, ev.all_time_high_level);
+  train = Object.assign({}, train && train.id === ev.id ? train : {}, ev);
+  if (ended) { train.ended_at = ev.ended_at || new Date().toISOString(); hideTimer = setTimeout(() => { card.classList.remove('on'); train = null; lastLevel = 0; }, Math.max(3, c.hold) * 1000); }
+  draw();
+}
+setInterval(() => { if (train && !train.ended_at) { if (train.expires_at && Date.parse(train.expires_at) < Date.now() - 5000) update({ id: train.id }, true); else $('left').textContent = train.expires_at ? fmt(Date.parse(train.expires_at) - Date.now()) : ''; } }, 1000);
+
+if (c.demo) {
+  // Démo : un train démarre, monte de niveau, puis s'arrête, en boucle
+  const names = [['pixelmaud', 'subscription', 1500], ['kevin_le_roux', 'bits', 900], ['Sacha_VIP', 'bits', 500]];
+  const tops = names.map(([n, type, total]) => ({ user_name: n, user_login: n.toLowerCase(), type, total }));
+  const run = () => {
+    const exp = () => new Date(Date.now() + 4 * 60000 + 12000).toISOString();
+    const steps = [[1, 600, 1600], [1, 1250, 1600], [2, 300, 1800], [2, 1100, 1800], [3, 450, 2100]];
+    record = 4;
+    steps.forEach(([level, progress, goal], i) => setTimeout(() => update({ id: 'demo', level, progress, goal, total: 1600 * (level - 1) + progress, top_contributions: tops.slice(0, 1 + Math.min(2, i)), expires_at: exp(), type: 'regular', all_time_high_level: 4 }), 600 + i * 3500));
+    setTimeout(() => update({ id: 'demo', level: 3, total: 4850, top_contributions: tops }, true), 600 + steps.length * 3500 + 2500);
+  };
+  run(); setInterval(run, 40000);
+} else if (!c.channel || !c.token) {
+  SB.hintIfNoChannel(c);
+  if (c.channel && !SB._cfgError) document.body.appendChild(SB.el('div', 'sb-hint', 'StreamBox : ' + SB.t('connecte ton compte Twitch dans les réglages de l’overlay pour suivre le Hype Train.')));
+}
+else {
+  const es = SB.twitchEvents(c, ['hypeBegin', 'hypeProgress', 'hypeEnd']);
+  es.on('hypeBegin', (e) => update(e)).on('hypeProgress', (e) => update(e)).on('hypeEnd', (e) => update(e, true));
+  es.on('status', (s) => { if (/refusé|expirée|introuvable/.test(s)) { document.querySelectorAll('.sb-hint').forEach((x) => x.remove()); document.body.appendChild(SB.el('div', 'sb-hint', 'StreamBox : ' + s)); } });
+  // Train déjà en cours au lancement d'OBS, et record de la chaîne
+  (async () => {
+    try {
+      const u = await SB.helix('users?login=' + encodeURIComponent(c.channel), c.token);
+      const id = u.data[0] && u.data[0].id; if (!id) return;
+      const d = ((await SB.helix('hypetrain/status?broadcaster_id=' + id, c.token)).data || [])[0] || {};
+      if (d.all_time_high) record = d.all_time_high.level || 0;
+      if (d.current) update(d.current);
+    } catch (e) { /* pas grave : le train s'affichera au prochain événement */ }
+  })();
+}
+</script>
+</body>
+</html>

@@ -77,6 +77,19 @@
         <p class="sec">Connecté avec le compte Twitch <b id="who"></b>.</p>
         <button class="btn ghost small" id="logout" type="button">Se déconnecter</button>
       </div>
+    <section class="box bk-box" id="bkBox">
+      <h2><svg class="ic ic-save" aria-hidden="true" focusable="false"><use href="img/icons.svg#save"/></svg>Sauvegarde de ta configuration</h2>
+      <p class="bt-help">Un fichier avec tes overlays, ton bot, tes automatisations, ton subathon, tes demandes de musique, tes mini-jeux et ta page publique. Pratique avant un gros changement, ou pour reprendre ta configuration sur un autre compte. Les jetons et les clés (Twitch, Spotify, dons, Discord, OBS) n’y sont jamais : après un import sur un autre compte, renseigne-les dans Intégrations.</p>
+      <div class="pn-row">
+        <button class="btn small" id="bkExport" type="button"><svg class="ic ic-download" aria-hidden="true" focusable="false"><use href="img/icons.svg#download"/></svg>Télécharger la sauvegarde</button>
+        <label class="btn ghost small"><svg class="ic ic-upload" aria-hidden="true" focusable="false"><use href="img/icons.svg#upload"/></svg>Importer une sauvegarde<input type="file" id="bkFile" accept="application/json,.json" hidden></label>
+      </div>
+      <div class="bk-confirm" id="bkConfirm" hidden>
+        <p id="bkSummary"></p>
+        <div class="pn-row"><button class="btn small" id="bkGo" type="button">Importer</button><button class="btn ghost small" id="bkCancel" type="button">Annuler</button></div>
+      </div>
+      <p class="bt-help" id="bkState" role="status" aria-live="polite"></p>
+    </section>
     <section class="box danger-zone">
       <h2><svg class="ic ic-trash-2" aria-hidden="true" focusable="false"><use href="img/icons.svg#trash-2"/></svg>Supprimer mon compte</h2>
       <p class="bt-help">Efface définitivement ton compte StreamBox : réglages, overlays et leurs liens, intégrations et jetons, bot, subathon, idées, demandes de musique. Tes abonnements Twitch sont supprimés et l’accès de StreamBox à ton compte Twitch est révoqué. Tes overlays dans OBS cesseront de fonctionner.</p>
@@ -88,6 +101,7 @@
 <script src="js/config.js"></script>
 <script src="js/tools.js"></script>
 <script src="js/account.js"></script>
+<script src="js/sauvegarde.js"></script>
 <script src="js/site.js"></script>
 <script>
 const $ = (id) => document.getElementById(id);
@@ -240,6 +254,42 @@ $('pgSave').onclick = async () => {
   try { showPage(await SBA.api('PUT', '/me/page', { enabled: $('pgOn').checked, about: $('pgAbout').value, links, sections, site: location.href.split('#')[0].split('?')[0] })); toast2('Page enregistrée ✓'); }
   catch (e) { toast2('Erreur : ' + e.message); }
 };
+
+/* ---------- Sauvegarde et import ---------- */
+$('bkExport').onclick = () => busy(async () => {
+  try {
+    const d = await SB.backup.build();
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(d, null, 2)], { type: 'application/json' }));
+    a.download = `streambox-${d.login}-${d.exportedAt.slice(0, 10)}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    $('bkState').textContent = SB.t('Sauvegarde téléchargée. Overlays : {0} ; autres réglages : {1}.', [d.overlays.length, Object.keys(SB.backup.LABELS).filter((k) => d[k]).length]);
+  } catch (e) { $('bkState').textContent = SB.t('Erreur : {0}', [e.message]); }
+});
+let bkPending = null;
+$('bkFile').onchange = async () => {
+  const f = $('bkFile').files[0]; $('bkFile').value = ''; if (!f) return;
+  if (f.size > 1024 * 1024) { $('bkState').textContent = SB.t('Fichier trop lourd pour une sauvegarde StreamBox.'); return; }
+  try {
+    const { data, summary } = SB.backup.parse(await f.text());
+    bkPending = data;
+    const parts = summary.parts.map((k) => SB.t(SB.backup.LABELS[k])).join(', ');
+    const from = summary.login && summary.login !== me.login ? SB.t('Sauvegarde du compte {0}.', [summary.login]) + ' ' : '';
+    $('bkSummary').textContent = from + SB.t('Overlays à importer : {0}', [summary.overlays]) + (parts ? '. ' + SB.t('Réglages remplacés : {0}', [parts]) : '') + '. ' +
+      SB.t('Les overlays déjà dans ton compte sont mis à jour et gardent leur lien ; les autres sont créés avec un nouveau lien à coller dans OBS.');
+    $('bkConfirm').hidden = false; $('bkState').textContent = ''; $('bkGo').focus();
+  } catch (e) { $('bkState').textContent = SB.t('Import impossible : {0}', [e.message]); }
+};
+$('bkCancel').onclick = () => { bkPending = null; $('bkConfirm').hidden = true; };
+$('bkGo').onclick = () => busy(async () => {
+  if (!bkPending) return;
+  $('bkConfirm').hidden = true;
+  const r = await SB.backup.apply(bkPending, (x) => { $('bkState').textContent = SB.t('Import en cours… overlays traités : {0}', [x.updated + x.created]); });
+  bkPending = null;
+  const msg = [SB.t('Import terminé. Overlays mis à jour : {0} ; créés : {1}.', [r.updated, r.created])];
+  if (r.parts.length) msg.push(SB.t('Restauré : {0}.', [r.parts.map((k) => SB.t(SB.backup.LABELS[k])).join(', ')]));
+  if (r.errors.length) msg.push(SB.t('Non importé : {0}', [r.errors.join(' ; ')]));
+  $('bkState').textContent = msg.join(' ');
+  me = await SBA.api('GET', '/me').catch(() => me); renderOverlays(); loadPage();
+});
 
 /* ---------- Sections (une à la fois, choisie par l'adresse : #integrations, #page…) ---------- */
 function showSection() {

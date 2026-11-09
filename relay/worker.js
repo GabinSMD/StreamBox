@@ -166,6 +166,11 @@ export default {
         const from = +url.searchParams.get('from') || 0, to = +url.searchParams.get('to') || Date.now();
         return room('chan:' + a.login).fetch(`https://room/tracks?from=${from}&to=${to}`).then(withCors);
       }
+      /* ---- Planning Twitch d'une chaîne (données publiques, jeton d'application, cache 10 min) ---- */
+      if (req.method === 'GET' && p[0] === 'schedule' && LOGIN_RE.test((p[1] || '').toLowerCase())) {
+        if (!env.TWITCH_CLIENT_ID || !env.TWITCH_CLIENT_SECRET) return json({ error: 'relais sans identifiants Twitch' }, 501);
+        return cached('sched:' + p[1].toLowerCase(), 600, () => twitchSchedule(p[1].toLowerCase(), env));
+      }
       if (req.method === 'GET' && p[0] === 'twitch' && p[1] === 'video' && /^\d{5,15}$/.test(p[2] || '')) {
         return twitchVideo(p[2], env);
       }
@@ -226,6 +231,19 @@ async function appAccess(cid, secret) {
     appToken = { v: d.access_token, exp: Date.now() + ((d.expires_in || 3600) - 60) * 1000, cid };
   }
   return appToken.v;
+}
+/* Planning : prochains lives (jusqu'à 3 semaines), vacances, nom et avatar de la chaîne */
+async function twitchSchedule(login, env) {
+  const tok = await appAccess(env.TWITCH_CLIENT_ID, env.TWITCH_CLIENT_SECRET);
+  const get = (q) => fetch('https://api.twitch.tv/helix/' + q, { headers: { 'Client-Id': env.TWITCH_CLIENT_ID, Authorization: 'Bearer ' + tok } });
+  const u = ((await (await get('users?login=' + login)).json()).data || [])[0];
+  if (!u) return { status: 404, error: 'chaîne introuvable' };
+  const r = await get('schedule?first=25&broadcaster_id=' + u.id);
+  const d = r.ok ? ((await r.json()).data || {}) : {}; // 404 : aucun planning sur Twitch
+  const until = Date.now() + 21 * 86400000;
+  const segments = (d.segments || []).filter((g) => !g.canceled_until && Date.parse(g.start_time) < until)
+    .map((g) => ({ start: g.start_time, end: g.end_time, title: clean(g.title, 140), game: clean((g.category || {}).name || '', 80), recurring: !!g.is_recurring }));
+  return { login: u.login, name: u.display_name, avatar: u.profile_image_url || '', segments, vacation: d.vacation ? { start: d.vacation.start_time, end: d.vacation.end_time } : null };
 }
 async function twitchVideo(id, env) {
   if (!env.TWITCH_CLIENT_ID || !env.TWITCH_CLIENT_SECRET) return json({ error: 'relais sans identifiants Twitch' }, 501);
@@ -297,11 +315,12 @@ const NEEDS = {
   musique: ['token', 'spotifycid', 'lastfm', 'lfmkey'], // Spotify : jeton à jour fourni par /o/:id/spotify-token
   lecteur: [], jeux: [], generique: [], soustitres: [], pngtuber: ['obspass'], shoutout: ['token', 'obspass'], clips: ['token', 'obspass'], etiquettes: ['token', 'sejwt', 'sltoken', 'kofi', 'obspass'], automatisations: ['token', 'sejwt', 'sltoken', 'kofi', 'obspass'], qrdons: [], compteurs: ['obspass'], sons: ['token', 'obspass'],
   tts: ['token', 'sejwt', 'sltoken', 'kofi', 'obspass'],
+  planning: [], hypetrain: ['token'],
   discord: ['token', 'webhook'],
 };
 const SECRET_KEYS = ['spotify', 'spotifycid', 'lastfm', 'lfmkey', 'sejwt', 'sltoken', 'kofi', 'webhook', 'obspass'];
 const TEAM_SCOPES = ['channel:manage:polls', 'channel:manage:predictions', 'channel:manage:redemptions', 'moderation:read'];
-const SCOPES = 'clips:edit moderator:read:followers channel:read:redemptions channel:read:subscriptions';
+const SCOPES = 'clips:edit moderator:read:followers channel:read:redemptions channel:read:subscriptions channel:read:hype_train';
 const rand = (n = 24) => [...crypto.getRandomValues(new Uint8Array(n))].map((b) => b.toString(36).padStart(2, '0')).join('').slice(0, Math.ceil(n * 1.4));
 const OV_RE = /^[a-z0-9]{20,48}$/;
 

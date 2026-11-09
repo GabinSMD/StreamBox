@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="img/logo.svg" type="image/svg+xml">
+<title>Image du planning · StreamBox</title>
+<meta name="description" content="Crée l’image de ton planning de lives à partir de ton planning Twitch, à partager sur Discord et les réseaux.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="StreamBox">
+<meta property="og:title" content="Image du planning · StreamBox">
+<meta property="og:description" content="Crée l’image de ton planning de lives à partir de ton planning Twitch, à partager sur Discord et les réseaux.">
+<meta property="og:image" content="https://gabinsmd.github.io/StreamBox/img/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400..700&family=Tektur:wght@700&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="css/site.css">
+<script src="js/i18n.js"></script>
+<script src="js/icons.js"></script>
+</head>
+<body>
+<main class="wrap">
+  <h1 class="sec" style="margin-top:36px"><svg class="ic ic-calendar" aria-hidden="true" focusable="false"><use href="img/icons.svg#calendar"/></svg>Image du planning</h1>
+  <p class="sec">Ton planning Twitch en image, à poster sur Discord ou les réseaux. Il se règle sur Twitch : Tableau de bord, Paramètres, Chaîne, Planning.</p>
+  <div class="pl-page">
+    <form class="box" id="form" autocomplete="off">
+      <div class="field"><label for="ch">Ta chaîne Twitch</label><input type="text" id="ch" placeholder="nom_de_ta_chaine" spellcheck="false"></div>
+      <div class="pn-row" style="margin-bottom:12px"><button class="btn small" type="submit" id="go">Charger le planning</button></div>
+      <div class="field"><label for="ttl">Titre</label><input type="text" id="ttl" maxlength="60"></div>
+      <div class="field"><label for="days">Période</label><select id="days"><option value="7">7 jours</option><option value="14">14 jours</option></select></div>
+      <div class="field"><label for="fmt">Format</label><select id="fmt"><option value="paysage">Paysage 1200 × 675 (Discord, X)</option><option value="portrait">Portrait 1080 × 1350 (Instagram)</option></select></div>
+      <div class="field"><label for="theme">Fond</label><select id="theme"><option value="sombre">Sombre</option><option value="clair">Clair</option></select></div>
+      <div class="field"><label for="acc">Couleur principale</label><input type="color" id="acc" value="#9b5cff"></div>
+      <div class="field check"><label><input type="checkbox" id="off" checked> Afficher les jours sans live</label></div>
+    </form>
+    <section class="box pl-out">
+      <p class="pl-state" id="state" role="status">Aperçu avec un faux planning : renseigne ta chaîne pour charger le tien.</p>
+      <canvas id="cv" width="1200" height="675" role="img" aria-label="Aperçu de l’image du planning"></canvas>
+      <div class="pn-row">
+        <button class="btn" type="button" id="dl"><svg class="ic ic-download" aria-hidden="true" focusable="false"><use href="img/icons.svg#download"/></svg>Télécharger l’image</button>
+        <button class="btn ghost" type="button" id="txt">Copier le texte pour Discord</button>
+      </div>
+      <p class="bt-help">Pour l’avoir en direct sur ton stream, utilise l’overlay <a href="outil.html?id=planning">Planning des lives</a>.</p>
+    </section>
+  </div>
+</main>
+<script src="js/config.js"></script>
+<script src="js/account.js"></script>
+<script src="js/site.js"></script>
+<script src="js/planning.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const P = SB.planning;
+const cv = $('cv'), g = cv.getContext('2d');
+let data = P.demo(), real = false, avatar = null;
+
+const FMT = { paysage: [1200, 675], portrait: [1080, 1350] };
+const THEME = { sombre: { bg: '#100c1a', bg2: '#1c1430', card: 'rgba(255,255,255,.06)', text: '#ffffff', muted: '#b5aec9' }, clair: { bg: '#f6f3fc', bg2: '#e9e1fb', card: 'rgba(16,12,26,.05)', text: '#17121f', muted: '#5d5670' } };
+
+function rr(x, y, w, h, r) { g.beginPath(); g.roundRect(x, y, w, h, r); }
+function fit(text, max) { // coupe le texte avec « … » s'il dépasse
+  if (g.measureText(text).width <= max) return text;
+  let t = text; while (t.length > 1 && g.measureText(t + '…').width > max) t = t.slice(0, -1);
+  return t + '…';
+}
+function draw() {
+  const [W, H] = FMT[$('fmt').value]; cv.width = W; cv.height = H;
+  const th = THEME[$('theme').value], acc = $('acc').value, portrait = W < H;
+  const grad = g.createLinearGradient(0, 0, W, H); grad.addColorStop(0, th.bg); grad.addColorStop(1, th.bg2);
+  g.fillStyle = grad; g.fillRect(0, 0, W, H);
+  g.fillStyle = acc; g.fillRect(0, 0, W, 10);
+  const pad = portrait ? 64 : 56;
+  // En-tête : avatar, titre, chaîne
+  let x = pad;
+  if (avatar) { g.save(); g.beginPath(); g.arc(pad + 40, pad + 44, 40, 0, Math.PI * 2); g.clip(); g.drawImage(avatar, pad, pad + 4, 80, 80); g.restore(); x += 100; }
+  g.fillStyle = th.text; g.font = `700 ${portrait ? 54 : 46}px Tektur, Onest, sans-serif`; g.textBaseline = 'alphabetic';
+  g.fillText(fit($('ttl').value || SB.t('Planning'), W - x - pad), x, pad + 46);
+  g.fillStyle = th.muted; g.font = '600 26px Onest, sans-serif';
+  g.fillText('twitch.tv/' + (data.login === 'demo' ? ($('ch').value.trim() || 'ta_chaine') : data.login), x, pad + 84);
+  const v = data.vacation && Date.parse(data.vacation.end) > Date.now();
+  if (v) { g.fillStyle = acc; g.font = '700 24px Onest, sans-serif'; const t = SB.t('En pause jusqu’au {0}', [P.dayNum(data.vacation.end)]); g.textAlign = 'right'; g.fillText(t, W - pad, pad + 84); g.textAlign = 'left'; }
+  // Lignes du planning
+  const days = P.days(data, +$('days').value).filter((d) => d.items.length || $('off').checked);
+  const rows = days.flatMap((d) => (d.items.length ? d.items.map((it, i) => ({ d, it, first: i === 0 })) : [{ d, it: null, first: true }]));
+  const top = pad + 124, bottom = H - pad - 30, gap = 12;
+  const cols = !portrait && rows.length > 4 ? 2 : 1, per = Math.max(1, Math.ceil(rows.length / cols));
+  const colW = (W - 2 * pad - gap * (cols - 1)) / cols;
+  const rowH = Math.min(portrait ? 118 : 96, (bottom - top - gap * (per - 1)) / per);
+  if (!rows.length) { g.fillStyle = th.muted; g.font = '600 32px Onest, sans-serif'; g.fillText(SB.t('Pas de live prévu pour le moment.'), pad, top + 60); }
+  const scale = Math.max(.6, Math.min(1, rowH / 96));
+  rows.forEach((r, i) => {
+    const x0 = pad + Math.floor(i / per) * (colW + gap), y = top + (i % per) * (rowH + gap), x1 = x0 + colW;
+    g.fillStyle = r.d.today ? hexA(acc, .22) : th.card; rr(x0, y, colW, rowH, 16 * scale); g.fill();
+    g.globalAlpha = r.it ? 1 : .55;
+    const dayW = (cols > 1 ? 150 : 190) * scale, mid = y + rowH / 2;
+    g.fillStyle = th.text; g.font = `700 ${Math.round(28 * scale)}px Onest, sans-serif`;
+    const wd = P.weekday(r.d.date, 'long'); g.fillText(fit(wd.charAt(0).toUpperCase() + wd.slice(1), dayW - 12), x0 + 20 * scale, mid - 4 * scale);
+    g.fillStyle = th.muted; g.font = `600 ${Math.round(22 * scale)}px Onest, sans-serif`; g.fillText(P.dayNum(r.d.date), x0 + 20 * scale, mid + 24 * scale);
+    const tx = x0 + 20 * scale + dayW, tw = x1 - tx - 20 * scale;
+    if (!r.it) { g.fillStyle = th.muted; g.font = `600 ${Math.round(26 * scale)}px Onest, sans-serif`; g.fillText(SB.t('Pas de live'), tx, mid + 9 * scale); g.globalAlpha = 1; return; }
+    g.fillStyle = acc; g.font = `700 ${Math.round(22 * scale)}px Onest, sans-serif`;
+    const when = P.time(r.it.start) + (r.it.end ? ' – ' + P.time(r.it.end) : '');
+    g.fillText(when, tx, mid - 12 * scale);
+    const sub = r.it.title && r.it.game ? r.it.game : '';
+    if (sub) { const ww = g.measureText(when).width + 14; g.fillStyle = th.muted; g.font = `600 ${Math.round(20 * scale)}px Onest, sans-serif`; g.fillText(fit(sub, tw - ww), tx + ww, mid - 12 * scale); }
+    g.fillStyle = th.text; g.font = `700 ${Math.round(28 * scale)}px Onest, sans-serif`;
+    g.fillText(fit(r.it.title || r.it.game || SB.t('Live'), tw), tx, mid + 24 * scale);
+    g.globalAlpha = 1;
+  });
+  g.fillStyle = th.muted; g.font = '600 20px Onest, sans-serif'; g.textAlign = 'right';
+  g.fillText(SB.t('Horaires : {0}', [zone()]), W - pad, H - pad + 8); g.textAlign = 'left';
+}
+function zone() { // « heure normale d’Europe centrale », dans la langue du site
+  try { return new Intl.DateTimeFormat(SB_LANG_TAG, { timeZoneName: 'long' }).formatToParts(new Date()).find((x) => x.type === 'timeZoneName').value; } catch (e) { return Intl.DateTimeFormat().resolvedOptions().timeZone; }
+}
+function hexA(hex, a) { const n = parseInt(hex.slice(1), 16); return `rgba(${n >> 16 & 255},${n >> 8 & 255},${n & 255},${a})`; }
+
+async function load() {
+  const ch = $('ch').value.trim().toLowerCase();
+  if (!/^[a-z0-9_]{2,25}$/.test(ch)) { $('state').textContent = SB.t('Renseigne ta chaîne pour charger ton planning.'); $('ch').focus(); return; }
+  $('state').textContent = SB.t('Chargement…');
+  try {
+    data = await P.load(ch); real = true; avatar = null;
+    $('state').textContent = data.segments.length ? SB.t('Planning de {0} chargé.', [data.name]) : SB.t('Aucun live prévu dans le planning Twitch de {0}.', [data.name]);
+    if (data.avatar) { const im = new Image(); im.crossOrigin = 'anonymous'; im.onload = () => { avatar = im; draw(); }; im.src = data.avatar; }
+    try { localStorage.setItem('sb-planning-ch', ch); } catch (e) { /* ignore */ }
+  } catch (e) { $('state').textContent = SB.t('Planning introuvable : {0}', [e.message]); }
+  draw();
+}
+$('form').addEventListener('submit', (e) => { e.preventDefault(); busy(load); });
+['ttl', 'days', 'fmt', 'theme', 'acc', 'off'].forEach((id) => $(id).addEventListener('input', draw));
+$('dl').onclick = () => {
+  const save = () => cv.toBlob((b) => { const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'planning-' + (real ? data.login : 'demo') + '.png'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); }, 'image/png');
+  try { save(); } catch (e) { avatar = null; draw(); save(); } // avatar d'un autre site non exportable : on s'en passe
+};
+$('txt').onclick = () => { navigator.clipboard.writeText(P.text(data, +$('days').value)).then(() => toast(SB.t('Texte copié, colle-le sur Discord')), () => toast(SB.t('Copie impossible'))); };
+
+let start = ''; try { start = localStorage.getItem('sb-planning-ch') || ''; } catch (e) { /* ignore */ }
+const q = new URLSearchParams(location.search).get('c');
+if (q) start = q; else if (!start && window.SBA && SBA.loggedIn()) start = SBA.session().login || '';
+$('ch').value = start;
+$('ttl').value = SB.t('Planning de la semaine');
+document.fonts.ready.then(() => { draw(); if (start) load(); });
+draw();
+</script>
+</body>
+</html>

@@ -76,7 +76,7 @@ if (q.get('code') && q.get('state')) {
   // Avec un relais : vrai compte (code + jeton renouvelé par le relais). Sans relais : jeton direct dans le navigateur.
   u.searchParams.set('response_type', SBA.enabled() ? 'code' : 'token');
   // Une seule connexion pour tous les outils StreamBox, avec uniquement ces permissions :
-  const base = 'clips:edit moderator:read:followers channel:read:redemptions channel:read:subscriptions';
+  const base = 'clips:edit moderator:read:followers channel:read:redemptions channel:read:subscriptions channel:read:hype_train';
   // Bot de chat : permissions en plus, demandées seulement quand le streamer active le bot
   const BOT = 'user:read:chat user:write:chat user:bot channel:bot moderator:manage:chat_messages moderator:manage:banned_users moderator:manage:shoutouts bits:read';
   const BOT_ACCOUNT = 'user:read:chat user:write:chat user:bot moderator:manage:chat_messages moderator:manage:banned_users moderator:manage:shoutouts';

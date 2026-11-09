@@ -55,6 +55,8 @@ L'overlay « Lecture à voix haute » peut utiliser une voix générée par **Wo
 
 ### Chat multiplateforme (Kick, YouTube)
 
+Le relais sert aussi le **planning Twitch** d’une chaîne (`/schedule/:pseudo`, pour l’overlay Planning et la page « Image du planning ») : ce sont des données publiques, lues avec le jeton d’application et gardées 10 minutes en cache.
+
 Rien à configurer. Le relais trouve le salon de chat d'une chaîne Kick (`/kick/:pseudo`, mis en cache 1 h) et lit le chat public d'un live YouTube (`/yt/live/:@pseudo`, `/yt/chat/:video`), comme la fenêtre « chat en pop-up » de YouTube : pas de clé d'API ni de quota. Chaque overlay YouTube ouvert fait un appel au relais toutes les 2 à 5 secondes pendant le live (l'offre gratuite de Workers permet 100 000 appels par jour). Ces deux services n'ont pas d'API officielle pour ça : si Kick ou YouTube changent leur site, il faudra mettre à jour `relay/multichat.js` et `js/multichat.js`.
 
 ### Statistiques des lives

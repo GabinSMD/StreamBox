@@ -281,7 +281,7 @@ const isDefault = (f, v) => v === f.default || (f.type === 'checkbox' && !!v ===
     try { const keep = Object.assign({}, vals); tool.fields.forEach((f) => (f.type === 'twitch' || f.type === 'spotify') && delete keep[f.key]); localStorage.setItem(KEY, JSON.stringify(keep)); } catch (e) { /* stockage indisponible */ }
     // Chaîne obligatoire mais vide : pas de lien à copier, l'aperçu reste une démonstration
     const missing = NEEDS_CHANNEL && !String(vals.channel || '').trim();
-    $('need').hidden = !missing; $('copy').disabled = missing;
+    if (!$('need').dataset.scope) $('need').hidden = !missing; $('copy').disabled = missing;
     $('url').value = missing ? '' : ACC ? (ovId ? SBA.overlayLink(tool, ovId) : 'Enregistre l’overlay dans ton compte pour obtenir son lien') : overlayUrl(vals);
     if (ACC) scheduleSave(vals);
     const useDemo = $('demo').checked || !vals.channel;
@@ -421,6 +421,17 @@ const isDefault = (f, v) => v === f.default || (f.type === 'checkbox' && !!v ===
     }).catch((e) => { loading = false; ovId = null; renderAccbar(); toast('Overlay introuvable : ' + e.message); });
   }
 
+  // Compte : une permission Twitch nécessaire à cet outil manque (compte connecté avant son ajout)
+  const needScopes = tool.fields.filter((f) => f.type === 'twitch' && f.scope).flatMap((f) => f.scope.split(' '));
+  if (ACC && needScopes.length) {
+    SBA.api('GET', '/me').then((me) => {
+      const missing = needScopes.filter((x) => !(me.scopes || []).includes(x));
+      if (!missing.length) return;
+      const n = $('need'); $('needTxt').textContent = SB.t('Twitch doit encore autoriser StreamBox pour cet outil : reconnecte-toi une fois.');
+      $('needGo').textContent = SB.t('Autoriser sur Twitch'); $('needGo').onclick = () => SBA.login('outil.html?id=' + tool.id + (ovId ? '&o=' + ovId : ''));
+      n.hidden = false; n.dataset.scope = '1';
+    }).catch(() => {});
+  }
   fit(); update();
 })();
 </script>
