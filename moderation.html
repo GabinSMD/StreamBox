@@ -41,6 +41,8 @@
           <button data-t="journal">Journal</button>
           <button data-t="unban">Débans <b id="nUnban"></b></button>
           <button data-t="modes">Chat</button>
+          <button data-t="votes" id="tabVotes" hidden>Sondages</button>
+          <button data-t="points" id="tabPoints" hidden>Points <b id="nPoints"></b></button>
           <button data-t="livetab" id="tabLive" hidden>Live</button>
         </nav>
         <section class="box md-pane" id="p-automod">
@@ -66,6 +68,47 @@
           </div>
           <div class="pn-row" style="margin-top:18px"><button class="btn ghost small" id="clearChat" type="button">🧹 Effacer tout le chat</button></div>
         </section>
+        <section class="box md-pane" id="p-votes" hidden>
+          <div class="bx-need" hidden></div>
+          <div class="bx-body">
+            <div id="pollNow"></div>
+            <details class="md-new" id="pollNew"><summary>📊 Nouveau sondage</summary>
+              <label class="bt-f"><span>Question</span><input type="text" id="pTitle" maxlength="60"></label>
+              <label class="bt-f"><span>Choix (un par ligne, 2 à 5)</span><textarea id="pChoices" rows="3" placeholder="Oui&#10;Non"></textarea></label>
+              <div class="pn-row">
+                <label class="bt-f"><span>Durée</span><select id="pDur"><option value="30">30 s</option><option value="60">1 min</option><option value="120" selected>2 min</option><option value="300">5 min</option><option value="600">10 min</option><option value="1800">30 min</option></select></label>
+                <label class="bt-f"><span>Votes en plus avec des points (0 = non)</span><input type="number" id="pPts" min="0" max="1000000" value="0"></label>
+              </div>
+              <div class="pn-row"><button class="btn small" id="pGo" type="button">Lancer le sondage</button><span class="md-recent" id="pRecent"></span></div>
+            </details>
+            <div id="predNow"></div>
+            <details class="md-new" id="predNew"><summary>🔮 Nouvelle prédiction</summary>
+              <label class="bt-f"><span>Question</span><input type="text" id="rTitle" maxlength="45"></label>
+              <label class="bt-f"><span>Réponses possibles (une par ligne, 2 à 10)</span><textarea id="rOutcomes" rows="3" placeholder="Victoire&#10;Défaite"></textarea></label>
+              <label class="bt-f"><span>Paris ouverts pendant</span><select id="rWin"><option value="30">30 s</option><option value="60">1 min</option><option value="120" selected>2 min</option><option value="300">5 min</option><option value="600">10 min</option><option value="1800">30 min</option></select></label>
+              <div class="pn-row"><button class="btn small" id="rGo" type="button">Lancer la prédiction</button></div>
+            </details>
+          </div>
+        </section>
+        <section class="box md-pane" id="p-points" hidden>
+          <div class="bx-need" hidden></div>
+          <div class="bx-body">
+            <p class="bt-help">Récompenses de points de chaîne à valider : ✅ c’est fait, ↩ rembourser le viewer.</p>
+            <div id="queue"></div>
+            <h3 class="bt-h" style="margin-top:18px">🎁 Récompenses</h3>
+            <div id="rewards"></div>
+            <details class="md-new" id="rwNew" hidden><summary>➕ Nouvelle récompense</summary>
+              <label class="bt-f"><span>Nom</span><input type="text" id="wTitle" maxlength="45"></label>
+              <div class="pn-row">
+                <label class="bt-f"><span>Prix (points)</span><input type="number" id="wCost" min="1" value="500"></label>
+                <label class="bt-f"><span>Délai entre deux utilisations (min, 0 = aucun)</span><input type="number" id="wCd" min="0" max="10080" value="0"></label>
+              </div>
+              <label class="bt-f"><span>Description</span><input type="text" id="wPrompt" maxlength="200"></label>
+              <label class="md-inline"><input type="checkbox" id="wInput"> Le viewer doit écrire un texte</label>
+              <div class="pn-row"><button class="btn small" id="wGo" type="button">Créer</button></div>
+            </details>
+          </div>
+        </section>
         <section class="box md-pane" id="p-livetab" hidden>
           <div id="liveNeed" hidden></div>
           <div id="liveForm">
@@ -75,6 +118,11 @@
             <div class="pn-row"><button class="btn small" id="saveLive" type="button">Mettre à jour</button></div>
             <h3 class="bt-h" style="margin-top:18px">🚀 Raid</h3>
             <div class="pn-row"><input type="text" id="raidTo" placeholder="chaîne à raider"><button class="btn small" id="raidGo" type="button">Lancer</button><button class="btn ghost small" id="raidStop" type="button">Annuler</button></div>
+          </div>
+          <div id="teamBox" hidden>
+            <h3 class="bt-h" style="margin-top:18px">🤝 Équipe</h3>
+            <label class="bt-toggle"><input type="checkbox" id="teamMods"><b>Mes modos peuvent gérer sondages, prédictions et file des récompenses</b></label>
+            <p class="bt-help">Twitch réserve ces actions au compte du streamer : StreamBox les fait pour tes modos, après avoir vérifié auprès de Twitch qu’ils sont bien modos. Créer ou supprimer une récompense reste réservé à toi.</p>
           </div>
         </section>
       </aside>
@@ -128,7 +176,7 @@ const LINK = /(https?:\/\/|www\.)\S+|\b[a-z0-9-]+\.(com|fr|net|org|io|gg|tv|ly|m
 
 /* ---------- Jeton et API Twitch ---------- */
 async function loadToken() {
-  if (DEMO) { T = { access: 'demo', scopes: NEED.concat(LIVE_NEED), login: 'tachaine', user_id: '1' }; return T; }
+  if (DEMO) { T = { access: 'demo', scopes: NEED.concat(LIVE_NEED, BX_NEED), login: 'tachaine', user_id: '1' }; return T; }
   if (SBA.enabled() && SBA.loggedIn()) T = await SBA.api('GET', '/me/twitch-token');
   else { // sans relais : jeton de connexion directe (connexion.html, flux implicite)
     let t = null; try { t = localStorage.getItem('sb-twitch-token'); } catch (e) { /* ignore */ }
@@ -353,13 +401,227 @@ $('raidGo').onclick = async () => {
 };
 $('raidStop').onclick = () => act('Raid annulé', () => tw('DELETE', 'raids?broadcaster_id=' + ch.id));
 
+/* ---------- Sondages, prédictions, récompenses ----------
+ * Twitch n'accepte ces actions qu'avec le jeton du streamer. Avec un compte StreamBox, le relais les fait
+ * pour toi (sur ta chaîne) ou pour les modos que le streamer a autorisés. Sans compte : streamer seulement. */
+const BX_NEED = ['channel:manage:polls', 'channel:manage:predictions', 'channel:manage:redemptions'];
+const viaRelay = () => !DEMO && SBA.enabled() && SBA.loggedIn();
+async function bx(method, path, body) {
+  if (DEMO) return demoBx(method, path, body);
+  if (viaRelay()) return SBA.api('POST', '/me/team/' + ch.id, { method, path, body });
+  // sans relais : le streamer seulement, avec son propre jeton
+  const [p, q = ''] = path.split('?'); const qs = new URLSearchParams(q);
+  if (body && (p === 'polls' || p === 'predictions')) body = Object.assign({}, body, { broadcaster_id: ch.id }); else qs.set('broadcaster_id', ch.id);
+  return tw(method, p + (qs.toString() ? '?' + qs : ''), body);
+}
+function bxReady(pane) { // renvoie false (avec un message) si l'onglet ne peut pas marcher
+  const box = $(pane).querySelector('.bx-need'), body = $(pane).querySelector('.bx-body');
+  let msg = null, btn = false;
+  if (!me.isBroadcasterOf && !viaRelay() && !DEMO) msg = 'Twitch réserve les sondages, les prédictions et les récompenses au compte du streamer. Si le streamer utilise un compte StreamBox et t’y autorise, connecte-toi avec ton compte StreamBox pour les gérer d’ici.';
+  else if (me.isBroadcasterOf && BX_NEED.some((s) => !T.scopes.includes(s))) { msg = 'Pour gérer les sondages, les prédictions et les récompenses d’ici, autorise ces permissions en plus.'; btn = true; }
+  box.hidden = !msg; body.hidden = !!msg;
+  if (msg) {
+    box.replaceChildren(el('p', 'bt-help', msg));
+    if (btn) { const b = el('button', 'btn small', 'Autoriser'); b.onclick = () => { location.href = 'connexion.html?compte=1&scope=live&retour=moderation.html'; }; box.appendChild(b); }
+  }
+  return !msg;
+}
+function bxError(pane, e) { const box = $(pane).querySelector('.bx-need'); box.hidden = false; box.replaceChildren(el('p', 'note', e.message)); }
+const skip = (e) => { e.dataset.i18nSkip = ''; return e; };
+const left = (start, secs) => Math.max(0, Math.round((Date.parse(start) + secs * 1000 - Date.now()) / 1000));
+const mmss = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+function bars(items, n) { // barres de résultats [{ title, n, extra }]
+  const total = items.reduce((a, b) => a + n(b), 0) || 1;
+  return items.map((it) => {
+    const r = el('div', 'bx-bar'); const pct = Math.round((n(it) / total) * 100);
+    const fill = el('i'); fill.style.width = pct + '%';
+    r.append(fill, skip(el('span', null, it.title)), el('b', null, `${pct} % · ${n(it).toLocaleString(SB_LANG_TAG)}${it._extra || ''}`));
+    return r;
+  });
+}
+
+/* --- Sondages et prédictions --- */
+let poll = null, pred = null, votesTimer = null;
+const POLL_ST = { ACTIVE: 'en cours', COMPLETED: 'terminé', TERMINATED: 'terminé', ARCHIVED: 'masqué', MODERATED: 'supprimé par Twitch', INVALID: 'invalide' };
+const PRED_ST = { ACTIVE: 'paris ouverts', LOCKED: 'paris fermés', RESOLVED: 'terminée', CANCELED: 'annulée (points rendus)' };
+async function loadVotes() {
+  clearTimeout(votesTimer);
+  if ($('p-votes').hidden || !bxReady('p-votes')) return;
+  try {
+    const [p, r] = await Promise.all([bx('GET', 'polls?first=1'), bx('GET', 'predictions?first=1')]);
+    poll = (p.data || [])[0] || null; pred = (r.data || [])[0] || null;
+    renderPoll(); renderPred();
+  } catch (e) { bxError('p-votes', e); }
+  const busy = (poll && poll.status === 'ACTIVE') || (pred && /ACTIVE|LOCKED/.test(pred.status));
+  votesTimer = setTimeout(loadVotes, busy ? 3000 : 15000); // résultats en direct pendant un vote
+}
+const recent = (s) => (s && Date.now() - Date.parse(s) < 3600000); // affiché pendant 1 h après la fin
+function renderPoll() {
+  const box = $('pollNow'); box.replaceChildren();
+  $('pollNew').open = !poll || poll.status !== 'ACTIVE' ? $('pollNew').open : false;
+  if (!poll || (poll.status !== 'ACTIVE' && !recent(poll.ended_at || poll.started_at)) || poll.status === 'ARCHIVED') return;
+  const card = el('div', 'md-held bx-card');
+  const head = el('div'); head.append(el('b', null, '📊 '), skip(el('b', null, poll.title)), el('small', null, ' · ' + (poll.status === 'ACTIVE' ? `${mmss(left(poll.started_at, poll.duration))} restantes` : POLL_ST[poll.status] || poll.status)));
+  const total = poll.choices.reduce((a, c) => a + c.votes, 0);
+  card.append(head, ...bars(poll.choices, (c) => c.votes), el('small', null, `${total.toLocaleString(SB_LANG_TAG)} vote(s)`));
+  const row = el('div', 'pn-row');
+  if (poll.status === 'ACTIVE') { const b = el('button', 'btn small', '⏹ Terminer maintenant'); b.onclick = () => endPoll('TERMINATED'); row.appendChild(b); }
+  const h = el('button', 'btn ghost small', poll.status === 'ACTIVE' ? '✕ Supprimer' : 'Masquer');
+  h.onclick = () => { if (poll.status !== 'ACTIVE' || confirm('Supprimer le sondage sans montrer les résultats ?')) endPoll('ARCHIVED'); };
+  row.appendChild(h); card.appendChild(row); box.appendChild(card);
+}
+const endPoll = (status) => act(status === 'TERMINATED' ? 'Sondage terminé' : 'Sondage masqué', () => bx('PATCH', 'polls', { id: poll.id, status })).then(loadVotes);
+function renderPred() {
+  const box = $('predNow'); box.replaceChildren();
+  if (!pred || (/RESOLVED|CANCELED/.test(pred.status) && !recent(pred.ended_at || pred.created_at))) return;
+  const card = el('div', 'md-held bx-card');
+  const head = el('div'); head.append(el('b', null, '🔮 '), skip(el('b', null, pred.title)), el('small', null, ' · ' + (pred.status === 'ACTIVE' ? `${mmss(left(pred.created_at, pred.prediction_window))} pour parier` : PRED_ST[pred.status] || pred.status)));
+  const outs = pred.outcomes.map((o) => Object.assign({}, o, { _extra: ` pts · ${o.users || 0} 👤`, title: (pred.winning_outcome_id === o.id ? '🏆 ' : '') + o.title }));
+  card.append(head, ...bars(outs, (o) => o.channel_points || 0));
+  const row = el('div', 'pn-row');
+  const B = (label, cls, fn) => { const b = el('button', 'btn small' + (cls ? ' ' + cls : ''), label); b.onclick = fn; row.appendChild(b); return b; };
+  const set = (status, extra, label) => act(label, () => bx('PATCH', 'predictions', Object.assign({ id: pred.id, status }, extra))).then(loadVotes);
+  if (pred.status === 'ACTIVE') B('🔒 Fermer les paris', '', () => set('LOCKED', {}, 'Paris fermés'));
+  if (/ACTIVE|LOCKED/.test(pred.status)) {
+    pred.outcomes.forEach((o) => { const b = B('🏆 ', 'ghost', () => { if (confirm(`« ${o.title} » a gagné ? Les points seront distribués.`)) set('RESOLVED', { winning_outcome_id: o.id }, 'Prédiction terminée'); }); b.appendChild(skip(el('span', null, o.title))); });
+    B('↩ Annuler et rendre les points', 'ghost', () => { if (confirm('Annuler la prédiction ? Tous les points pariés sont rendus.')) set('CANCELED', {}, 'Prédiction annulée'); });
+  }
+  card.appendChild(row); box.appendChild(card);
+}
+const lines = (s, max) => s.split('\n').map((x) => x.trim()).filter(Boolean).slice(0, max);
+function recentPolls() { try { return JSON.parse(localStorage.getItem('sb-mod-polls') || '[]'); } catch (e) { return []; } }
+function renderRecent() {
+  $('pRecent').replaceChildren(...recentPolls().map((p) => { const b = el('button', 'btn ghost small', '↺ '); b.appendChild(skip(el('span', null, p.title))); b.title = 'Reprendre ce sondage'; b.onclick = () => { $('pTitle').value = p.title; $('pChoices').value = p.choices.join('\n'); }; return b; }));
+}
+$('pGo').onclick = () => {
+  const title = $('pTitle').value.trim(), choices = lines($('pChoices').value, 5), pts = Math.max(0, parseInt($('pPts').value, 10) || 0);
+  if (!title) return toast('Écris la question'); if (choices.length < 2) return toast('Il faut au moins 2 choix');
+  if (choices.some((c) => c.length > 25)) return toast('25 caractères au plus par choix');
+  const body = { title, choices: choices.map((t) => ({ title: t })), duration: +$('pDur').value, channel_points_voting_enabled: pts > 0, channel_points_per_vote: pts || undefined };
+  act('Sondage lancé', () => bx('POST', 'polls', body)).then((ok) => {
+    if (!ok) return;
+    try { localStorage.setItem('sb-mod-polls', JSON.stringify([{ title, choices }, ...recentPolls().filter((p) => p.title !== title)].slice(0, 5))); } catch (e) { /* ignore */ }
+    $('pTitle').value = ''; $('pChoices').value = ''; $('pollNew').open = false; renderRecent(); loadVotes();
+  });
+};
+$('rGo').onclick = () => {
+  const title = $('rTitle').value.trim(), outs = lines($('rOutcomes').value, 10);
+  if (!title) return toast('Écris la question'); if (outs.length < 2) return toast('Il faut au moins 2 réponses');
+  if (outs.some((c) => c.length > 25)) return toast('25 caractères au plus par réponse');
+  act('Prédiction lancée', () => bx('POST', 'predictions', { title, outcomes: outs.map((t) => ({ title: t })), prediction_window: +$('rWin').value }))
+    .then((ok) => { if (ok) { $('rTitle').value = ''; $('rOutcomes').value = ''; $('predNew').open = false; loadVotes(); } });
+};
+
+/* --- Récompenses de points de chaîne --- */
+let rewards = [], others = [], queueTimer = null;
+const ago = (t) => fmtDur(Math.max(1, Math.floor((Date.now() - Date.parse(t)) / 1000)));
+async function loadPoints() {
+  clearTimeout(queueTimer);
+  if (!bxReady('p-points')) return;
+  try {
+    const [mine, all] = await Promise.all([bx('GET', 'channel_points/custom_rewards?only_manageable_rewards=true'), bx('GET', 'channel_points/custom_rewards')]);
+    rewards = mine.data || [];
+    others = (all.data || []).filter((r) => !rewards.some((m) => m.id === r.id));
+    renderRewards(); await loadQueue();
+  } catch (e) { bxError('p-points', e); }
+}
+async function loadQueue() {
+  clearTimeout(queueTimer);
+  try {
+    const lists = await Promise.all(rewards.map((r) => bx('GET', `channel_points/custom_rewards/redemptions?reward_id=${r.id}&status=UNFULFILLED&sort=OLDEST&first=50`).then((d) => d.data || []).catch(() => [])));
+    renderQueue(lists.flat().sort((a, b) => Date.parse(a.redeemed_at) - Date.parse(b.redeemed_at)));
+  } catch (e) { /* réseau : réessaie plus tard */ }
+  if (ch && rewards.length) queueTimer = setTimeout(loadQueue, $('p-points').hidden ? 30000 : 8000); // la pastille reste à jour même onglet fermé
+}
+const redeem = (rewardId, ids, status) => bx('PATCH', `channel_points/custom_rewards/redemptions?reward_id=${rewardId}&${ids.map((i) => 'id=' + encodeURIComponent(i)).join('&')}`, { status });
+function renderQueue(q) {
+  $('nPoints').textContent = q.length || '';
+  if (!q.length) return $('queue').replaceChildren(el('p', 'bt-help', rewards.length ? 'Rien à valider pour l’instant.' : 'Aucune récompense gérée par StreamBox : crée-en une ci-dessous (Twitch ne laisse valider que les récompenses créées par la même application).'));
+  const groups = {}; q.forEach((r) => (groups[r.reward.id] = groups[r.reward.id] || []).push(r));
+  const out = [];
+  for (const [rid, list] of Object.entries(groups)) {
+    const h = el('div', 'bx-grp'); h.append(skip(el('b', null, list[0].reward.title)), el('small', null, ` · ${list.length}`));
+    if (list.length > 1) { const all = el('button', 'btn ghost small', '✅ Tout valider'); all.onclick = () => act('Tout validé', () => redeem(rid, list.map((r) => r.id), 'FULFILLED')).then(loadQueue); h.appendChild(all); }
+    out.push(h);
+    list.forEach((r) => {
+      const row = el('div', 'md-held bx-red');
+      const top = el('div'); top.append(el('b', null, r.user_name), el('small', null, ` · il y a ${ago(r.redeemed_at)}`));
+      row.appendChild(top);
+      if (r.user_input) row.appendChild(skip(el('p', null, r.user_input)));
+      const acts = el('div', 'pn-row');
+      const go = (status) => act(status === 'FULFILLED' ? 'Validé' : 'Remboursé', () => redeem(rid, [r.id], status)).then((ok) => { if (ok) { row.remove(); loadQueue(); } });
+      const a = el('button', 'btn small', '✅ Fait'); a.onclick = () => go('FULFILLED');
+      const d = el('button', 'btn ghost small', '↩ Rembourser'); d.onclick = () => go('CANCELED');
+      acts.append(a, d); row.appendChild(acts); out.push(row);
+    });
+  }
+  $('queue').replaceChildren(...out);
+}
+function renderRewards() {
+  const owner = me.isBroadcasterOf;
+  $('rwNew').hidden = !owner;
+  const rows = rewards.map((r) => {
+    const row = el('div', 'md-mode bx-rw');
+    const name = el('span'); name.append(skip(el('b', null, r.title)), el('small', null, ` · ${r.cost.toLocaleString(SB_LANG_TAG)} pts${r.is_paused ? ' · en pause' : ''}${r.is_enabled ? '' : ' · désactivée'}`));
+    row.appendChild(name);
+    if (owner) {
+      const acts = el('span', 'pn-row');
+      const B = (label, fn) => { const b = el('button', 'btn ghost small', label); b.onclick = fn; acts.appendChild(b); };
+      const patch = (body, label) => act(label, () => bx('PATCH', 'channel_points/custom_rewards?id=' + r.id, body)).then(loadPoints);
+      B('✏️', () => {
+        const t = prompt('Nom de la récompense', r.title); if (t == null) return;
+        const c = prompt('Prix (points)', r.cost); if (c == null) return;
+        if (!t.trim() || !(parseInt(c, 10) >= 1)) return toast('Nom ou prix invalide');
+        patch({ title: t.trim().slice(0, 45), cost: parseInt(c, 10) }, 'Récompense modifiée');
+      });
+      B(r.is_paused ? '▶ Reprendre' : '⏸ Pause', () => patch({ is_paused: !r.is_paused }, r.is_paused ? 'Récompense reprise' : 'Récompense en pause'));
+      B(r.is_enabled ? 'Masquer' : 'Afficher', () => patch({ is_enabled: !r.is_enabled }, r.is_enabled ? 'Récompense masquée' : 'Récompense affichée'));
+      B('🗑', () => { if (confirm(`Supprimer la récompense « ${r.title} » ? Les demandes en attente seront remboursées.`)) act('Récompense supprimée', () => bx('DELETE', 'channel_points/custom_rewards?id=' + r.id)).then(loadPoints); });
+      row.appendChild(acts);
+    }
+    return row;
+  });
+  if (others.length) {
+    rows.push(el('p', 'bt-help', 'Créées sur Twitch (Twitch ne laisse pas une autre application les valider) :'));
+    others.forEach((r) => {
+      const row = el('div', 'md-mode bx-rw'); const name = el('span'); name.append(skip(el('span', null, r.title)), el('small', null, ` · ${r.cost.toLocaleString(SB_LANG_TAG)} pts`)); row.appendChild(name);
+      if (owner) {
+        const b = el('button', 'btn ghost small', '↻ Recréer avec StreamBox');
+        b.title = 'Crée une copie gérée par StreamBox ; supprime ensuite l’originale sur Twitch';
+        b.onclick = () => { if (confirm(`Twitch exige deux noms différents : la copie s’appellera « ${r.title.slice(0, 41)} (2) ». Supprime ensuite l’originale sur Twitch, puis renomme la copie ici avec ✏️.`)) createReward({ title: r.title.slice(0, 41) + ' (2)', cost: r.cost, prompt: r.prompt || '', is_user_input_required: !!r.is_user_input_required, background_color: r.background_color || undefined, is_global_cooldown_enabled: !!(r.global_cooldown_setting || {}).is_enabled, global_cooldown_seconds: (r.global_cooldown_setting || {}).global_cooldown_seconds || undefined }, true); };
+        row.appendChild(b);
+      }
+      rows.push(row);
+    });
+  }
+  $('rewards').replaceChildren(...rows);
+}
+function createReward(body, copy) {
+  return act(copy ? 'Copie créée : supprime l’originale sur Twitch' : 'Récompense créée', () => bx('POST', 'channel_points/custom_rewards', Object.assign({ should_redemptions_skip_request_queue: false }, body))).then((ok) => { if (ok) loadPoints(); return ok; });
+}
+$('wGo').onclick = () => {
+  const title = $('wTitle').value.trim(), cost = parseInt($('wCost').value, 10), cd = Math.max(0, parseInt($('wCd').value, 10) || 0);
+  if (!title) return toast('Donne un nom à la récompense'); if (!(cost >= 1)) return toast('Le prix doit être d’au moins 1 point');
+  createReward({ title, cost, prompt: $('wPrompt').value.trim() || undefined, is_user_input_required: $('wInput').checked, is_global_cooldown_enabled: cd > 0, global_cooldown_seconds: cd > 0 ? cd * 60 : undefined })
+    .then((ok) => { if (ok) { $('wTitle').value = ''; $('wPrompt').value = ''; $('rwNew').open = false; } });
+};
+
+/* --- Autorisation de l'équipe (streamer, avec un compte StreamBox) --- */
+async function loadTeam() {
+  $('teamBox').hidden = !viaRelay(); if (!viaRelay()) return;
+  try { const t = await SBA.api('GET', '/me/team'); $('teamMods').checked = !!t.mods; } catch (e) { $('teamBox').hidden = true; }
+}
+$('teamMods').onchange = () => act($('teamMods').checked ? 'Tes modos peuvent gérer sondages et récompenses' : 'Accès des modos retiré', () => SBA.api('PUT', '/me/team', { mods: $('teamMods').checked })).then((ok) => { if (!ok) $('teamMods').checked = !$('teamMods').checked; });
+
 /* ---------- Onglets ---------- */
 $('tabs').onclick = (e) => {
   const b = e.target.closest('button'); if (!b) return;
   document.querySelectorAll('#tabs button').forEach((x) => x.classList.toggle('on', x === b));
   document.querySelectorAll('.md-pane').forEach((p) => { p.hidden = p.id !== 'p-' + b.dataset.t; });
   if (b.dataset.t === 'modes') loadModes();
-  if (b.dataset.t === 'livetab') loadLive().catch((err) => toast(err.message));
+  if (b.dataset.t === 'livetab') { loadLive().catch((err) => toast(err.message)); loadTeam(); }
+  if (b.dataset.t === 'votes') { renderRecent(); loadVotes(); }
+  if (b.dataset.t === 'points') loadPoints();
 };
 
 /* ---------- Chaîne choisie ---------- */
@@ -374,10 +636,16 @@ function select(c) {
   ch = c; me.isBroadcasterOf = ch.id === me.id;
   users.clear(); $('feed').replaceChildren(); $('automod').replaceChildren(); $('journal').replaceChildren(); $('unban').replaceChildren(); count(); countUnban();
   $('tabLive').hidden = !me.isBroadcasterOf;
-  if (!me.isBroadcasterOf && !$('p-livetab').hidden) $('tabs').querySelector('[data-t="automod"]').click();
+  $('tabVotes').hidden = $('tabPoints').hidden = !(me.isBroadcasterOf || viaRelay() || DEMO); // modos : seulement via le relais
+  clearTimeout(votesTimer); clearTimeout(queueTimer); rewards = []; $('nPoints').textContent = '';
+  const cur = $('tabs').querySelector('button.on');
+  if (cur && cur.hidden) $('tabs').querySelector('[data-t="automod"]').click();
+  else if (cur && cur.dataset.t === 'votes') loadVotes();
+  else if (cur && cur.dataset.t === 'points') loadPoints();
   $('feed').appendChild(el('p', 'bt-help', `Chat de ${ch.name} : les nouveaux messages s’affichent ici.`));
   try { localStorage.setItem('sb-mod-chan', ch.login); } catch (e) { /* ignore */ }
   stream();
+  if (!$('tabPoints').hidden && (!me.isBroadcasterOf || BX_NEED.every((s) => T.scopes.includes(s)))) loadPoints(); // pastille : demandes en attente
   if (DEMO) return demoStart();
   emotes = new SB.EmoteStore();
   chat = new SB.TwitchChat(ch.login);
@@ -433,6 +701,26 @@ function demoApi(method, path) {
   if (path.startsWith('channels/followers')) return { data: [] };
   if (path.startsWith('channels?')) return { data: [{ title: 'Soirée cubes', game_name: 'Minecraft', game_id: '27471' }] };
   if (path.startsWith('search/categories')) return { data: [{ id: '27471', name: 'Minecraft' }, { id: '509658', name: 'Just Chatting' }] };
+  return { data: [] };
+}
+const DB = { // démo : faux sondage, fausse prédiction, fausses récompenses
+  poll: { id: 'p1', title: 'On fait quel boss ensuite ?', status: 'ACTIVE', duration: 120, started_at: new Date(Date.now() - 40000).toISOString(), choices: [{ id: 'a', title: 'Le dragon', votes: 48 }, { id: 'b', title: 'La sorcière', votes: 31 }, { id: 'c', title: 'On farm', votes: 9 }] },
+  pred: { id: 'r1', title: 'Il bat le boss du premier coup ?', status: 'LOCKED', prediction_window: 120, created_at: new Date(Date.now() - 300000).toISOString(), outcomes: [{ id: 'o1', title: 'Oui', users: 23, channel_points: 41200 }, { id: 'o2', title: 'Non', users: 57, channel_points: 98300 }] },
+  rewards: [{ id: 'w1', title: 'Hydrate-toi 💧', cost: 300, is_enabled: true, is_paused: false }, { id: 'w2', title: 'Choisis la prochaine musique', cost: 1500, is_enabled: true, is_paused: false, is_user_input_required: true }],
+  others: [{ id: 'w9', title: 'Highlight my message', cost: 200 }],
+  red: [{ id: 'd1', reward: { id: 'w1', title: 'Hydrate-toi 💧' }, user_name: 'Pixelmaud', redeemed_at: new Date(Date.now() - 95000).toISOString() }, { id: 'd2', reward: { id: 'w2', title: 'Choisis la prochaine musique' }, user_name: 'Lou', user_input: 'Daft Punk - One More Time', redeemed_at: new Date(Date.now() - 40000).toISOString() }, { id: 'd3', reward: { id: 'w1', title: 'Hydrate-toi 💧' }, user_name: 'Kevin_le_roux', redeemed_at: new Date(Date.now() - 12000).toISOString() }],
+};
+function demoBx(method, path, body) {
+  const [p, q = ''] = path.split('?'); const qs = new URLSearchParams(q);
+  if (p === 'polls') { if (method === 'POST') DB.poll = { id: 'p' + Date.now(), title: body.title, status: 'ACTIVE', duration: body.duration, started_at: new Date().toISOString(), choices: body.choices.map((c, i) => ({ id: 'c' + i, title: c.title, votes: 0 })) }; if (method === 'PATCH') { DB.poll.status = body.status; DB.poll.ended_at = new Date().toISOString(); } if (DB.poll && DB.poll.status === 'ACTIVE') DB.poll.choices.forEach((c) => { c.votes += Math.floor(Math.random() * 3); }); return { data: DB.poll ? [DB.poll] : [] }; }
+  if (p === 'predictions') { if (method === 'POST') DB.pred = { id: 'r' + Date.now(), title: body.title, status: 'ACTIVE', prediction_window: body.prediction_window, created_at: new Date().toISOString(), outcomes: body.outcomes.map((o, i) => ({ id: 'o' + i, title: o.title, users: 0, channel_points: 0 })) }; if (method === 'PATCH') { DB.pred.status = body.status; DB.pred.winning_outcome_id = body.winning_outcome_id; DB.pred.ended_at = new Date().toISOString(); } return { data: DB.pred ? [DB.pred] : [] }; }
+  if (p === 'channel_points/custom_rewards/redemptions') { if (method === 'PATCH') { const ids = qs.getAll('id'); DB.red = DB.red.filter((r) => !ids.includes(r.id)); return {}; } return { data: DB.red.filter((r) => r.reward.id === qs.get('reward_id')) }; }
+  if (p === 'channel_points/custom_rewards') {
+    if (method === 'POST') DB.rewards.push(Object.assign({ id: 'w' + Date.now(), is_enabled: true, is_paused: false }, body));
+    if (method === 'PATCH') Object.assign(DB.rewards.find((r) => r.id === qs.get('id')), body);
+    if (method === 'DELETE') DB.rewards = DB.rewards.filter((r) => r.id !== qs.get('id'));
+    return { data: qs.get('only_manageable_rewards') ? DB.rewards : DB.rewards.concat(DB.others) };
+  }
   return { data: [] };
 }
 function demoStart() {
