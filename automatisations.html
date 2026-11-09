@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Automatisations · StreamBox</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="css/site.css">
+<script src="js/i18n.js"></script>
+</head>
+<body>
+<main class="wrap">
+  <h2 class="sec" style="margin-top:36px">⚡ Automatisations</h2>
+  <p class="sec">« Quand il se passe ça, fais ça. » Un raid change de scène, un abo active un filtre, une récompense de points de chaîne affiche une source pendant 10 secondes… Les automatisations tournent dans OBS, dans une source navigateur invisible.</p>
+  <div id="need" class="box" hidden></div>
+
+  <div id="app" hidden>
+    <section class="box">
+      <h3 class="bt-h">1. Ajoute la source dans OBS</h3>
+      <p class="bt-help">Dans OBS : Sources → + → Navigateur, colle ce lien (taille 300 × 200, la source reste invisible). Pour voir le journal des automatisations, ajoute aussi le lien avec le journal comme dock : Docks → Docks de navigateur personnalisés.</p>
+      <div class="pn-row"><input type="text" id="link" readonly style="flex:1;min-width:220px"><button class="btn small" id="copy" type="button">Copier</button></div>
+      <div class="pn-row"><input type="text" id="linkDebug" readonly style="flex:1;min-width:220px"><button class="btn ghost small" id="copyDebug" type="button">Copier (avec journal)</button></div>
+      <p class="bt-help">Le mot de passe d’OBS et les jetons viennent de <a href="compte.html">Mon compte</a> : renseigne « Mot de passe du serveur WebSocket d’OBS » pour les actions OBS. Les messages du chat utilisent les permissions du <a href="bot.html">bot</a>.</p>
+    </section>
+
+    <section class="box">
+      <div class="sx-head"><h3 class="bt-h">2. Tes automatisations <small id="count"></small></h3>
+        <div class="pn-row" style="margin:0"><select id="tpl" aria-label="Modèle"></select><button class="btn ghost small" id="addTpl" type="button">Ajouter ce modèle</button><button class="btn small" id="add" type="button">+ Nouvelle</button></div></div>
+      <div id="rules"></div>
+    </section>
+
+    <section class="box">
+      <h3 class="bt-h">3. Tester depuis cette page (facultatif)</h3>
+      <p class="bt-help">Connecte cette page à OBS pour choisir tes scènes et sources dans une liste, et pour lancer une automatisation avec le bouton ▶ Tester (OBS doit être ouvert sur ce PC).</p>
+      <div class="pn-row"><input type="password" id="obspass" placeholder="Mot de passe du serveur WebSocket d’OBS" autocomplete="off" style="max-width:280px"><button class="btn ghost small" id="obsGo" type="button">Connecter OBS</button><span class="bt-help" id="obsSt"></span></div>
+    </section>
+    <div class="bt-save"><span id="dirty"></span><button class="btn" id="save" type="button">Enregistrer</button></div>
+  </div>
+</main>
+<datalist id="dl-scene"></datalist><datalist id="dl-source"></datalist>
+<script src="js/config.js"></script>
+<script src="js/sb.js"></script>
+<script src="js/obs.js"></script>
+<script src="js/automatisations.js"></script>
+<script src="js/account.js"></script>
+<script src="js/site.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+const A = SB.AUTO, TOOL = { overlay: 'overlays/automatisations.html' };
+let rules = [], ovId = null, dirty = false, obs = null;
+function mark() { dirty = true; $('dirty').textContent = 'Modifications non enregistrées'; }
+
+/* Modèles prêts à l'emploi */
+const TEMPLATES = [
+  ['Raid → scène « Raid », son et message', { name: 'Accueil des raids', cooldown: 30, trigger: { type: 'raid', min: 2 }, actions: [{ type: 'scene', scene: 'Raid' }, { type: 'overlay', tool: 'sons', args: 'tambour' }, { type: 'chat', text: 'Bienvenue aux raiders de {user} ! 🚀' }, { type: 'wait', secs: 15 }, { type: 'scene', scene: 'Jeu' }] }],
+  ['!hydrate → afficher une source 10 s', { name: 'Hydratation', cooldown: 300, trigger: { type: 'command', cmd: '!hydrate', level: 'everyone' }, actions: [{ type: 'source', source: 'Verre d’eau', scene: '', mode: 'show', secs: 10 }, { type: 'tts', text: 'Pense à boire de l’eau !' }] }],
+  ['Récompense → filtre 15 s', { name: 'Écran à l’envers', cooldown: 60, trigger: { type: 'points', reward: 'Écran à l’envers' }, actions: [{ type: 'filter', source: 'Jeu', filter: 'Retourner', mode: 'on', secs: 15 }] }],
+  ['Abo → compteur et son', { name: 'Merci pour l’abo', cooldown: 0, trigger: { type: 'sub', months: 0 }, actions: [{ type: 'overlay', tool: 'compteurs', args: 'abos +' }, { type: 'overlay', tool: 'sons', args: 'tada' }] }],
+  ['Début du live → message Discord', { name: 'Annonce du live', cooldown: 600, trigger: { type: 'online' }, actions: [{ type: 'discord', text: '🔴 {channel} est en live !' }] }],
+  ['Toutes les 30 min → sauvegarder le replay', { name: 'Replay automatique', cooldown: 0, trigger: { type: 'timer', minutes: 30 }, actions: [{ type: 'replay' }] }],
+];
+TEMPLATES.forEach(([label], i) => { const o = el('option', null, label); o.value = i; $('tpl').appendChild(o); });
+
+/* ---------- Formulaire d'un champ ---------- */
+function field(obj, [key, label, kind, def]) {
+  const l = el('label', 'bt-f');
+  let e;
+  if (Array.isArray(kind)) { e = el('select'); kind.forEach(([v, t]) => { const o = el('option', null, t); o.value = v; e.appendChild(o); }); }
+  else { e = el('input'); e.type = kind === 'number' ? 'number' : 'text'; if (kind === 'number') { e.step = 'any'; e.style.maxWidth = '110px'; } if (kind === 'scene' || kind === 'source') e.setAttribute('list', 'dl-' + kind); }
+  e.value = obj[key] != null ? obj[key] : def;
+  e.addEventListener('input', () => { obj[key] = kind === 'number' ? +e.value : e.value; mark(); });
+  e.addEventListener('change', () => { obj[key] = kind === 'number' ? +e.value : e.value; mark(); });
+  l.append(el('span', null, label), e); return l;
+}
+function typeSelect(defs, cur, onChange) {
+  const s = el('select'); Object.entries(defs).forEach(([k, d]) => { const o = el('option', null, d.label); o.value = k; s.appendChild(o); });
+  s.value = cur; s.onchange = () => { onChange(s.value); mark(); render(); }; return s;
+}
+const btn = (label, title, fn, cls = 'btn ghost small') => { const b = el('button', cls, label); b.type = 'button'; b.title = title; b.onclick = fn; return b; };
+
+/* ---------- Liste des règles ---------- */
+function render() {
+  $('count').textContent = rules.length ? `(${rules.length})` : '';
+  $('rules').replaceChildren(...(rules.length ? rules.map((r, ri) => {
+    const card = el('div', 'au-rule' + (r.on ? '' : ' off'));
+    const head = el('div', 'au-rhead');
+    const on = el('input'); on.type = 'checkbox'; on.checked = r.on; on.title = 'Activée'; on.onchange = () => { r.on = on.checked; mark(); render(); };
+    const name = el('input'); name.type = 'text'; name.value = r.name; name.className = 'au-name'; name.maxLength = 60; name.oninput = () => { r.name = name.value; mark(); };
+    head.append(on, name, btn('▶ Tester', 'Lancer cette automatisation dans OBS', () => test(r)), btn('⧉', 'Dupliquer', () => { rules.splice(ri + 1, 0, Object.assign(JSON.parse(JSON.stringify(r)), { id: A.uid(), name: r.name + ' (copie)' })); mark(); render(); }), btn('✕', 'Supprimer', () => { if (confirm(`Supprimer « ${r.name} » ?`)) { rules.splice(ri, 1); mark(); render(); } }));
+    // Quand…
+    const when = el('div', 'au-block');
+    when.append(el('b', 'au-k', 'Quand'), typeSelect(A.TRIGGERS, r.trigger.type, (t) => { r.trigger = A.newTrigger(t); }));
+    const tf = el('div', 'au-fields'); A.TRIGGERS[r.trigger.type].f.forEach((f) => tf.appendChild(field(r.trigger, f)));
+    tf.appendChild(field(r, ['cooldown', 'Pas plus d’une fois toutes les (s)', 'number', 10]));
+    when.appendChild(tf);
+    // …alors
+    const then = el('div', 'au-block');
+    then.appendChild(el('b', 'au-k', 'Alors'));
+    r.actions.forEach((a, ai) => {
+      const row = el('div', 'au-action');
+      const top = el('div', 'pn-row'); top.style.margin = '0';
+      top.append(el('span', 'lv-num', `${ai + 1}.`), typeSelect(A.ACTIONS, a.type, (t) => { r.actions[ai] = A.newAction(t); }),
+        btn('▲', 'Monter', () => { if (ai) { r.actions.splice(ai - 1, 0, r.actions.splice(ai, 1)[0]); mark(); render(); } }),
+        btn('▼', 'Descendre', () => { if (ai < r.actions.length - 1) { r.actions.splice(ai + 1, 0, r.actions.splice(ai, 1)[0]); mark(); render(); } }),
+        btn('✕', 'Retirer', () => { r.actions.splice(ai, 1); mark(); render(); }));
+      const af = el('div', 'au-fields'); A.ACTIONS[a.type].f.forEach((f) => af.appendChild(field(a, f)));
+      row.append(top, af); then.appendChild(row);
+    });
+    if (r.actions.length < 15) then.appendChild(btn('+ Action', 'Ajouter une action', () => { r.actions.push(A.newAction('wait')); mark(); render(); }));
+    then.appendChild(el('p', 'bt-help', 'Variables dans les textes : ' + A.VARS));
+    card.append(head, when, then);
+    return card;
+  }) : [el('p', 'bt-help', 'Aucune automatisation : commence avec un modèle ou « + Nouvelle ».')]));
+}
+$('add').onclick = () => { rules.push(A.newRule()); mark(); render(); };
+$('addTpl').onclick = () => {
+  const [, t] = TEMPLATES[+$('tpl').value], r = Object.assign(JSON.parse(JSON.stringify(t)), { id: A.uid(), on: true });
+  r.name = SB.t(r.name); r.actions.forEach((x) => { if (x.text) x.text = SB.t(x.text); }); // textes du modèle dans la langue du site
+  rules.push(r); mark(); render();
+};
+
+/* ---------- OBS (facultatif) : listes des scènes et sources, bouton Tester ---------- */
+$('obsGo').onclick = () => {
+  if (obs) obs.ws && obs.ws.close();
+  obs = new SB.OBS('ws://127.0.0.1:4455', $('obspass').value);
+  obs.on('status', (s) => { $('obsSt').textContent = 'OBS : ' + s; }).on('ready', async () => {
+    try {
+      const sc = (await obs.call('GetSceneList')).scenes || [], inp = (await obs.call('GetInputList')).inputs || [];
+      $('dl-scene').replaceChildren(...sc.map((x) => { const o = el('option'); o.value = x.sceneName; return o; }));
+      $('dl-source').replaceChildren(...[...sc.map((x) => x.sceneName), ...inp.map((x) => x.inputName)].map((n) => { const o = el('option'); o.value = n; return o; }));
+      toast(`OBS connecté : ${sc.length} scène(s), ${inp.length} source(s)`);
+    } catch (e) { toast(e.message); }
+  }).connect();
+};
+async function test(r) {
+  if (dirty) return toast('Enregistre d’abord tes modifications : la source dans OBS lit la version enregistrée');
+  if (!obs || !obs.ready) return toast('Connecte d’abord OBS (étape 3)');
+  try { await obs.call('BroadcastCustomEvent', { eventData: { streambox: { tool: 'automatisations', args: 'test ' + r.id } } }); toast('Envoyé à OBS ✓'); } catch (e) { toast('Erreur : ' + e.message); }
+}
+
+/* ---------- Enregistrement (dans le compte StreamBox) ---------- */
+function links() {
+  const l = ovId ? SBA.overlayLink(TOOL, ovId) : '';
+  $('link').value = l || 'Enregistre une première fois pour obtenir le lien';
+  $('linkDebug').value = l ? l + '&debug=1' : '';
+}
+async function save() {
+  const clean = A.sanitize(rules);
+  const json = JSON.stringify(clean);
+  if (json.length > 18000) return toast('Trop d’automatisations : retire-en quelques-unes');
+  try {
+    if (!ovId) ovId = (await SBA.api('POST', '/me/overlays', { tool: 'automatisations', name: 'Automatisations', settings: { rules: json } })).id;
+    else await SBA.api('PUT', '/me/overlays/' + ovId, { settings: { rules: json } });
+    rules = clean; dirty = false; $('dirty').textContent = 'Enregistré ✓ (la source dans OBS se met à jour toute seule)'; links(); render();
+  } catch (e) { $('dirty').textContent = 'Erreur : ' + e.message; }
+}
+$('save').onclick = save;
+$('copy').onclick = () => { navigator.clipboard.writeText($('link').value).catch(() => {}); toast('Lien copié'); };
+$('copyDebug').onclick = () => { navigator.clipboard.writeText($('linkDebug').value).catch(() => {}); toast('Lien copié'); };
+addEventListener('beforeunload', (e) => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
+
+(async () => {
+  if (!SBA.enabled() || !SBA.loggedIn()) {
+    $('need').hidden = false; $('need').append(el('p', 'lead', 'Les automatisations sont enregistrées dans ton compte StreamBox : connecte-toi avec Twitch.'));
+    const b = el('button', 'btn', 'Se connecter avec Twitch'); b.onclick = () => SBA.login('automatisations.html'); $('need').appendChild(b); return;
+  }
+  try {
+    const me = await SBA.api('GET', '/me');
+    const ov = (me.overlays || []).find((o) => o.tool === 'automatisations');
+    if (ov) { ovId = ov.id; const d = await SBA.api('GET', '/me/overlays/' + ovId); try { rules = A.sanitize(JSON.parse((d.settings || {}).rules || '[]')); } catch (e) { rules = []; } }
+    $('app').hidden = false; links(); render();
+  } catch (e) { $('need').hidden = false; $('need').textContent = 'Erreur : ' + e.message; }
+})();
+</script>
+</body>
+</html>

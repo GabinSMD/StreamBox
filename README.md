@@ -24,6 +24,7 @@ Une boîte à outils gratuite pour streamers. Elle regroupe dans un seul site ce
 | 📣 Annonces Discord : début du live, récap de fin, gagnant du giveaway, `!discord` | Source OBS invisible | Bots d’annonce |
 | 🧩 Extension « Musiques des redifs » (VOD Twitch et rediffusions YouTube) | Extension navigateur | |
 | 🔊 Lecture à voix haute : `!tts`, cheers, dons, points de chaîne ; voix du navigateur ou voix française du relais | Overlay OBS | TTS StreamElements / Streamlabs |
+| ⚡ Automatisations : « quand il se passe X, fais Y » (commande, points de chaîne, follow, abo, bits, raid, don, début du live, minuterie → scène, source, filtre, média, replay, overlay, son, voix, chat, Discord, pause) | Page web + source OBS invisible | Streamer.bot, SAMMI |
 | 🎬 Générique de fin : abos, abos offerts, bits, dons, raids, follows et chatteurs du live qui défilent | Overlay OBS + relais | Crédits Streamer.bot |
 | 🔢 Compteurs (morts, victoires…) pilotés par `!mort +` dans le chat ou depuis le panneau | Overlay OBS | Compteurs StreamElements / Nightbot |
 | 🔉 Sons des viewers : commande, points de chaîne ou bits, sons intégrés ou tes fichiers | Overlay OBS | SoundAlerts |

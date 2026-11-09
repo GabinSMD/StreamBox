@@ -342,3 +342,8 @@ img.emote { height: 1.6em; vertical-align: middle; margin: -0.3em 0.1em; }
 .cr-sec { margin-top: 2.2em; }
 .cr-sec h2 { font-size: 1.05em; color: var(--accent); text-transform: uppercase; letter-spacing: .12em; margin: 0 0 .6em; }
 .cr-sec ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .3em; font-weight: 700; }
+
+/* ---------- Automatisations (journal, visible avec debug=1) ---------- */
+.au { position: absolute; inset: 8px; font-size: 13px; background: rgba(16, 12, 26, .92); color: #fff; border-radius: 12px; padding: 10px 12px; overflow: hidden; font-family: Inter, system-ui, sans-serif; }
+.au-head { margin-bottom: 6px; } .au-head span { opacity: .7; }
+.au-line { padding: 3px 0; border-bottom: 1px solid rgba(255,255,255,.08); overflow-wrap: anywhere; }

@@ -277,7 +277,7 @@ const NEEDS = {
   sondage: ['obspass'], minuteur: ['obspass'], roue: ['obspass'], giveaway: ['obspass', 'webhook'],
   rewind: ['token', 'obspass'],
   musique: ['token', 'spotifycid', 'lastfm', 'lfmkey'], // Spotify : jeton à jour fourni par /o/:id/spotify-token
-  lecteur: [], jeux: [], generique: [], qrdons: [], compteurs: ['obspass'], sons: ['token', 'obspass'],
+  lecteur: [], jeux: [], generique: [], automatisations: ['token', 'sejwt', 'sltoken', 'kofi', 'obspass'], qrdons: [], compteurs: ['obspass'], sons: ['token', 'obspass'],
   tts: ['token', 'sejwt', 'sltoken', 'kofi', 'obspass'],
   discord: ['token', 'webhook'],
 };
@@ -360,6 +360,11 @@ async function accountRoutes(req, env, url, p) {
       const d = await req.json().catch(() => ({}));
       const r = await stub('user:' + idx.user_id).fetch('https://acc/ov-tts', { method: 'POST', body: JSON.stringify({ ov: p[1], text: d.text, lang: d.lang }) });
       return withCors(new Response(r.body, { status: r.status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } }));
+    }
+    if (p[2] === 'say' && req.method === 'POST') { // overlay Automatisations : message du chat ou Discord envoyé par le relais
+      const d = await req.json().catch(() => ({}));
+      const r = await stub('user:' + idx.user_id).fetch('https://acc/ov-say', { method: 'POST', headers: { 'X-Env': JSON.stringify({ cid: env.TWITCH_CLIENT_ID, secret: env.TWITCH_CLIENT_SECRET, key: env.ENCRYPTION_KEY || '' }) }, body: JSON.stringify({ ov: p[1], text: d.text, to: d.to }) });
+      return withCors(new Response(r.body, { status: r.status, headers: { 'Content-Type': 'application/json' } }));
     }
     if (p[2] === 'credits' && req.method === 'GET') { // overlay Générique de fin
       const r = await stub('user:' + idx.user_id).fetch('https://acc/ov-credits', { method: 'POST', body: JSON.stringify({ ov: p[1] }) });
@@ -558,6 +563,23 @@ export class Account {
       const d = body.don || {};
       if (!d.id) return err('identifiant du don manquant');
       return ok(await this.subDon({ source: clean(d.source || 'Streamlabs', 30), id: 'ov-' + clean(d.id, 80), name: clean(d.name, 60), amount: parseFloat(d.amount) || 0, currency: clean(d.currency || 'EUR', 5), message: clean(d.message, 300) }, profile, await secrets(), E));
+    }
+    if (path === '/ov-say') {
+      const o = ((await st.get('overlays')) || {})[body.ov];
+      if (!o || o.tool !== 'automatisations') return err('overlay non autorisé', 403);
+      const text = clean(body.text, 450).trim();
+      if (!text) return err('message vide');
+      const now = Date.now(); // 20 messages par minute au plus (évite qu'une boucle inonde le chat)
+      this._say = (this._say || []).filter((t) => now - t < 60000);
+      if (this._say.length >= 20) return err('trop de messages, réessaie dans un instant', 429);
+      this._say.push(now);
+      const bot = (await st.get('bot')) || sanitizeBot({}, null);
+      const ctx = { state: (await st.get('botstate')) || {}, changed: false };
+      const api = this.makeApi(bot, profile, await secrets(), E, ctx);
+      if (body.to === 'discord') { if (!(await secrets()).webhook) return err('aucun webhook Discord enregistré dans Mon compte'); await api.discord(text); }
+      else { const r = await api.say(text); if (!r || !r.ok) return err(ctx.state.lastError || 'Twitch a refusé le message (autorise les permissions du bot)', 502); }
+      await st.put('botstate', ctx.state);
+      return ok({ ok: true });
     }
     if (path === '/ov-credits') {
       const o = ((await st.get('overlays')) || {})[body.ov];

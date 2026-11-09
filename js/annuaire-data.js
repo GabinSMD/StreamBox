@@ -51,7 +51,7 @@ window.SB_DIRECTORY = [
   { cat: 'Emotes', name: 'FrankerFaceZ', url: 'https://www.frankerfacez.com/', flags: ['Extension'], desc: 'Emotes tierces et améliorations de Twitch. Prises en charge par les overlays StreamBox.' },
   { cat: 'Emotes', name: 'Emotes.net', url: 'https://emotes.net/', flags: ['Payant'], desc: 'Marché d’emotes faites par des artistes.' },
   // Misc
-  { cat: 'Divers', name: 'BetterStreams', url: 'https://betterstreams.tv', alt: 'panneau', flags: [], desc: 'Automatisation : points de chaîne, subs, raids… déclenchent des actions OBS, du TTS, des giveaways.' },
+  { cat: 'Divers', name: 'BetterStreams', url: 'https://betterstreams.tv', alt: 'automatisations', flags: [], desc: 'Automatisation : points de chaîne, subs, raids… déclenchent des actions OBS, du TTS, des giveaways.' },
   { cat: 'Clips', name: 'Boltis', url: 'https://boltis.app', flags: ['Logiciel', 'Gratuit'], desc: 'Une touche pour clipper les 60 dernières secondes, puis montage vertical avec sous-titres.' },
   { cat: 'Divers', name: 'chat.vote', url: 'https://chat.vote/', alt: 'sondage', flags: [], desc: 'Sondages et tirages au sort pour le chat.' },
   { cat: 'Clips', name: 'ClipMe', url: 'https://clipme.com', alt: 'rewind', flags: [], desc: 'Clips verticaux sous-titrés par IA, classés selon l’activité du chat.' },

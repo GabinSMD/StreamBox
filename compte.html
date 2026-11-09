@@ -79,13 +79,13 @@ function renderOverlays() {
   const box = $('overlays'); box.replaceChildren();
   if (!me.overlays.length) box.appendChild(el('p', 'sec', 'Aucun overlay enregistré pour l’instant. Ouvre un outil et clique sur « Enregistrer dans mon compte ».'));
   me.overlays.forEach((o) => {
-    const tool = SB_TOOLS.find((t) => t.id === o.tool) || { icon: '❔', name: o.tool, overlay: '' };
+    const tool = SB_TOOLS.find((t) => t.id === o.tool) || (o.tool === 'automatisations' ? { icon: '⚡', name: 'Automatisations', overlay: 'overlays/automatisations.html' } : { icon: '❔', name: o.tool, overlay: '' });
     const row = el('div', 'acc-row');
     const info = el('div', 'acc-info');
     info.append(el('b', null, tool.icon + ' ' + o.name), el('small', null, tool.name + ' · modifié le ' + new Date(o.updatedAt).toLocaleString(SB_LANG_TAG, { dateStyle: 'short', timeStyle: 'short' })));
     const acts = el('div', 'pn-row');
     const btn = (label, cls, fn) => { const b = el('button', 'btn small ' + (cls || 'ghost'), label); b.type = 'button'; b.onclick = fn; acts.appendChild(b); return b; };
-    const edit = el('a', 'btn small', 'Modifier'); edit.href = `outil.html?id=${o.tool}&o=${o.id}`; acts.appendChild(edit);
+    const edit = el('a', 'btn small', 'Modifier'); edit.href = o.tool === 'automatisations' ? 'automatisations.html' : `outil.html?id=${o.tool}&o=${o.id}`; acts.appendChild(edit);
     btn('Copier le lien OBS', '', async () => { await navigator.clipboard.writeText(SBA.overlayLink(tool, o.id)).catch(() => {}); toast2('Lien copié'); });
     btn('Dupliquer', '', async () => {
       const full = await SBA.api('GET', '/me/overlays/' + o.id);
