@@ -6,11 +6,11 @@
  * l'API Twitch (clips du Rewind, infos de la VOD) sont désactivées.
  */
 window.SB_CONFIG = {
-  twitchClientId: '',
+  twitchClientId: 'j2u8uxo89sbgljg5ni1v5idwdthf4b',
   // Spotify (overlay Musique) : https://developer.spotify.com/dashboard, URL de redirection https://<ton-site>/spotify.html
   spotifyClientId: '',
   // Last.fm (overlay Musique : Deezer, YouTube Music, Apple Music…) : https://www.last.fm/api/account/create
   lastfmApiKey: '',
   // Relais StreamBox (dons Ko-fi, musiques des redifs) : voir relay/README.md
-  relayUrl: '',
+  relayUrl: 'https://streambox-relay.gabinsmd.workers.dev',
 };
