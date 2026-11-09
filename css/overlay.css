@@ -375,3 +375,4 @@ img.emote { height: 1.6em; vertical-align: middle; margin: -0.3em 0.1em; }
 .pt-meter { position: relative; height: 8px; background: rgba(255,255,255,.15); border-radius: 4px; margin-bottom: 4px; overflow: hidden; }
 .pt-meter i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: #6ee7a8; }
 .pt-meter b { position: absolute; top: -2px; bottom: -2px; width: 2px; background: #ff5c8a; }
+.cr-recap { max-width: 34em; margin: 1.2em auto 0; font-size: .82em; line-height: 1.45; font-weight: 600; opacity: .95; }

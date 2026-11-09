@@ -16,6 +16,7 @@
 const c = SB.params({
   title: 'Merci d’avoir regardé ! 💜', end: 'À la prochaine !', speed: 60, loop: false,
   follows: true, subs: true, gifts: true, bits: true, raids: true, dons: true, chatters: true, maxchat: 40,
+  recap: 'texte', voice: 'aucune', volume: 0.9,
   bg: false, size: 30, font: 'Inter', accent: '#9b5cff', demo: false,
 });
 SB.loadFont(c.font); SB.setAccent(c.accent);
@@ -41,6 +42,7 @@ function build(d) {
   const parts = [el('h1', 'cr-title', c.title)];
   if (d.title) { const t = el('p', 'cr-sub', d.title); t.dataset.i18nSkip = ''; parts.push(t); }
   if (d.games && d.games.length) { const g = el('p', 'cr-sub', d.games.join(' · ')); g.dataset.i18nSkip = ''; parts.push(g); }
+  if (d.recap) { const r = el('p', 'cr-recap', d.recap); r.dataset.i18nSkip = ''; parts.push(r); } // déjà dans la bonne langue
   const subs = [...(d.subs || []), ...(d.resubs || [])].filter((x, i, a) => a.indexOf(x) === i);
   [
     c.subs && section(SB.t('⭐ Abonnements'), subs),
@@ -62,12 +64,60 @@ function start() {
   anim = roll.animate([{ transform: `translateY(${h}px)` }, { transform: `translateY(${-roll.offsetHeight}px)` }], { duration: (total / Math.max(10, c.speed)) * 1000, easing: 'linear', fill: 'forwards' });
   anim.onfinish = () => { if (c.loop) start(); };
 }
-async function load() {
-  if (c.demo || !ovId || !relay) return build(DEMO);
-  try { const d = await (await fetch(`${relay}/o/${ovId}/credits`, { cache: 'no-store' })).json(); if (d.error) throw new Error(d.error); build(d); }
-  catch (e) { console.warn('générique :', e.message); build({ enabled: true }); }
+/* ---------- Résumé du live : écrit à partir des chiffres, ou rédigé par l'IA du relais ---------- */
+function dur(ms) { const m = Math.round((ms || 0) / 60000), h = Math.floor(m / 60); return h ? `${h} h ${String(m % 60).padStart(2, '0')}` : `${m} min`; }
+function list(items) { return items.length < 2 ? items.join('') : SB.t('{0} et {1}', [items.slice(0, -1).join(', '), items[items.length - 1]]); }
+function textRecap(d) {
+  const n = d.counts || {}, nf = (x) => Number(x || 0).toLocaleString(SB_LANG_TAG), out = [];
+  if (!d.duration) return '';
+  out.push(d.games && d.games.length ? SB.t('Ce soir : {0} de live sur {1}.', [dur(d.duration), list(d.games)]) : SB.t('Ce soir : {0} de live.', [dur(d.duration)]));
+  if (n.peak) out.push(n.msgs ? SB.t('Jusqu’à {0} viewers et {1} messages dans le chat.', [nf(n.peak), nf(n.msgs)]) : SB.t('Jusqu’à {0} viewers en même temps.', [nf(n.peak)]));
+  const thanks = [];
+  if (n.follows) thanks.push(SB.t('{0} nouveaux follows', [nf(n.follows)]));
+  if ((n.subs || 0) + (n.resubs || 0)) thanks.push(SB.t('{0} abonnements', [nf((n.subs || 0) + (n.resubs || 0))]));
+  if (n.gifts) thanks.push(SB.t('{0} abos offerts', [nf(n.gifts)]));
+  if (n.bits) thanks.push(SB.t('{0} bits', [nf(n.bits)]));
+  if (thanks.length) out.push(SB.t('Merci pour les {0} !', [list(thanks)]));
+  if (d.raids && d.raids.length) out.push(SB.t('Merci à {0} pour le raid !', [list(d.raids.map((r) => r.from))]));
+  if (d.chatters && d.chatters[0]) out.push(SB.t('Mention spéciale à {0}, le plus bavard du chat.', [d.chatters[0]]));
+  return out.join(' ');
 }
-const DEMO = { title: 'Soirée cubes 🧱', games: ['Just Chatting', 'Minecraft'], subs: ['Pixelmaud', 'Lou'], resubs: ['Kevin_le_roux'], gifts: [{ name: 'Généreux', n: 5 }], bits: [{ name: 'Max', n: 500 }, { name: 'Zoe', n: 100 }],
+async function recap(d) {
+  if (c.recap === 'aucun' || d.empty) return '';
+  if (c.recap === 'ia' && ovId && relay && !c.demo) {
+    try { const r = await (await fetch(`${relay}/o/${ovId}/recap?lang=${SB.lang()}`, { cache: 'no-store' })).json(); if (r.text) return r.text; console.warn('résumé IA :', r.error); } catch (e) { console.warn('résumé IA :', e.message); }
+  }
+  return textRecap(d); // résumé écrit automatiquement (aussi si l'IA ne répond pas)
+}
+/* Lecture à voix haute du résumé, au lancement du générique */
+let audio = null;
+async function speak(text) {
+  if (!text || c.voice === 'aucune') return;
+  if (audio) { audio.pause(); audio = null; } if (window.speechSynthesis) speechSynthesis.cancel();
+  if (c.voice === 'relais' && ovId && relay && !c.demo) {
+    try {
+      const r = await (await fetch(`${relay}/o/${ovId}/tts`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, lang: SB.lang() }) })).json();
+      if (!r.audio) throw new Error(r.error || 'voix indisponible');
+      audio = new Audio(`data:${r.mime || 'audio/mpeg'};base64,${r.audio}`); audio.volume = Math.max(0, Math.min(1, c.volume)); await audio.play(); return;
+    } catch (e) { console.warn('voix du relais :', e.message, '→ voix de l’ordinateur'); }
+  }
+  if (!window.speechSynthesis) return;
+  const u = new SpeechSynthesisUtterance(text); u.lang = SB_LANG_TAG; u.volume = c.volume;
+  const v = speechSynthesis.getVoices().find((x) => x.lang.startsWith(SB.lang())); if (v) u.voice = v;
+  speechSynthesis.speak(u);
+}
+async function load() {
+  let d;
+  if (c.demo || !ovId || !relay) d = Object.assign({}, DEMO);
+  else {
+    try { d = await (await fetch(`${relay}/o/${ovId}/credits`, { cache: 'no-store' })).json(); if (d.error) throw new Error(d.error); }
+    catch (e) { console.warn('générique :', e.message); d = { enabled: true }; }
+  }
+  d.recap = await recap(d);
+  build(d);
+  speak(d.recap);
+}
+const DEMO = { duration: 11520000, counts: { peak: 296, msgs: 5790, follows: 33, subs: 5, resubs: 6, gifts: 5, bits: 694 }, title: 'Soirée cubes 🧱', games: ['Just Chatting', 'Minecraft'], subs: ['Pixelmaud', 'Lou'], resubs: ['Kevin_le_roux'], gifts: [{ name: 'Généreux', n: 5 }], bits: [{ name: 'Max', n: 500 }, { name: 'Zoe', n: 100 }],
   dons: [{ name: 'Lou', amount: 5, currency: 'EUR' }], raids: [{ from: 'Amie_Streameuse', viewers: 87 }], follows: ['NouveauVenu', 'Curieux42', 'Bob'], chatters: ['Pixelmaud', 'Kevin_le_roux', 'Lou', 'ModoSympa', 'Zoe', 'Max', 'NouveauVenu'] };
 load();
 // OBS : quand la source redevient visible, on recharge les noms et on relance le défilement

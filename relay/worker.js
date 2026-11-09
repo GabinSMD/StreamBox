@@ -380,8 +380,8 @@ async function accountRoutes(req, env, url, p) {
       const r = await stub('user:' + idx.user_id).fetch('https://acc/ov-say', { method: 'POST', headers: { 'X-Env': JSON.stringify({ cid: env.TWITCH_CLIENT_ID, secret: env.TWITCH_CLIENT_SECRET, key: env.ENCRYPTION_KEY || '' }) }, body: JSON.stringify({ ov: p[1], text: d.text, to: d.to }) });
       return withCors(new Response(r.body, { status: r.status, headers: { 'Content-Type': 'application/json' } }));
     }
-    if (p[2] === 'credits' && req.method === 'GET') { // overlay Générique de fin
-      const r = await stub('user:' + idx.user_id).fetch('https://acc/ov-credits', { method: 'POST', body: JSON.stringify({ ov: p[1] }) });
+    if ((p[2] === 'credits' || p[2] === 'recap') && req.method === 'GET') { // overlay Générique de fin (et son résumé par l'IA)
+      const r = await stub('user:' + idx.user_id).fetch('https://acc/ov-' + p[2], { method: 'POST', body: JSON.stringify({ ov: p[1], lang: url.searchParams.get('lang') }) });
       return withCors(new Response(r.body, { status: r.status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } }));
     }
     if (p[2] === 'jeux' && req.method === 'GET') { // overlay Mini-jeux : état public des jeux
@@ -596,7 +596,7 @@ export class Account {
     if (path === '/don') return ok(await this.subDon(body.don || {}, profile, await secrets(), E));
     if (path === '/ov-tts') {
       const o = ((await st.get('overlays')) || {})[body.ov];
-      if (!o || o.tool !== 'tts') return err('overlay non autorisé', 403);
+      if (!o || !['tts', 'generique'].includes(o.tool)) return err('overlay non autorisé', 403); // générique : lecture du résumé
       if (!this.env.AI) return err('voix du relais non activée (binding AI de Workers AI)', 501);
       const text = clean(body.text, 300).trim();
       if (!text) return err('texte vide');
@@ -635,15 +635,42 @@ export class Account {
       await st.put('botstate', ctx.state);
       return ok({ ok: true });
     }
-    if (path === '/ov-credits') {
+    if (path === '/ov-credits' || path === '/ov-recap') {
       const o = ((await st.get('overlays')) || {})[body.ov];
       if (!o || o.tool !== 'generique') return err('overlay non autorisé', 403);
       const cfg = (await st.get('stats')) || {};
       const L = await st.get('statlive');
-      if (L) return ok(Object.assign({ live: true, enabled: !!cfg.enabled }, STATS.credits(STATS.finish(L, Date.now()))));
-      const last = ((await st.get('statidx')) || [])[0];
-      const r = last && Date.now() - last.endedAt < 12 * 3600000 ? await st.get('stat:' + String(last.startedAt).padStart(15, '0')) : null; // dernier live, s'il date de moins de 12 h
-      return ok(r ? Object.assign({ live: false, enabled: !!cfg.enabled }, STATS.credits(r)) : { live: false, enabled: !!cfg.enabled, empty: true });
+      let d;
+      if (L) d = Object.assign({ live: true, enabled: !!cfg.enabled }, STATS.credits(STATS.finish(L, Date.now())));
+      else {
+        const last = ((await st.get('statidx')) || [])[0];
+        const r = last && Date.now() - last.endedAt < 12 * 3600000 ? await st.get('stat:' + String(last.startedAt).padStart(15, '0')) : null; // dernier live, s'il date de moins de 12 h
+        d = r ? Object.assign({ live: false, enabled: !!cfg.enabled }, STATS.credits(r)) : { live: false, enabled: !!cfg.enabled, empty: true };
+      }
+      if (path === '/ov-credits') return ok(d);
+      // Résumé rédigé par l'IA, à partir des seuls chiffres du live (gardé 15 min : pas de nouvel appel à chaque affichage)
+      if (d.empty) return err('pas de live récent à résumer', 404);
+      if (!this.env.AI) return err('IA du relais non activée (binding AI de Workers AI)', 501);
+      const lang = LANGS.includes(body.lang) ? body.lang : (profile.lang || 'fr');
+      const key = `recap:${d.startedAt}:${lang}:${Math.floor((d.duration || 0) / 900000)}`;
+      const hit = await st.get('recap');
+      if (hit && hit.key === key) return ok({ text: hit.text, cached: true });
+      const now = Date.now(); this._recap = (this._recap || []).filter((t) => now - t < 3600000);
+      if (this._recap.length >= 10) return err('trop de résumés demandés, réessaie plus tard', 429);
+      this._recap.push(now);
+      const facts = { titre: d.title, duree_minutes: Math.round((d.duration || 0) / 60000), jeux: d.games, pic_viewers: d.counts.peak, messages: d.counts.msgs,
+        nouveaux_follows: d.counts.follows, abonnements: (d.counts.subs || 0) + (d.counts.resubs || 0), abos_offerts: d.counts.gifts, bits: d.counts.bits,
+        raids: (d.raids || []).map((r) => `${r.from} (${r.viewers} viewers)`), chatteurs_les_plus_actifs: (d.chatters || []).slice(0, 3) };
+      const LN = { fr: 'français', en: 'English', es: 'español' }[lang];
+      try {
+        const r = await this.env.AI.run('@cf/meta/llama-3.1-8b-instruct', { max_tokens: 220, messages: [
+          { role: 'system', content: `Tu écris le résumé d'un live Twitch, affiché et lu à voix haute dans le générique de fin. Écris 2 ou 3 phrases chaleureuses, en ${LN}, au présent ou au passé composé, en t'adressant aux viewers. Utilise UNIQUEMENT les faits donnés (ignore ceux qui valent 0 ou sont vides), n'invente rien, pas de hashtags, au plus un emoji. Réponds seulement par le résumé.` },
+          { role: 'user', content: JSON.stringify(facts) }] });
+        const text = clean(String((r && r.response) || '').replace(/^["«\s]+|["»\s]+$/g, ''), 700).trim();
+        if (!text) throw new Error('réponse vide');
+        await st.put('recap', { key, text });
+        return ok({ text });
+      } catch (e) { return err('résumé indisponible : ' + e.message, 502); }
     }
     if (path.startsWith('/stats-')) return this.statsRoute(path, body, profile, ok, err);
     if (path.startsWith('/jeux-') || path === '/ov-jeux') return this.jeuxRoute(path, body, profile, await secrets(), E, ok, err);
