@@ -24,6 +24,7 @@ Une boîte à outils gratuite pour streamers. Elle regroupe dans un seul site ce
 | 📣 Annonces Discord : début du live, récap de fin, gagnant du giveaway, `!discord` | Source OBS invisible | Bots d’annonce |
 | 🧩 Extension « Musiques des redifs » (VOD Twitch et rediffusions YouTube) | Extension navigateur | |
 | 🔊 Lecture à voix haute : `!tts`, cheers, dons, points de chaîne ; voix du navigateur ou voix française du relais | Overlay OBS | TTS StreamElements / Streamlabs |
+| 📊 Statistiques des lives : viewers minute par minute, chat, follows, abos, bits, raids, dons, catégories ; tendances et export CSV | Page web + relais | TwitchTracker, StreamsCharts |
 | 🛡️ Panneau de modération : sanctions en un clic, fiche viewer, AutoMod, journal de l’équipe, débans, modes du chat, annonces, titre et raid ; chaque modo avec son compte Twitch | Page web (dock OBS) | Mod View de Twitch |
 | 🎲 Mini-jeux du chat : points virtuels gagnés en discutant, duels, prédictions, quiz, classement (aucune valeur réelle) | Page web + relais + overlay | Loyalty de StreamElements / Streamlabs |
 | 🎶 Demandes de musique (`!sr`) : YouTube (overlay Lecteur) ou Spotify (file Premium), limites, modération, page publique | Page web + relais + overlay | Song Requests de Nightbot / StreamElements |
@@ -160,7 +161,7 @@ Prochaines étapes :
 - [x] Lecture des messages à voix haute (TTS) et demandes de musiques par le chat
 - [x] Mini-jeux du chat : points, duels, prédictions, quiz
 - [x] Panneau de modération (sanctions, modes du chat, AutoMod, fiche viewer)
-- [ ] Statistiques des lives
+- [x] Statistiques des lives
 - [ ] Multi-plateforme : chat Kick et YouTube fusionnés
 - [ ] Site et overlays en plusieurs langues (anglais, espagnol…)
 - [x] Comptes StreamBox (connexion Twitch, réglages et jetons enregistrés, liens courts)

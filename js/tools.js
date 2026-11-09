@@ -386,6 +386,7 @@
       links: [['Gérer les jeux', 'jeux.html'], ['Overlay OBS', 'outil.html?id=jeux']] },
     { id: 'moderation', icon: '🛡️', name: 'Panneau de modération', href: 'moderation.html', tagline: 'Pour toi et tes modos : chat avec sanctions en un clic, fiche du viewer, file AutoMod, journal de l’équipe, demandes de déban, modes du chat, annonces, titre et raid. Utilisable comme dock OBS.', replaces: ['Mod View de Twitch', 'Chatterino (modération)'] },
     { id: 'bot', icon: '🤖', name: 'Bot de chat', href: 'bot.html', tagline: 'Commandes, messages automatiques, modération et remerciements. Il tourne 24 h/24 sur le relais, même OBS fermé.', replaces: ['Nightbot', 'Moobot', 'Fossabot', 'Cloudbot'] },
+    { id: 'stats', icon: '📊', name: 'Statistiques des lives', href: 'stats.html', tagline: 'Chaque live enregistré tout seul : viewers minute par minute, chat, follows, abos, bits, raids, dons, catégories. Comparaison avec la période précédente et export CSV.', replaces: ['TwitchTracker', 'StreamsCharts', 'Statistiques du tableau de bord Twitch'] },
     { id: 'panneau', icon: '🎛️', name: 'Panneau de contrôle', href: 'panneau.html', tagline: 'Des boutons pour piloter sondages, giveaways, subathon, roue, objectifs et scènes OBS, sans taper de commandes. Utilisable comme dock OBS.', replaces: ['Kloot', 'Poltergeist', 'Xenon'] },
     { id: 'integrations', icon: '🔌', name: 'Intégrations', href: 'integrations.html', tagline: 'Twitch, OBS, Discord, Spotify, Deezer, YouTube Music, Ko-fi, StreamElements, Streamlabs : ce que chaque service apporte et comment le brancher.', replaces: [] },
     { id: 'extension', icon: '🧩', name: 'Extension « Musiques des redifs »', href: 'integrations.html#extension', tagline: 'Pour tes viewers : dans tes VODs Twitch et tes rediffusions YouTube, la musique qui passait pendant le live, avec les liens pour l’écouter.', replaces: [] },
@@ -428,7 +429,7 @@
     alertes: 'alertes', objectifs: 'alertes', discord: 'alertes', tts: 'alertes',
     'subathon-live': 'evenements', minuteur: 'evenements', rewind: 'evenements',
     musique: 'musique', sr: 'musique', extension: 'musique',
-    panneau: 'outils', integrations: 'outils', resizer: 'outils', calc: 'outils', annuaire: 'outils' };
+    panneau: 'outils', stats: 'outils', integrations: 'outils', resizer: 'outils', calc: 'outils', annuaire: 'outils' };
   const MERGED = { subathon: 'subathon-live', lecteur: 'sr', jeux: 'minijeux' };
   [...window.SB_TOOLS, ...window.SB_PAGES].forEach((t) => { t.cat = CAT[t.id] || 'outils'; if (MERGED[t.id]) t.mergedInto = MERGED[t.id]; });
 

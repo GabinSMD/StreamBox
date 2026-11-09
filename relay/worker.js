@@ -46,6 +46,8 @@
  *   GET/POST /o/:id/sr                   overlay Lecteur (YouTube) : état de la file, morceau fini / en erreur
  *   GET     /o/:id/spotify-token         jeton Spotify à jour pour l'overlay Musique (le relais garde le refresh token)
  *   POST    /o/:id/tts { text }           voix française générée par Workers AI (binding AI), 20 lectures par minute maximum
+ * Statistiques des lives (relevé chaque minute pendant le live, événements Twitch) :
+ *   GET/PUT /me/stats { enabled } · GET/DELETE /me/stats/:debut (un live, relevés minute par minute)
  * Mini-jeux du chat (points virtuels, duels, prédictions, quiz) :
  *   GET/PUT /me/jeux · POST /me/jeux/action { args } (commande lancée au nom du streamer) · GET /o/:id/jeux (overlay)
  *   Secrets facultatifs : YOUTUBE_API_KEY (recherche par titre et durée), SPOTIFY_CLIENT_ID.
@@ -60,6 +62,7 @@ import { DEFAULT_BOT, sanitizeBot, onChat, onEvent, onTick, wantedSubs, userLeve
 import * as SUBA from './subathon.js';
 import * as SR from './sr.js';
 import * as JEUX from './jeux.js';
+import * as STATS from './stats.js';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -381,6 +384,12 @@ async function accountRoutes(req, env, url, p) {
     if (p.length === 2 && req.method === 'PUT') return fwd('/sr-save', 'POST', body);
     if (p[2] === 'action' && req.method === 'POST') return fwd('/sr-action', 'POST', body);
   }
+  if (p[1] === 'stats') {
+    if (p.length === 2 && req.method === 'GET') return fwd('/stats-get', 'POST', {});
+    if (p.length === 2 && req.method === 'PUT') return fwd('/stats-save', 'POST', body);
+    if (/^\d{10,15}$/.test(p[2] || '') && p.length === 3 && req.method === 'GET') return fwd('/stats-one', 'POST', { key: p[2] });
+    if (/^\d{10,15}$/.test(p[2] || '') && p.length === 3 && req.method === 'DELETE') return fwd('/stats-del', 'POST', { key: p[2] });
+  }
   if (p[1] === 'jeux') {
     if (p.length === 2 && req.method === 'GET') return fwd('/jeux-get', 'POST', {});
     if (p.length === 2 && req.method === 'PUT') return fwd('/jeux-save', 'POST', body);
@@ -520,6 +529,7 @@ export class Account {
       if (!d.id) return err('identifiant du don manquant');
       return ok(await this.subDon({ source: clean(d.source || 'Streamlabs', 30), id: 'ov-' + clean(d.id, 80), name: clean(d.name, 60), amount: parseFloat(d.amount) || 0, currency: clean(d.currency || 'EUR', 5), message: clean(d.message, 300) }, profile, await secrets(), E));
     }
+    if (path.startsWith('/stats-')) return this.statsRoute(path, body, profile, ok, err);
     if (path.startsWith('/jeux-') || path === '/ov-jeux') return this.jeuxRoute(path, body, profile, await secrets(), E, ok, err);
     if (path.startsWith('/bot-')) return this.botRoute(path, body, profile, await secrets(), E, ok, err);
     if (path.startsWith('/sr-') || path === '/public-sr' || path === '/ov-sr' || path === '/ov-spotify-token') return this.srRoute(path, body, profile, await secrets(), E, ok, err);
@@ -688,7 +698,9 @@ export class Account {
     const srOn = !!(srC && srC.enabled);
     const jx = await st.get('jeux');
     const jeuxOn = !!(jx && jx.enabled);
-    if (cfg.enabled || subOn || srOn || jeuxOn) {
+    const sx = await st.get('stats');
+    const statsOn = !!(sx && sx.enabled);
+    if (cfg.enabled || subOn || srOn || jeuxOn || statsOn) {
       const origin = await st.get('origin');
       const bot = cfg.sender === 'bot' ? await this.botAccount() : null;
       const bid = profile.user_id;
@@ -701,6 +713,13 @@ export class Account {
           { type: 'channel.subscription.gift', version: '1', condition: b }, { type: 'channel.cheer', version: '1', condition: b });
         if (subCfg.rules.follow) list.push({ type: 'channel.follow', version: '2', condition: { broadcaster_user_id: bid, moderator_user_id: bid } });
         if (subCfg.rules.raid) list.push({ type: 'channel.raid', version: '1', condition: { to_broadcaster_user_id: bid } });
+      }
+      if (statsOn) { // statistiques : follows, abos, bits, raids (le chat seulement si les permissions du bot sont accordées)
+        const b = { broadcaster_user_id: bid }, sc = profile.scopes || [];
+        list.push({ type: 'channel.follow', version: '2', condition: { broadcaster_user_id: bid, moderator_user_id: bid } }, { type: 'channel.subscribe', version: '1', condition: b },
+          { type: 'channel.subscription.message', version: '1', condition: b }, { type: 'channel.subscription.gift', version: '1', condition: b }, { type: 'channel.raid', version: '1', condition: { to_broadcaster_user_id: bid } });
+        if (sc.includes('bits:read')) list.push({ type: 'channel.cheer', version: '1', condition: b });
+        if (!cfg.enabled && !subOn && !srOn && !jeuxOn && !(sc.includes('user:read:chat') && sc.includes('channel:bot'))) list = list.filter((x) => x.type !== 'channel.chat.message');
       }
       list = list.filter((x, i) => list.findIndex((y) => y.type === x.type) === i);
       if (cfg.sender === 'bot' && !bot) errors.push('compte bot du site non connecté');
@@ -747,7 +766,9 @@ export class Account {
       const srOn = !!(srCfg && srCfg.enabled);
       const jxCfg = await st.get('jeux');
       const jeuxOn = !!(jxCfg && jxCfg.enabled);
-      if (!cfg.enabled && !subOn && !srOn && !jeuxOn) return ok({ ignored: true });
+      const stCfg = await st.get('stats');
+      const statsOn = !!(stCfg && stCfg.enabled);
+      if (!cfg.enabled && !subOn && !srOn && !jeuxOn && !statsOn) return ok({ ignored: true });
       const state = (await st.get('botstate')) || {};
       state.seen = state.seen || [];
       if (body.id && state.seen.includes(body.id)) return ok({ duplicate: true }); // Twitch peut renvoyer un webhook
@@ -756,8 +777,14 @@ export class Account {
       const ctx = { state, changed: false };
       const api = this.makeApi(cfg, profile, secrets, E, ctx);
       const e = body.event || {};
-      if (body.type === 'stream.online') { state.live = true; state.startedAt = Date.parse(e.started_at) || Date.now(); state.lines = 0; state.timers = {}; if (cfg.enabled) await st.setAlarm(Date.now() + 60000); }
-      else if (body.type === 'stream.offline') { state.live = false; state.permits = {}; }
+      if (body.type === 'stream.online') {
+        state.live = true; state.startedAt = Date.parse(e.started_at) || Date.now(); state.lines = 0; state.timers = {};
+        if (statsOn) await st.put('statlive', await this.statStart({ id: e.id, started_at: e.started_at }, Date.now()));
+        if (cfg.enabled || statsOn) await st.setAlarm(Date.now() + 60000);
+      } else if (body.type === 'stream.offline') {
+        state.live = false; state.permits = {};
+        if (statsOn) { const L = await st.get('statlive'); if (L) { await this.statFinish(L, Date.now()); await st.delete('statlive'); } }
+      }
       else if (body.type === 'channel.chat.message') {
         const text = (e.message && e.message.text) || '';
         const b = cfg.sender === 'bot' ? await this.botAccount() : null;
@@ -765,12 +792,14 @@ export class Account {
         // seulement les messages que le bot vient d'envoyer (le streamer peut toujours taper ses commandes).
         const own = b ? e.chatter_user_id === b.user_id
           : e.chatter_user_id === profile.user_id && (state.sent || []).some((x) => x.text === text && Date.now() - x.t < 60000);
+        if (!own && statsOn) { const L = await st.get('statlive'); if (L) { STATS.chat(L, e); await st.put('statlive', L); } }
         if (!own) {
           const handled = (srOn && await this.srChat(srCfg, text, e, profile, api, secrets, E)) || (subOn && await this.subChat(subCfg, text, e, profile, api)) || (jeuxOn && await this.jeuxChat(jxCfg, text, e, profile, api));
           if (!handled && cfg.enabled) await onChat(cfg, state, { text, login: e.chatter_user_login, name: e.chatter_user_name, userId: e.chatter_user_id, badges: e.badges, messageId: e.message_id, isBroadcaster: e.chatter_user_id === profile.user_id }, api, profile.login);
         }
       } else {
         if (subOn) { const S = (await st.get('substate')) || SUBA.freshState(subCfg); SUBA.onEvent(subCfg, S, body.type, e, Date.now()); await st.put('substate', S); }
+        if (statsOn) { const L = await st.get('statlive'); if (L && STATS.event(L, body.type, e)) await st.put('statlive', L); }
         if (cfg.enabled) await onEvent(cfg, state, body.type, e, api, profile.login);
       }
       if (ctx.changed) await st.put('bot', cfg);
@@ -925,6 +954,78 @@ export class Account {
       else if ((body.action === 'ended' || body.action === 'error') && Q.current && Q.current.n === body.n) SR.advance(Q, body.action === 'error' ? 'error' : 'played', now);
       if (body.action !== 'state') await st.put('srq', Q);
       return ok({ volume: cfg.volume, paused: Q.paused, current: Q.current, next: Q.items.slice(0, 3), count: Q.items.length });
+    }
+    return err('?', 404);
+  }
+
+  /* ================= Statistiques ================= */
+  async statStart(stream, now) {
+    const st = this.ctx.storage;
+    const L = await st.get('statlive');
+    if (L && L.id === String(stream.id)) return L;
+    if (L) { await this.statFinish(L, now); await st.delete('statlive'); }
+    const key = 'stat:' + String(Date.parse(stream.started_at) || now).padStart(15, '0');
+    const prev = await st.get(key);
+    if (prev && prev.id === String(stream.id)) { // même live après une courte coupure : on reprend
+      await st.delete(key);
+      await st.put('statidx', ((await st.get('statidx')) || []).filter((x) => x.startedAt !== prev.startedAt));
+      return STATS.reopen(prev);
+    }
+    return STATS.freshLive(stream, now);
+  }
+  async statFinish(L, now) {
+    const st = this.ctx.storage, r = STATS.finish(L, now);
+    if (r.duration < 60000 && !r.msgs) return; // live de moins d'une minute : ignoré
+    await st.put('stat:' + String(r.startedAt).padStart(15, '0'), r);
+    let idx = ((await st.get('statidx')) || []).filter((x) => x.startedAt !== r.startedAt);
+    idx.push(STATS.summary(r)); idx.sort((a, b) => b.startedAt - a.startedAt);
+    for (const old of idx.slice(STATS.MAX_LIVES)) await st.delete('stat:' + String(old.startedAt).padStart(15, '0'));
+    await st.put('statidx', idx.slice(0, STATS.MAX_LIVES));
+  }
+  /* Relevé de la minute : le live est détecté même si un webhook Twitch se perd */
+  async statPoll(profile) {
+    const st = this.ctx.storage, E = this.E, now = Date.now();
+    if (!E.cid || !E.secret) return false;
+    const r = await fetch('https://api.twitch.tv/helix/streams?user_id=' + profile.user_id, { headers: { 'Client-Id': E.cid, Authorization: 'Bearer ' + await appAccess(E.cid, E.secret) } });
+    if (!r.ok) return !!(await st.get('statlive'));
+    const s = ((await r.json()).data || [])[0];
+    if (s && s.type === 'live') {
+      const L = await this.statStart(s, now);
+      STATS.sample(L, s, now);
+      await st.put('statlive', L);
+      return true;
+    }
+    const L = await st.get('statlive');
+    if (!L) return false;
+    if (++L.miss >= 3) { await this.statFinish(L, now); await st.delete('statlive'); return false; } // 3 relevés sans live : terminé
+    await st.put('statlive', L);
+    return true;
+  }
+  async statsRoute(path, body, profile, ok, err) {
+    const st = this.ctx.storage, now = Date.now();
+    let cfg = (await st.get('stats')) || { enabled: false };
+    const key = (k) => 'stat:' + String(k).padStart(15, '0');
+    if (path === '/stats-get') {
+      const idx = (await st.get('statidx')) || [];
+      const L = await st.get('statlive');
+      const sc = profile.scopes || [];
+      return ok({ cfg, live: L ? STATS.finish(L, now) : null, lives: idx, trends: [STATS.trends(idx, now, 7), STATS.trends(idx, now, 30)],
+        can: { chat: sc.includes('user:read:chat') && sc.includes('channel:bot'), bits: sc.includes('bits:read'), webhooks: !!this.env.EVENTSUB_SECRET } });
+    }
+    if (path === '/stats-save') {
+      const prev = cfg; cfg = { enabled: !!body.enabled };
+      await st.put('stats', cfg);
+      let errors = [];
+      if (cfg.enabled !== prev.enabled && this.env.EVENTSUB_SECRET) errors = await this.syncSubs((await st.get('bot')) || sanitizeBot({}, null), profile, this.E).catch((e) => [e.message]);
+      if (cfg.enabled) await this.armAlarm();
+      else { const L = await st.get('statlive'); if (L) { await this.statFinish(L, now); await st.delete('statlive'); } }
+      return ok({ cfg, errors });
+    }
+    if (path === '/stats-one') { const r = await st.get(key(body.key)); return r ? ok(r) : err('live introuvable', 404); }
+    if (path === '/stats-del') {
+      await st.delete(key(body.key));
+      await st.put('statidx', ((await st.get('statidx')) || []).filter((x) => String(x.startedAt) !== String(+body.key)));
+      return ok({ ok: true });
     }
     return err('?', 404);
   }
@@ -1090,6 +1191,8 @@ export class Account {
       added = SUBA.addTime(sub, S, amount * sub.rules.don, `don de ${money} de ${d.name || 'Anonyme'} (${d.source || 'don'})`, 'don', now);
     }
     if (S) await st.put('substate', S);
+    const L = await st.get('statlive');
+    if (L) { STATS.don(L, amount, d.currency); await st.put('statlive', L); }
     const bot = await st.get('bot');
     if (bot && bot.enabled && bot.events.don && bot.events.don.on) {
       const state = (await st.get('botstate')) || {}, ctx = { state, changed: false };
@@ -1133,20 +1236,22 @@ export class Account {
     const cfg = await st.get('bot'), state = (await st.get('botstate')) || {}, profile = await st.get('profile');
     if (!profile) return;
     const secrets = await unseal(await st.get('secrets'), this.E.key).catch(() => ({}));
-    let again = false;
+    let next = Infinity;
+    const stats = await st.get('stats');
+    if (stats && stats.enabled) next = Math.min(next, (await this.statPoll(profile).catch(() => false)) ? 60000 : 300000); // en live : chaque minute, sinon toutes les 5 min
     if (cfg && cfg.enabled && state.live) {
       const ctx = { state, changed: false };
       await onTick(cfg, state, this.makeApi(cfg, profile, secrets, this.E, ctx), profile.login);
       await st.put('botstate', state);
-      again = true;
+      next = Math.min(next, 60000);
     }
     const sub = await st.get('sub');
     const S = sub && (await st.get('substate'));
     if (sub && sub.enabled && S && (S.status === 'running' || S.status === 'paused') && secrets.sejwt) {
       await this.pollStreamElements(sub, S, profile, secrets, this.E);
-      again = true;
+      next = Math.min(next, 60000);
     }
-    if (again) await st.setAlarm(Date.now() + 60000);
+    if (next < Infinity) await st.setAlarm(Date.now() + next);
   }
 
   broadcast(id, type = 'update') { this.ctx.getWebSockets('ov:' + id).forEach((ws) => { try { ws.send(JSON.stringify({ type })); } catch (e) { /* parti */ } }); }

@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Statistiques · StreamBox</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="css/site.css">
+</head>
+<body>
+<main class="wrap sx-page">
+  <h2 class="sec" style="margin-top:36px">📊 Statistiques des lives</h2>
+  <p class="sec">Le relais StreamBox note chaque minute de tes lives (viewers, chat, catégorie) et les événements (follows, abos, bits, raids, dons), même OBS fermé. Rien n’est partagé : ces chiffres ne sont visibles que par toi.</p>
+  <div id="need" class="box" hidden></div>
+
+  <div id="app" hidden>
+    <section class="box bt-status">
+      <div class="bt-row">
+        <label class="bt-toggle"><input type="checkbox" id="enabled"><b id="enabledLabel"></b></label>
+        <span class="flag" id="st"></span>
+      </div>
+      <div class="note" id="warn" hidden></div>
+    </section>
+
+    <section id="liveBox" class="box" hidden>
+      <h3 class="bt-h">🔴 En direct <small id="liveInfo"></small></h3>
+      <div class="sx-tiles" id="liveTiles"></div>
+      <div class="sx-chart" id="liveChart"></div>
+    </section>
+
+    <section class="box">
+      <div class="sx-head">
+        <h3 class="bt-h">Vue d’ensemble</h3>
+        <div class="sx-seg" id="period" role="group" aria-label="Période"><button data-i="0" class="on" type="button">7 jours</button><button data-i="1" type="button">30 jours</button></div>
+      </div>
+      <div class="sx-tiles" id="tiles"></div>
+      <p class="bt-help" id="cmp"></p>
+    </section>
+
+    <section class="box">
+      <div class="sx-head"><h3 class="bt-h">Mes lives <small id="nLives"></small></h3><button class="btn ghost small" id="csvAll" type="button">Exporter (CSV)</button></div>
+      <div class="sx-table-wrap"><table class="sx-table" id="lives"><thead><tr><th>Date</th><th>Titre</th><th>Durée</th><th>Moyenne</th><th>Pic</th><th>Messages</th><th>Follows</th><th>Abos</th></tr></thead><tbody></tbody></table></div>
+    </section>
+
+    <section class="box" id="detail" hidden>
+      <div class="sx-head"><h3 class="bt-h" id="dTitle"></h3><button class="btn ghost small" id="dClose" type="button">✕ Fermer</button></div>
+      <p class="bt-help" id="dInfo"></p>
+      <div class="sx-tiles" id="dTiles"></div>
+      <h4 class="sx-h4">Viewers</h4>
+      <div class="sx-chart" id="dViewers"></div>
+      <h4 class="sx-h4">Messages par minute</h4>
+      <div class="sx-chart short" id="dChat"></div>
+      <div class="sx-cols">
+        <div><h4 class="sx-h4">💬 Les plus bavards</h4><ol class="sx-list" id="dTop"></ol></div>
+        <div><h4 class="sx-h4">🎮 Catégories</h4><ul class="sx-list" id="dGames"></ul><h4 class="sx-h4">🚀 Raids reçus</h4><ul class="sx-list" id="dRaids"></ul></div>
+      </div>
+      <details class="more"><summary>Voir les données (toutes les 10 minutes)</summary><div class="sx-table-wrap"><table class="sx-table" id="dTable"><thead><tr><th>Heure</th><th>Viewers</th><th>Messages (10 min)</th></tr></thead><tbody></tbody></table></div></details>
+      <div class="pn-row" style="margin-top:14px"><button class="btn ghost small" id="dCsv" type="button">Exporter ce live (CSV)</button><button class="btn ghost small" id="dDel" type="button">Supprimer ce live</button></div>
+    </section>
+  </div>
+</main>
+<div class="sx-tip" id="tip" hidden></div>
+<script src="js/config.js"></script>
+<script src="js/account.js"></script>
+<script src="js/site.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+const DEMO = new URLSearchParams(location.search).get('demo') === '1';
+const nf = (n) => Math.round(n).toLocaleString('fr-FR');
+const dur = (ms) => { const m = Math.round(ms / 60000), h = Math.floor(m / 60); return h ? `${h} h ${String(m % 60).padStart(2, '0')}` : `${m} min`; };
+const day = (t) => new Date(t).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
+const hm = (t) => new Date(t).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+const money = (d) => Object.entries(d || {}).map(([c, v]) => v.toLocaleString('fr-FR', { style: 'currency', currency: c.length === 3 ? c : 'EUR' })).join(' + ');
+let data = null, period = 0, current = null;
+
+/* ---------- Tuiles ---------- */
+function tile(label, value, delta) {
+  const t = el('div', 'sx-tile');
+  t.append(el('span', 'sx-l', label), el('b', null, value));
+  if (delta) t.appendChild(el('small', 'sx-d ' + delta.cls, delta.text));
+  return t;
+}
+function delta(now, before) {
+  if (!before) return now ? { cls: 'up', text: 'nouveau' } : null;
+  const p = Math.round(((now - before) / before) * 100);
+  return p === 0 ? { cls: 'eq', text: '= stable' } : { cls: p > 0 ? 'up' : 'down', text: `${p > 0 ? '▲ +' : '▼ '}${p} %` };
+}
+
+/* ---------- Graphiques (SVG, une seule série, survol avec ligne de repère) ---------- */
+function chart(box, pts, o) {
+  box.replaceChildren();
+  if (pts.length < 2) { box.appendChild(el('p', 'bt-help', 'Pas encore assez de relevés (un par minute).')); return; }
+  const W = Math.max(280, box.clientWidth || 600), H = o.h || 220, L = 44, R = 12, T = 12, Bm = 26;
+  const t0 = pts[0][0], t1 = pts[pts.length - 1][0];
+  const vmax = Math.max(1, ...pts.map((p) => p[1]));
+  const step = niceStep(vmax / 4), ymax = Math.ceil(vmax / step) * step;
+  const x = (t) => L + ((t - t0) / Math.max(1, t1 - t0)) * (W - L - R);
+  const y = (v) => T + (1 - v / ymax) * (H - T - Bm);
+  const NS = 'http://www.w3.org/2000/svg', svg = document.createElementNS(NS, 'svg');
+  const mk = (tag, attrs, parent = svg) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); parent.appendChild(e); return e; };
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.setAttribute('width', W); svg.setAttribute('height', H); svg.setAttribute('role', 'img'); svg.setAttribute('aria-label', o.label);
+  for (let v = 0; v <= ymax; v += step) { mk('line', { x1: L, x2: W - R, y1: y(v), y2: y(v), class: 'sx-grid' }); mk('text', { x: L - 8, y: y(v) + 4, class: 'sx-axis', 'text-anchor': 'end' }).textContent = nf(v); }
+  const ticks = Math.min(6, Math.floor((W - L) / 90));
+  for (let i = 0; i <= ticks; i++) { const t = t0 + ((t1 - t0) * i) / ticks; mk('text', { x: x(t), y: H - 6, class: 'sx-axis', 'text-anchor': i === 0 ? 'start' : i === ticks ? 'end' : 'middle' }).textContent = hm(t); }
+  (o.markers || []).forEach((m) => { if (m.at <= t0) return; mk('line', { x1: x(m.at), x2: x(m.at), y1: T, y2: H - Bm, class: 'sx-mark' }); mk('text', { x: x(m.at) + 4, y: T + 10, class: 'sx-axis' }).textContent = m.label; });
+  if (o.bars) {
+    const bw = Math.max(1, (W - L - R) / pts.length - 2); // 2 px d'espace entre les barres
+    pts.forEach((p) => { if (p[1] > 0) mk('rect', { x: x(p[0]) - bw / 2, y: y(p[1]), width: bw, height: Math.max(1, y(0) - y(p[1])), rx: Math.min(2, bw / 2), class: 'sx-bar' }); });
+  } else {
+    const d = pts.map((p, i) => `${i ? 'L' : 'M'}${x(p[0]).toFixed(1)},${y(p[1]).toFixed(1)}`).join('');
+    mk('path', { d: d + `L${x(t1)},${y(0)}L${x(t0)},${y(0)}Z`, class: 'sx-area' });
+    mk('path', { d, class: 'sx-line' });
+  }
+  mk('line', { x1: L, x2: W - R, y1: y(0), y2: y(0), class: 'sx-base' });
+  const cross = mk('line', { x1: 0, x2: 0, y1: T, y2: H - Bm, class: 'sx-cross', visibility: 'hidden' });
+  const dot = mk('circle', { r: 4, class: 'sx-dot', visibility: 'hidden' });
+  box.appendChild(svg);
+  const tip = $('tip');
+  const show = (clientX) => {
+    const r = svg.getBoundingClientRect(), px = ((clientX - r.left) / r.width) * W;
+    const t = t0 + ((px - L) / (W - L - R)) * (t1 - t0);
+    let best = pts[0]; for (const p of pts) if (Math.abs(p[0] - t) < Math.abs(best[0] - t)) best = p;
+    cross.setAttribute('x1', x(best[0])); cross.setAttribute('x2', x(best[0])); cross.setAttribute('visibility', 'visible');
+    if (!o.bars) { dot.setAttribute('cx', x(best[0])); dot.setAttribute('cy', y(best[1])); dot.setAttribute('visibility', 'visible'); }
+    tip.replaceChildren(el('b', null, `${nf(best[1])} ${o.unit}`), el('span', null, hm(best[0])));
+    tip.hidden = false;
+    const tx = r.left + (x(best[0]) / W) * r.width + scrollX, ty = r.top + scrollY + 8;
+    tip.style.left = Math.min(tx + 12, scrollX + innerWidth - tip.offsetWidth - 8) + 'px'; tip.style.top = ty + 'px';
+  };
+  const hide = () => { tip.hidden = true; cross.setAttribute('visibility', 'hidden'); dot.setAttribute('visibility', 'hidden'); };
+  svg.addEventListener('pointermove', (e) => show(e.clientX)); svg.addEventListener('pointerleave', hide);
+  svg.tabIndex = 0; let ki = pts.length - 1;
+  svg.addEventListener('keydown', (e) => { if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return; ki = Math.max(0, Math.min(pts.length - 1, ki + (e.key === 'ArrowRight' ? 1 : -1))); const r = svg.getBoundingClientRect(); show(r.left + (x(pts[ki][0]) / W) * r.width); e.preventDefault(); });
+  svg.addEventListener('blur', hide);
+}
+function niceStep(v) { const p = 10 ** Math.floor(Math.log10(Math.max(1, v))); return [1, 2, 5, 10].map((m) => m * p).find((s) => s >= v) || p * 10; }
+// Messages par minute regroupés par 5 min pour des barres lisibles (moyenne par minute)
+function chatSeries(samples) { const out = []; for (let i = 0; i < samples.length; i += 5) { const g = samples.slice(i, i + 5); out.push([g[0][0], Math.round(g.reduce((a, s) => a + s[2], 0) / g.length)]); } return out; }
+
+/* ---------- Rendu ---------- */
+function render() {
+  const c = data.cfg;
+  $('enabled').checked = c.enabled; $('enabledLabel').textContent = c.enabled ? 'Enregistrement des lives activé' : 'Enregistrement désactivé';
+  $('st').textContent = data.live ? '🔴 live en cours' : c.enabled ? 'en attente du prochain live' : '';
+  const warn = [];
+  if (c.enabled && !data.can.chat) warn.push(['Les messages du chat ne sont pas comptés : autorise les permissions du bot (lecture du chat).', 'Autoriser', 'connexion.html?compte=1&scope=bot&retour=stats.html']);
+  if (c.enabled && !data.can.webhooks) warn.push(['Le relais n’a pas EVENTSUB_SECRET : seuls les viewers et la catégorie sont relevés (pas les follows, abos ni le chat).']);
+  $('warn').hidden = !warn.length;
+  $('warn').replaceChildren(...warn.map(([t, l, h]) => { const d = el('div', null, '• ' + t + ' '); if (l) { const a = el('a', 'btn small', l); a.href = h; d.appendChild(a); } return d; }));
+  // Live en cours
+  $('liveBox').hidden = !data.live;
+  if (data.live) {
+    const L = data.live;
+    $('liveInfo').textContent = `${dur(Date.now() - L.startedAt)} · ${L.games.map((g) => g.name).join(', ')}`;
+    const lastV = L.samples.length ? L.samples[L.samples.length - 1][1] : 0;
+    $('liveTiles').replaceChildren(tile('Viewers', nf(lastV)), tile('Moyenne', nf(L.avg)), tile('Pic', nf(L.peak)), tile('Messages', nf(L.msgs)), tile('Follows', nf(L.follows)), tile('Abos', nf(L.subs + L.resubs + L.gifts)));
+    chart($('liveChart'), L.samples, { label: 'Viewers du live en cours', unit: 'viewers', h: 180, markers: gameMarks(L) });
+  }
+  // Vue d'ensemble
+  const T = data.trends[period], n = T.now, b = T.before;
+  $('tiles').replaceChildren(
+    tile('Lives', nf(n.lives), delta(n.lives, b.lives)), tile('Heures streamées', n.hours.toLocaleString('fr-FR'), delta(n.hours, b.hours)),
+    tile('Viewers moyens', nf(n.avg), delta(n.avg, b.avg)), tile('Pic', nf(n.peak), delta(n.peak, b.peak)),
+    tile('Heures regardées', n.hoursWatched.toLocaleString('fr-FR'), delta(n.hoursWatched, b.hoursWatched)), tile('Follows', nf(n.follows), delta(n.follows, b.follows)),
+    tile('Abos', nf(n.subs), delta(n.subs, b.subs)), tile('Messages', nf(n.msgs), delta(n.msgs, b.msgs)));
+  $('cmp').textContent = `Les ${T.days} derniers jours, comparés aux ${T.days} jours d’avant.` + (b.lives ? '' : ' Pas encore de lives sur la période précédente.');
+  // Liste
+  $('nLives').textContent = data.lives.length ? `(${data.lives.length})` : '';
+  const tb = $('lives').tBodies[0];
+  tb.replaceChildren(...(data.lives.length ? data.lives.map((r) => {
+    const tr = el('tr'); tr.tabIndex = 0; tr.className = current && current.startedAt === r.startedAt ? 'on' : '';
+    const title = el('td', 'sx-t'); title.append(el('span', null, r.title || '(sans titre)'), el('small', null, r.games.map((g) => g.name).join(', ')));
+    tr.append(el('td', null, `${day(r.startedAt)} ${hm(r.startedAt)}`), title, el('td', null, dur(r.duration)), el('td', 'num', nf(r.avg)), el('td', 'num', nf(r.peak)), el('td', 'num', nf(r.msgs)), el('td', 'num', nf(r.follows)), el('td', 'num', nf(r.subs + r.resubs + r.gifts)));
+    tr.onclick = () => open(r.startedAt); tr.onkeydown = (e) => { if (e.key === 'Enter') open(r.startedAt); };
+    return tr;
+  }) : [(() => { const tr = el('tr'); const td = el('td', 'bt-help', c.enabled ? 'Ton premier live apparaîtra ici dès qu’il sera terminé.' : 'Active l’enregistrement pour garder les statistiques de tes prochains lives.'); td.colSpan = 8; tr.appendChild(td); return tr; })()]));
+}
+function gameMarks(r) { return r.games.slice(1).map((g) => ({ at: g.at, label: g.name })); }
+async function open(key) {
+  try {
+    const r = DEMO ? demoLive(key) : await SBA.api('GET', '/me/stats/' + key);
+    current = r; render(); $('detail').hidden = false;
+    $('dTitle').textContent = r.title || '(sans titre)';
+    $('dInfo').textContent = `${day(r.startedAt)}, ${hm(r.startedAt)} → ${hm(r.endedAt)} · ${dur(r.duration)}`;
+    $('dTiles').replaceChildren(tile('Moyenne', nf(r.avg)), tile('Pic', nf(r.peak)), tile('Heures regardées', r.hoursWatched.toLocaleString('fr-FR')), tile('Messages', nf(r.msgs)),
+      tile('Chatteurs', nf(r.chatters) + (r.chattersCapped ? '+' : '')), tile('Follows', nf(r.follows)), tile('Nouveaux abos', nf(r.subs)), tile('Réabos', nf(r.resubs)),
+      tile('Abos offerts', nf(r.gifts)), tile('Bits', nf(r.bits)), ...(Object.keys(r.dons).length ? [tile('Dons', money(r.dons))] : []));
+    chart($('dViewers'), r.samples, { label: 'Viewers pendant le live', unit: 'viewers', markers: gameMarks(r) });
+    chart($('dChat'), chatSeries(r.samples), { label: 'Messages par minute', unit: 'messages / min', bars: true, h: 150 });
+    $('dTop').replaceChildren(...(r.topChatters.length ? r.topChatters.map((x) => { const li = el('li'); li.append(el('span', null, x.name), el('b', null, nf(x.n))); return li; }) : [el('li', 'bt-help', 'Chat non compté pour ce live.')]));
+    $('dGames').replaceChildren(...r.games.map((g, i) => { const end = (r.games[i + 1] || {}).at || r.endedAt; const li = el('li'); li.append(el('span', null, g.name), el('b', null, dur(end - Math.max(g.at, r.startedAt)))); return li; }));
+    $('dRaids').replaceChildren(...(r.raids.length ? r.raids.map((x) => { const li = el('li'); li.append(el('span', null, x.from), el('b', null, `${nf(x.viewers)} viewers`)); return li; }) : [el('li', 'bt-help', 'Aucun')]));
+    const rows = []; for (let i = 0; i < r.samples.length; i += 10) { const g = r.samples.slice(i, i + 10); rows.push([g[0][0], g[0][1], g.reduce((a, s) => a + s[2], 0)]); }
+    $('dTable').tBodies[0].replaceChildren(...rows.map(([t, v, m]) => { const tr = el('tr'); tr.append(el('td', null, hm(t)), el('td', 'num', nf(v)), el('td', 'num', nf(m))); return tr; }));
+    $('detail').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } catch (e) { toast('Erreur : ' + e.message); }
+}
+function csv(name, head, rows) {
+  const q = (v) => (/[";\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v));
+  const blob = new Blob(['﻿' + [head, ...rows].map((r) => r.map(q).join(';')).join('\n')], { type: 'text/csv;charset=utf-8' });
+  const a = el('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+$('csvAll').onclick = () => csv('lives-streambox.csv', ['Début', 'Fin', 'Titre', 'Catégories', 'Durée (min)', 'Viewers moyens', 'Pic', 'Heures regardées', 'Messages', 'Chatteurs', 'Follows', 'Abos', 'Réabos', 'Abos offerts', 'Bits', 'Dons'],
+  data.lives.map((r) => [new Date(r.startedAt).toISOString(), new Date(r.endedAt).toISOString(), r.title, r.games.map((g) => g.name).join(', '), Math.round(r.duration / 60000), r.avg, r.peak, r.hoursWatched, r.msgs, r.chatters, r.follows, r.subs, r.resubs, r.gifts, r.bits, money(r.dons)]));
+$('dCsv').onclick = () => csv(`live-${new Date(current.startedAt).toISOString().slice(0, 10)}.csv`, ['Heure', 'Viewers', 'Messages'], current.samples.map((s) => [new Date(s[0]).toISOString(), s[1], s[2]]));
+$('dDel').onclick = async () => {
+  if (!confirm('Supprimer les statistiques de ce live ? C’est définitif.')) return;
+  try { if (!DEMO) await SBA.api('DELETE', '/me/stats/' + current.startedAt); data.lives = data.lives.filter((x) => x.startedAt !== current.startedAt); current = null; $('detail').hidden = true; render(); toast('Live supprimé'); } catch (e) { toast('Erreur : ' + e.message); }
+};
+$('dClose').onclick = () => { current = null; $('detail').hidden = true; render(); };
+$('period').onclick = (e) => { const b = e.target.closest('button'); if (!b) return; period = +b.dataset.i; document.querySelectorAll('#period button').forEach((x) => x.classList.toggle('on', x === b)); render(); };
+$('enabled').onchange = async () => {
+  try { const d = DEMO ? { cfg: { enabled: $('enabled').checked }, errors: [] } : await SBA.api('PUT', '/me/stats', { enabled: $('enabled').checked }); data.cfg = d.cfg; render(); toast(d.errors && d.errors.length ? '⚠️ ' + d.errors.join(' · ') : d.cfg.enabled ? 'Enregistrement activé' : 'Enregistrement désactivé'); }
+  catch (e) { toast('Erreur : ' + e.message); $('enabled').checked = !$('enabled').checked; }
+};
+let rz; addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { if (data && data.live) render(); if (current) open(current.startedAt); }, 200); });
+setInterval(async () => { if (!DEMO && data && data.live) { try { data = Object.assign(await SBA.api('GET', '/me/stats'), {}); render(); } catch (e) { /* ignore */ } } }, 60000);
+
+/* ---------- Démarrage ---------- */
+(async () => {
+  if (DEMO) { data = demoData(); $('app').hidden = false; render(); return; }
+  if (!SBA.enabled() || !SBA.loggedIn()) {
+    $('need').hidden = false; $('need').append(el('p', 'lead', 'Les statistiques sont liées à ton compte StreamBox : connecte-toi avec Twitch.'));
+    const b = el('button', 'btn', 'Se connecter avec Twitch'); b.onclick = () => SBA.login('stats.html'); $('need').appendChild(b); return;
+  }
+  try { data = await SBA.api('GET', '/me/stats'); $('app').hidden = false; render(); } catch (e) { $('need').hidden = false; $('need').textContent = 'Erreur : ' + e.message; }
+})();
+
+/* ---------- Démo (aperçu sans compte) ---------- */
+function rnd(seed) { let s = seed; return () => ((s = (s * 16807) % 2147483647) / 2147483647); }
+function demoLive(startedAt) {
+  const r = rnd(startedAt % 1000 + 7), n = 150 + Math.floor(r() * 120), base = 60 + r() * 80, samples = [];
+  for (let i = 0; i < n; i++) { const v = Math.round(base * (0.4 + Math.min(1, i / 25)) * (1 + 0.15 * Math.sin(i / 9)) + r() * 12 + (i > n * 0.6 && i < n * 0.6 + 30 ? 90 : 0)); samples.push([startedAt + i * 60000, v, Math.round(v / 6 + r() * 10)]); }
+  const views = samples.map((s) => s[1]), avg = Math.round(views.reduce((a, b) => a + b) / n);
+  return { startedAt, endedAt: startedAt + (n - 1) * 60000, duration: (n - 1) * 60000, title: ['Soirée cubes 🧱', 'Speedrun du dimanche', 'On termine le jeu !'][startedAt % 3], games: [{ name: 'Just Chatting', at: startedAt }, { name: 'Minecraft', at: startedAt + 20 * 60000 }],
+    samples, avg, peak: Math.max(...views), hoursWatched: Math.round((avg * n) / 60 * 10) / 10, msgs: samples.reduce((a, s) => a + s[2], 0), chatters: 180 + Math.floor(r() * 100), chattersCapped: false,
+    topChatters: [['Pixelmaud', 412], ['Kevin_le_roux', 380], ['Lou', 255], ['NouveauVenu', 120], ['ModoSympa', 98]].map(([name, x]) => ({ name, n: x })),
+    follows: 20 + Math.floor(r() * 30), subs: 3 + Math.floor(r() * 6), resubs: 5 + Math.floor(r() * 8), gifts: Math.floor(r() * 10), bits: Math.floor(r() * 3000), raids: [{ from: 'Amie_Streameuse', viewers: 87 }], dons: { EUR: 25 } };
+}
+function demoData() {
+  const now = Date.now(), lives = [];
+  for (let d = 1; d < 40; d += 2 + (d % 3)) { const t = Math.floor((now - d * 86400000) / 60000) * 60000; const { samples, topChatters, ...s } = demoLive(t); lives.push(Object.assign(s, { points: samples.length })); }
+  const sum = (rs) => { const h = rs.reduce((a, r) => a + r.duration, 0) / 36e5; return { lives: rs.length, hours: Math.round(h * 10) / 10, avg: Math.round(h ? rs.reduce((a, r) => a + r.avg * r.duration / 36e5, 0) / h : 0), peak: Math.max(0, ...rs.map((r) => r.peak)), follows: rs.reduce((a, r) => a + r.follows, 0), subs: rs.reduce((a, r) => a + r.subs + r.resubs + r.gifts, 0), msgs: rs.reduce((a, r) => a + r.msgs, 0), hoursWatched: Math.round(rs.reduce((a, r) => a + r.hoursWatched, 0) * 10) / 10 }; };
+  const tr = (days) => ({ days, now: sum(lives.filter((r) => r.startedAt > now - days * 864e5)), before: sum(lives.filter((r) => r.startedAt <= now - days * 864e5 && r.startedAt > now - 2 * days * 864e5)) });
+  const live = demoLive(Math.floor((now - 95 * 60000) / 60000) * 60000); live.samples = live.samples.slice(0, 95); live.title = 'En direct maintenant';
+  return { cfg: { enabled: true }, live, lives, trends: [tr(7), tr(30)], can: { chat: true, bits: true, webhooks: true } };
+}
+</script>
+</body>
+</html>
