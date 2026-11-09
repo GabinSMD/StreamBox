@@ -22,6 +22,7 @@
  *   POST   /auth/twitch                 { code, redirect_uri } → { session, login } (échange OAuth côté relais)
  *   POST   /auth/logout
  *   GET    /me                          profil, overlays, intégrations renseignées (jamais les valeurs)
+ *   PUT    /me/lang                     { lang: fr | en | es } : langue des réponses du bot et des jeux
  *   PUT    /me/secrets                  { cle: valeur | null }  (jetons chiffrés au repos)
  *   POST   /me/overlays                 { tool, name, settings } → { id }
  *   GET    /me/overlays/:id             réglages d'un overlay (pour le configurateur)
@@ -67,6 +68,7 @@ import * as SR from './sr.js';
 import * as JEUX from './jeux.js';
 import * as STATS from './stats.js';
 import * as MC from './multichat.js';
+import { tr, LANGS } from './i18n.js';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -356,7 +358,7 @@ async function accountRoutes(req, env, url, p) {
     }
     if (p[2] === 'tts' && req.method === 'POST') { // overlay Lecture à voix haute : voix du relais
       const d = await req.json().catch(() => ({}));
-      const r = await stub('user:' + idx.user_id).fetch('https://acc/ov-tts', { method: 'POST', body: JSON.stringify({ ov: p[1], text: d.text }) });
+      const r = await stub('user:' + idx.user_id).fetch('https://acc/ov-tts', { method: 'POST', body: JSON.stringify({ ov: p[1], text: d.text, lang: d.lang }) });
       return withCors(new Response(r.body, { status: r.status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } }));
     }
     if (p[2] === 'jeux' && req.method === 'GET') { // overlay Mini-jeux : état public des jeux
@@ -400,6 +402,7 @@ async function accountRoutes(req, env, url, p) {
     return r;
   }
   if (p[1] === 'secrets' && req.method === 'PUT') return fwd('/secrets', 'POST', body);
+  if (p[1] === 'lang' && req.method === 'PUT') return fwd('/lang', 'POST', body);
   if (p[1] === 'twitch-token' && p.length === 2 && req.method === 'GET') return fwd('/my-token', 'POST', {});
   if (p[1] === 'sr') {
     if (p.length === 2 && req.method === 'GET') return fwd('/sr-get', 'POST', {});
@@ -519,6 +522,7 @@ export class Account {
       const s = await secrets();
       return ok({ user_id: profile.user_id, login: profile.login, access: await this.twitchAccess(s, E) });
     }
+    if (path === '/lang') { if (!LANGS.includes(body.lang)) return err('langue inconnue'); profile.lang = body.lang; await st.put('profile', profile); return ok({ lang: profile.lang }); }
     if (path === '/my-token') { // panneau de modération : le modo agit avec SON compte Twitch, depuis son navigateur
       const s = await secrets();
       const access = await this.twitchAccess(s, E);
@@ -538,7 +542,7 @@ export class Account {
       if (this._tts.length >= 20) return err('trop de lectures, réessaie dans un instant', 429);
       this._tts.push(now);
       try {
-        const r = await this.env.AI.run('@cf/myshell-ai/melotts', { prompt: text, lang: 'fr' });
+        const r = await this.env.AI.run('@cf/myshell-ai/melotts', { prompt: text, lang: LANGS.includes(body.lang) ? body.lang : 'fr' });
         const audio = typeof r === 'string' ? r : r && r.audio;
         if (!audio) throw new Error('réponse vide');
         return ok({ audio, mime: 'audio/mpeg' });
@@ -578,7 +582,7 @@ export class Account {
     }
     if (path === '/me') {
       const s = await secrets(); const ov = await overlays();
-      return ok({ login: profile.login, scopes: profile.scopes, secrets: Object.fromEntries(SECRET_KEYS.map((k) => [k, !!s[k]])),
+      return ok({ login: profile.login, lang: profile.lang || 'fr', scopes: profile.scopes, secrets: Object.fromEntries(SECRET_KEYS.map((k) => [k, !!s[k]])),
         overlays: Object.values(ov).map(({ id, tool, name, updatedAt }) => ({ id, tool, name, updatedAt })).sort((a, b) => b.updatedAt - a.updatedAt) });
     }
     if (path === '/secrets') {
@@ -681,6 +685,7 @@ export class Account {
     const fail = async (what, r) => { if (r && !r.ok) ctx.state.lastError = `${what} : ${r.status} ${(await r.text().catch(() => '')).slice(0, 160)}`; return r; };
     return {
       async say(text, reply) {
+        text = tr(text, profile.lang); // langue choisie par le streamer sur le site
         const b = await sender();
         if (cfg.sender === 'bot' && !b) { ctx.state.lastError = 'compte bot du site non connecté'; return; }
         ctx.state.sent = (ctx.state.sent || []).concat({ text, t: Date.now() }).slice(-20);

@@ -51,8 +51,9 @@
   SB.params = function (defaults) {
     const q = SB.query();
     const out = {};
+    if (SB.setLang && q.get('lang')) SB.setLang(q.get('lang')); // langue de l'overlay (réglage « lang »)
     for (const [k, v] of Object.entries(defaults)) {
-      if (!q.has(k)) { out[k] = v; continue; }
+      if (!q.has(k)) { out[k] = typeof v === 'string' && SB.t ? SB.t(v) : v; continue; } // textes par défaut dans la langue choisie
       const raw = q.get(k);
       if (typeof v === 'number') { const n = parseFloat(raw); out[k] = isNaN(n) ? v : n; }
       else if (typeof v === 'boolean') out[k] = raw === '1' || raw === 'true';

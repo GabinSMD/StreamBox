@@ -6,6 +6,7 @@
 <title>Mon compte · StreamBox</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Roboto+Mono&display=swap">
 <link rel="stylesheet" href="css/site.css">
+<script src="js/i18n.js"></script>
 </head>
 <body>
 <main class="wrap">
@@ -81,7 +82,7 @@ function renderOverlays() {
     const tool = SB_TOOLS.find((t) => t.id === o.tool) || { icon: '❔', name: o.tool, overlay: '' };
     const row = el('div', 'acc-row');
     const info = el('div', 'acc-info');
-    info.append(el('b', null, tool.icon + ' ' + o.name), el('small', null, tool.name + ' · modifié le ' + new Date(o.updatedAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })));
+    info.append(el('b', null, tool.icon + ' ' + o.name), el('small', null, tool.name + ' · modifié le ' + new Date(o.updatedAt).toLocaleString(SB_LANG_TAG, { dateStyle: 'short', timeStyle: 'short' })));
     const acts = el('div', 'pn-row');
     const btn = (label, cls, fn) => { const b = el('button', 'btn small ' + (cls || 'ghost'), label); b.type = 'button'; b.onclick = fn; acts.appendChild(b); return b; };
     const edit = el('a', 'btn small', 'Modifier'); edit.href = `outil.html?id=${o.tool}&o=${o.id}`; acts.appendChild(edit);

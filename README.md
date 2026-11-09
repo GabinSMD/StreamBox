@@ -163,7 +163,7 @@ Prochaines étapes :
 - [x] Panneau de modération (sanctions, modes du chat, AutoMod, fiche viewer)
 - [x] Statistiques des lives
 - [x] Multi-plateforme : chat Kick et YouTube fusionnés (overlay Chat)
-- [ ] Site et overlays en plusieurs langues (anglais, espagnol…)
+- [x] Site, overlays et réponses du bot en français, anglais et espagnol
 - [x] Comptes StreamBox (connexion Twitch, réglages et jetons enregistrés, liens courts)
 
 ## Contribuer

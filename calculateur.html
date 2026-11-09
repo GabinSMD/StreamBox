@@ -6,6 +6,7 @@
 <title>Calculateur de revenus · StreamBox</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
 <link rel="stylesheet" href="css/site.css">
+<script src="js/i18n.js"></script>
 </head>
 <body>
 <main class="wrap">
@@ -43,7 +44,7 @@ const $ = (id) => document.getElementById(id);
 const n = (id) => Math.max(0, parseFloat($(id).value) || 0);
 function calc() {
   const cur = $('cur').value;
-  const fmt = (v) => v.toLocaleString('fr-FR', { style: 'currency', currency: cur });
+  const fmt = (v) => v.toLocaleString(SB_LANG_TAG, { style: 'currency', currency: cur });
   const share = n('split') / 100;
   const subs = { 'Palier 1': (n('t1')) * n('p1'), 'Prime': n('prime') * n('p1'), 'Palier 2': n('t2') * n('p2'), 'Palier 3': n('t3') * n('p3') };
   const bits = n('bits') * 0.01;

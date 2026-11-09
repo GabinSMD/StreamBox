@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <title>StreamBox · Objectif</title>
 <link rel="stylesheet" href="../css/overlay.css">
+<script src="../js/i18n.js"></script>
 </head>
 <body>
 <div class="goal" id="goal">
@@ -43,7 +44,7 @@ function render() {
   shownTarget = t; lastValue = S.value;
   const done = S.value >= t;
   $('title').textContent = c.title || LABEL[0];
-  const fmt = (n) => Number(n).toLocaleString('fr-FR', { maximumFractionDigits: 2 });
+  const fmt = (n) => Number(n).toLocaleString(SB_LANG_TAG, { maximumFractionDigits: 2 });
   $('num').textContent = `${fmt(S.value)} / ${fmt(t)}${LABEL[1] === '€' ? ' €' : ''}`;
   $('fill').style.width = Math.min(100, (S.value / t) * 100) + '%';
   document.body.classList.toggle('goal-done', done);

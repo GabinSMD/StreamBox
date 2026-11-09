@@ -6,6 +6,7 @@
 <title>Connexion Twitch · StreamBox</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap">
 <link rel="stylesheet" href="css/site.css">
+<script src="js/i18n.js"></script>
 </head>
 <body>
 <main class="wrap"><div class="box" style="margin:48px auto;max-width:520px"><h1 id="h">Connexion à Twitch…</h1><p class="lead" id="p"></p></div></main>
@@ -32,10 +33,11 @@ if (q.get('code') && q.get('state')) {
     let mode = null; try { mode = sessionStorage.getItem('sb-oauth-mode'); sessionStorage.removeItem('sb-oauth-mode'); } catch (e) { /* ignore */ }
     fetch(SBA.relay() + '/auth/twitch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: q.get('code'), redirect_uri: location.origin + location.pathname, mode }) })
       .then((r) => r.json().then((d) => [r.ok, d]))
-      .then(([ok, d]) => {
+      .then(async ([ok, d]) => {
         if (!ok) return say('Connexion impossible', d.error || '');
         if (d.bot) { say('Compte bot connecté ✓', d.login + ' peut maintenant écrire dans les chats. Retour…'); return setTimeout(() => location.replace('bot.html'), 1200); }
         SBA.set({ session: d.session, login: d.login });
+        if (window.SB && SB.lang && mode !== 'viewer') await SBA.api('PUT', '/me/lang', { lang: SB.lang() }).catch(() => {}); // langue des réponses du bot
         say('Connecté !', 'Bienvenue ' + d.login + ' 👋');
         location.replace(safeReturn(decodeURIComponent(ret.join('|'))));
       }).catch(() => say('Connexion impossible', 'Le relais StreamBox ne répond pas.'));

@@ -6,6 +6,7 @@
 <title>Statistiques · StreamBox</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
 <link rel="stylesheet" href="css/site.css">
+<script src="js/i18n.js"></script>
 </head>
 <body>
 <main class="wrap sx-page">
@@ -67,11 +68,11 @@
 const $ = (id) => document.getElementById(id);
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
 const DEMO = new URLSearchParams(location.search).get('demo') === '1';
-const nf = (n) => Math.round(n).toLocaleString('fr-FR');
+const nf = (n) => Math.round(n).toLocaleString(SB_LANG_TAG);
 const dur = (ms) => { const m = Math.round(ms / 60000), h = Math.floor(m / 60); return h ? `${h} h ${String(m % 60).padStart(2, '0')}` : `${m} min`; };
-const day = (t) => new Date(t).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
-const hm = (t) => new Date(t).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-const money = (d) => Object.entries(d || {}).map(([c, v]) => v.toLocaleString('fr-FR', { style: 'currency', currency: c.length === 3 ? c : 'EUR' })).join(' + ');
+const day = (t) => new Date(t).toLocaleDateString(SB_LANG_TAG, { weekday: 'short', day: 'numeric', month: 'short' });
+const hm = (t) => new Date(t).toLocaleTimeString(SB_LANG_TAG, { hour: '2-digit', minute: '2-digit' });
+const money = (d) => Object.entries(d || {}).map(([c, v]) => v.toLocaleString(SB_LANG_TAG, { style: 'currency', currency: c.length === 3 ? c : 'EUR' })).join(' + ');
 let data = null, period = 0, current = null;
 
 /* ---------- Tuiles ---------- */
@@ -160,9 +161,9 @@ function render() {
   // Vue d'ensemble
   const T = data.trends[period], n = T.now, b = T.before;
   $('tiles').replaceChildren(
-    tile('Lives', nf(n.lives), delta(n.lives, b.lives)), tile('Heures streamées', n.hours.toLocaleString('fr-FR'), delta(n.hours, b.hours)),
+    tile('Lives', nf(n.lives), delta(n.lives, b.lives)), tile('Heures streamées', n.hours.toLocaleString(SB_LANG_TAG), delta(n.hours, b.hours)),
     tile('Viewers moyens', nf(n.avg), delta(n.avg, b.avg)), tile('Pic', nf(n.peak), delta(n.peak, b.peak)),
-    tile('Heures regardées', n.hoursWatched.toLocaleString('fr-FR'), delta(n.hoursWatched, b.hoursWatched)), tile('Follows', nf(n.follows), delta(n.follows, b.follows)),
+    tile('Heures regardées', n.hoursWatched.toLocaleString(SB_LANG_TAG), delta(n.hoursWatched, b.hoursWatched)), tile('Follows', nf(n.follows), delta(n.follows, b.follows)),
     tile('Abos', nf(n.subs), delta(n.subs, b.subs)), tile('Messages', nf(n.msgs), delta(n.msgs, b.msgs)));
   $('cmp').textContent = `Les ${T.days} derniers jours, comparés aux ${T.days} jours d’avant.` + (b.lives ? '' : ' Pas encore de lives sur la période précédente.');
   // Liste
@@ -170,7 +171,7 @@ function render() {
   const tb = $('lives').tBodies[0];
   tb.replaceChildren(...(data.lives.length ? data.lives.map((r) => {
     const tr = el('tr'); tr.tabIndex = 0; tr.className = current && current.startedAt === r.startedAt ? 'on' : '';
-    const title = el('td', 'sx-t'); title.append(el('span', null, r.title || '(sans titre)'), el('small', null, r.games.map((g) => g.name).join(', ')));
+    const title = el('td', 'sx-t'); title.dataset.i18nSkip = ''; title.append(el('span', null, r.title || '(sans titre)'), el('small', null, r.games.map((g) => g.name).join(', ')));
     tr.append(el('td', null, `${day(r.startedAt)} ${hm(r.startedAt)}`), title, el('td', null, dur(r.duration)), el('td', 'num', nf(r.avg)), el('td', 'num', nf(r.peak)), el('td', 'num', nf(r.msgs)), el('td', 'num', nf(r.follows)), el('td', 'num', nf(r.subs + r.resubs + r.gifts)));
     tr.onclick = () => open(r.startedAt); tr.onkeydown = (e) => { if (e.key === 'Enter') open(r.startedAt); };
     return tr;
@@ -183,7 +184,7 @@ async function open(key) {
     current = r; render(); $('detail').hidden = false;
     $('dTitle').textContent = r.title || '(sans titre)';
     $('dInfo').textContent = `${day(r.startedAt)}, ${hm(r.startedAt)} → ${hm(r.endedAt)} · ${dur(r.duration)}`;
-    $('dTiles').replaceChildren(tile('Moyenne', nf(r.avg)), tile('Pic', nf(r.peak)), tile('Heures regardées', r.hoursWatched.toLocaleString('fr-FR')), tile('Messages', nf(r.msgs)),
+    $('dTiles').replaceChildren(tile('Moyenne', nf(r.avg)), tile('Pic', nf(r.peak)), tile('Heures regardées', r.hoursWatched.toLocaleString(SB_LANG_TAG)), tile('Messages', nf(r.msgs)),
       tile('Chatteurs', nf(r.chatters) + (r.chattersCapped ? '+' : '')), tile('Follows', nf(r.follows)), tile('Nouveaux abos', nf(r.subs)), tile('Réabos', nf(r.resubs)),
       tile('Abos offerts', nf(r.gifts)), tile('Bits', nf(r.bits)), ...(Object.keys(r.dons).length ? [tile('Dons', money(r.dons))] : []));
     chart($('dViewers'), r.samples, { label: 'Viewers pendant le live', unit: 'viewers', markers: gameMarks(r) });

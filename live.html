@@ -7,6 +7,7 @@
 <meta name="description" content="Suis le subathon en direct : temps restant, paliers, idées et votes du chat.">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
 <link rel="stylesheet" href="css/site.css">
+<script src="js/i18n.js"></script>
 </head>
 <body>
 <main class="wrap lv">
@@ -53,7 +54,7 @@ const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls)
 const chan = (new URLSearchParams(location.search).get('c') || '').toLowerCase().replace(/[^a-z0-9_]/g, '');
 const relay = SBA.relay();
 let data = null, base = 0; // base = Date.now() à la réception (pour faire défiler le timer entre deux mises à jour)
-const nf = (n) => Number(n).toLocaleString('fr-FR', { maximumFractionDigits: 2 });
+const nf = (n) => Number(n).toLocaleString(SB_LANG_TAG, { maximumFractionDigits: 2 });
 const fmt = (ms) => { const s = Math.max(0, Math.ceil(ms / 1000)), d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60), p = (x) => String(x).padStart(2, '0'); return (d ? d + 'j ' : '') + `${d ? p(h) : h}:${p(m)}:${p(s % 60)}`; };
 const fmtShort = (ms) => { const m = Math.round(Math.abs(ms) / 60000); return (ms < 0 ? '−' : '+') + (m >= 60 ? `${Math.floor(m / 60)}h${String(m % 60).padStart(2, '0')}` : `${m} min`); };
 const headers = () => (SBA.loggedIn() ? { Authorization: 'Bearer ' + SBA.session().session } : {});

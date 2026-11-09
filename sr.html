@@ -6,6 +6,7 @@
 <title>Demandes de musique · StreamBox</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
 <link rel="stylesheet" href="css/site.css">
+<script src="js/i18n.js"></script>
 </head>
 <body>
 <main class="wrap">
@@ -67,7 +68,7 @@ function field(key, label, type, opts = {}) {
 function itemRow(x, i, actions) {
   const row = el('div', 'sr-item');
   if (x.thumb) { const img = el('img'); img.src = x.thumb; img.alt = ''; row.appendChild(img); }
-  const t = el('div', 'sr-t'); const a = el('a', null, x.title); a.href = x.url || '#'; a.target = '_blank'; a.rel = 'noopener';
+  const t = el('div', 'sr-t'); const a = el('a', null, x.title); a.dataset.i18nSkip = ''; a.href = x.url || '#'; a.target = '_blank'; a.rel = 'noopener';
   t.append(i != null ? el('b', 'lv-num', `${i + 1}. `) : '', a, el('small', null, [x.artist, len(x.duration), 'par ' + x.by, x.status === 'error' ? '⚠️ illisible' : x.status === 'skipped' ? 'passé' : x.status === 'spotify' ? 'envoyé à Spotify' : ''].filter(Boolean).join(' · ')));
   row.appendChild(t);
   (actions || []).forEach(([label, title, fn]) => { const b = el('button', 'btn ghost small', label); b.type = 'button'; b.title = title; b.onclick = fn; row.appendChild(b); });

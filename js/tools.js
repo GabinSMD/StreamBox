@@ -398,6 +398,8 @@
     { id: 'calc', icon: '💰', name: 'Calculateur de revenus', href: 'calculateur.html', tagline: 'Estime ce que te rapportent tes abonnements et tes bits chaque mois.', replaces: ['calculateurs d’EmoteResizer'] },
     { id: 'annuaire', icon: '🧭', name: 'Annuaire des outils', href: 'annuaire.html', tagline: 'Les autres outils de la communauté (clips, bots, stats…), triés et commentés.', replaces: [] },
   ];
+  /* Langue des textes affichés par l'overlay (le configurateur propose d'abord la langue du site) */
+  const LANG = { key: 'lang', label: 'Langue de l’overlay', type: 'select', default: 'fr', options: [['fr', 'Français'], ['en', 'English'], ['es', 'Español']], help: 'Textes affichés sur ton stream (alertes, sondages, minuteur…). Les messages du chat ne sont jamais traduits.' };
   /* Apparence avancée : commune à tous les overlays, rangée dans « 🎨 Personnaliser l'apparence » */
   const STYLE = [
     { key: 'textcolor', label: 'Couleur du texte', type: 'color', default: '#ffffff', group: 'style' },
@@ -440,6 +442,6 @@
   window.SB_TOOLS.forEach((t) => {
     if (WITH_DONS.includes(t.id)) t.fields = t.fields.concat(DONS);
     if (PILOTABLE.includes(t.id)) t.fields = t.fields.concat(REMOTE);
-    t.fields = t.fields.concat(STYLE);
+    t.fields = t.fields.concat([LANG], STYLE);
   });
 })();
