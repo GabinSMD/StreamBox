@@ -29,10 +29,12 @@ if (q.get('code') && q.get('state')) {
   if (!expected || nonce !== expected) say('Connexion refusée', 'La réponse de Twitch ne correspond pas à la demande. Réessaie.');
   else {
     say('Connexion…', 'Ouverture de ton compte StreamBox');
-    fetch(SBA.relay() + '/auth/twitch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: q.get('code'), redirect_uri: location.origin + location.pathname }) })
+    let mode = null; try { mode = sessionStorage.getItem('sb-oauth-mode'); sessionStorage.removeItem('sb-oauth-mode'); } catch (e) { /* ignore */ }
+    fetch(SBA.relay() + '/auth/twitch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: q.get('code'), redirect_uri: location.origin + location.pathname, mode }) })
       .then((r) => r.json().then((d) => [r.ok, d]))
       .then(([ok, d]) => {
         if (!ok) return say('Connexion impossible', d.error || '');
+        if (d.bot) { say('Compte bot connecté ✓', d.login + ' peut maintenant écrire dans les chats. Retour…'); return setTimeout(() => location.replace('bot.html'), 1200); }
         SBA.set({ session: d.session, login: d.login });
         say('Connecté !', 'Bienvenue ' + d.login + ' 👋');
         location.replace(safeReturn(decodeURIComponent(ret.join('|'))));
@@ -61,8 +63,17 @@ if (q.get('code') && q.get('state')) {
   // Avec un relais : vrai compte (code + jeton renouvelé par le relais). Sans relais : jeton direct dans le navigateur.
   u.searchParams.set('response_type', SBA.enabled() ? 'code' : 'token');
   // Une seule connexion pour tous les outils StreamBox, avec uniquement ces permissions :
-  const scope = 'clips:edit moderator:read:followers channel:read:redemptions channel:read:subscriptions';
+  const base = 'clips:edit moderator:read:followers channel:read:redemptions channel:read:subscriptions';
+  // Bot de chat : permissions en plus, demandées seulement quand le streamer active le bot
+  const BOT = 'user:read:chat user:write:chat user:bot channel:bot moderator:manage:chat_messages moderator:manage:banned_users moderator:manage:shoutouts bits:read';
+  const BOT_ACCOUNT = 'user:read:chat user:write:chat user:bot moderator:manage:chat_messages moderator:manage:banned_users moderator:manage:shoutouts';
+  let wantsBot = q.get('scope') === 'bot';
+  try { if (wantsBot) localStorage.setItem('sb-wants-bot', '1'); else wantsBot = localStorage.getItem('sb-wants-bot') === '1'; } catch (e) { /* ignore */ }
+  const botAccount = q.get('mode') === 'botaccount';
+  try { if (botAccount) sessionStorage.setItem('sb-oauth-mode', 'botaccount'); } catch (e) { /* ignore */ }
+  const scope = botAccount ? BOT_ACCOUNT : wantsBot ? base + ' ' + BOT : base;
   u.searchParams.set('scope', scope);
+  if (botAccount || q.get('scope') === 'bot') u.searchParams.set('force_verify', 'true'); // permet de choisir le bon compte Twitch
   u.searchParams.set('state', nonce + '|' + encodeURIComponent(safeReturn(q.get('retour'))));
   location.replace(u.toString());
 }

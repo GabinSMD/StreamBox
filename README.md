@@ -19,6 +19,7 @@ Une boîte à outils gratuite pour streamers. Elle regroupe dans un seul site ce
 | 🎵 Musique en cours : Spotify direct, Deezer, YouTube Music et Apple Music via Last.fm | Overlay OBS | Tuna, Amuse |
 | 📣 Annonces Discord : début du live, récap de fin, gagnant du giveaway, `!discord` | Source OBS invisible | Bots d’annonce |
 | 🧩 Extension « Musiques des redifs » (VOD Twitch et rediffusions YouTube) | Extension navigateur | |
+| 🤖 Bot de chat : commandes, messages automatiques, modération, remerciements (24 h/24 sur le relais) | Page web + relais | Nightbot, Moobot, Fossabot |
 | 🎛️ Panneau de contrôle : boutons pour tous les overlays et les scènes OBS | Page web / dock OBS | Kloot, Poltergeist, Xenon |
 | 🖼️ Redimensionneur d’emotes et de badges | Page web | EmoteResizer, Twitch Emote Resizer |
 | 💰 Calculateur de revenus | Page web | Calculateurs divers |
@@ -104,6 +105,8 @@ overlays/*.html       Les overlays OBS
 js/sb.js              Noyau : client chat Twitch, emotes, apparence, liens courts, mode démo
 js/account.js         Compte StreamBox côté site (session, appels au relais)
 compte.html           Mon compte : overlays et intégrations
+bot.html              Bot de chat
+relay/bot.js          Logique du bot (commandes, modération, messages automatiques, événements)
 js/highlights.js      Détecteur de temps forts (chat + voix)
 js/obs.js             Client obs-websocket v5
 js/eventsub.js        Client EventSub WebSocket (follows, points de chaîne, début/fin du live)
@@ -124,7 +127,7 @@ Prochaines étapes :
 - [x] Roue de la fortune
 - [x] Dons automatiques : StreamElements, Streamlabs, Ko-fi (et tout webhook via le relais)
 - [x] Discord, musique (Spotify, Deezer, YouTube Music), extension des redifs
-- [ ] Bot de chat : commandes personnalisées, minuteurs, modération
+- [x] Bot de chat : commandes personnalisées, messages automatiques, modération, événements
 - [x] Panneau de contrôle (dock OBS)
 - [ ] Multi-plateforme : chat Kick et YouTube fusionnés
 - [ ] Lecture des messages à voix haute (TTS) et demandes de musiques par le chat

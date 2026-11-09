@@ -28,8 +28,15 @@
  *   GET    /o/:id                       réglages + jetons utiles à cet outil seulement (lu par l'overlay)
  *   GET    /o/:id/ws                    WebSocket : « update » quand le streamer modifie l'overlay
  *
- * Secrets (wrangler secret put …) : TWITCH_CLIENT_ID, TWITCH_CLIENT_SECRET, ENCRYPTION_KEY (32 octets en base64).
+ * Bot de chat :
+ *   GET/PUT /me/bot · POST /me/bot/test (console de test, n'écrit rien sur Twitch)
+ *   POST    /eventsub                    webhooks EventSub signés (chat, live, follows, abos, raids, bits)
+ *
+ * Secrets (wrangler secret put …) : TWITCH_CLIENT_ID, TWITCH_CLIENT_SECRET, ENCRYPTION_KEY (32 octets en base64),
+ *   EVENTSUB_SECRET (10 à 100 caractères, pour signer les webhooks), BOT_LOGIN (facultatif : compte bot du site).
  */
+
+import { DEFAULT_BOT, sanitizeBot, onChat, onEvent, onTick, wantedSubs, BOT_SCOPES, BOT_ACCOUNT_SCOPES } from './bot.js';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -132,18 +139,23 @@ async function twitchLogin(auth) {
 }
 
 let appToken = null; // jeton d'application Twitch, gardé en mémoire tant que le Worker vit
+async function appAccess(cid, secret) {
+  if (!appToken || appToken.exp < Date.now() || appToken.cid !== cid) {
+    const r = await fetch('https://id.twitch.tv/oauth2/token', { method: 'POST', body: new URLSearchParams({ client_id: cid, client_secret: secret, grant_type: 'client_credentials' }) });
+    const d = await r.json();
+    if (!d.access_token) throw new Error('jeton d’application Twitch refusé');
+    appToken = { v: d.access_token, exp: Date.now() + ((d.expires_in || 3600) - 60) * 1000, cid };
+  }
+  return appToken.v;
+}
 async function twitchVideo(id, env) {
   if (!env.TWITCH_CLIENT_ID || !env.TWITCH_CLIENT_SECRET) return json({ error: 'relais sans identifiants Twitch' }, 501);
   const cache = caches.default;
   const key = new Request('https://cache.streambox/video/' + id);
   const hit = await cache.match(key);
   if (hit) return withCors(hit);
-  if (!appToken || appToken.exp < Date.now()) {
-    const r = await fetch('https://id.twitch.tv/oauth2/token', { method: 'POST', body: new URLSearchParams({ client_id: env.TWITCH_CLIENT_ID, client_secret: env.TWITCH_CLIENT_SECRET, grant_type: 'client_credentials' }) });
-    const d = await r.json();
-    appToken = { v: d.access_token, exp: Date.now() + (d.expires_in - 60) * 1000 };
-  }
-  const r = await fetch('https://api.twitch.tv/helix/videos?id=' + id, { headers: { 'Client-Id': env.TWITCH_CLIENT_ID, Authorization: 'Bearer ' + appToken.v } });
+  const tok = await appAccess(env.TWITCH_CLIENT_ID, env.TWITCH_CLIENT_SECRET);
+  const r = await fetch('https://api.twitch.tv/helix/videos?id=' + id, { headers: { 'Client-Id': env.TWITCH_CLIENT_ID, Authorization: 'Bearer ' + tok } });
   const v = ((await r.json()).data || [])[0];
   if (!v) return json({ error: 'VOD introuvable' }, 404);
   const res = json({ login: v.user_login, start: Date.parse(v.created_at), duration: v.duration, title: v.title }, 200, { 'Cache-Control': 'public, max-age=86400' });
@@ -218,17 +230,37 @@ async function accountRoutes(req, env, url, p) {
   // ---- Connexion : échange du code OAuth (le secret Twitch ne quitte jamais le relais) ----
   if (req.method === 'POST' && p[0] === 'auth' && p[1] === 'twitch') {
     if (!env.TWITCH_CLIENT_ID || !env.TWITCH_CLIENT_SECRET) return json({ error: 'relais sans identifiants Twitch' }, 501);
-    const { code, redirect_uri } = await req.json().catch(() => ({}));
+    const { code, redirect_uri, mode } = await req.json().catch(() => ({}));
     if (!code || !redirect_uri) return json({ error: 'code manquant' }, 400);
     const r = await fetch('https://id.twitch.tv/oauth2/token', { method: 'POST', body: new URLSearchParams({ client_id: env.TWITCH_CLIENT_ID, client_secret: env.TWITCH_CLIENT_SECRET, code, grant_type: 'authorization_code', redirect_uri }) });
     const t = await r.json();
     if (!t.access_token) return json({ error: 'Twitch a refusé la connexion : ' + (t.message || r.status) }, 401);
     const v = await (await fetch('https://id.twitch.tv/oauth2/validate', { headers: { Authorization: 'OAuth ' + t.access_token } })).json();
     if (!v.user_id) return json({ error: 'jeton Twitch invalide' }, 401);
+    const tokens = { login: v.login, user_id: v.user_id, access: t.access_token, refresh: t.refresh_token, exp: Date.now() + (t.expires_in || 3600) * 1000, scopes: v.scopes || [] };
+    if (mode === 'botaccount') { // compte bot du site : seul le compte prévu (BOT_LOGIN) est accepté
+      if (!env.BOT_LOGIN || v.login !== env.BOT_LOGIN.toLowerCase()) return json({ error: `seul le compte ${env.BOT_LOGIN || '(BOT_LOGIN non défini)'} peut être le bot du site` }, 403);
+      await call('botaccount', '/login', tokens);
+      return json({ bot: true, login: v.login });
+    }
     const session = rand(32);
-    await call('user:' + v.user_id, '/login', { login: v.login, user_id: v.user_id, access: t.access_token, refresh: t.refresh_token, exp: Date.now() + (t.expires_in || 3600) * 1000, scopes: v.scopes || [] });
+    await call('user:' + v.user_id, '/login', tokens);
     await call('sess:' + session, '/session', { user_id: v.user_id, exp: Date.now() + 90 * 86400000 });
     return json({ session, login: v.login });
+  }
+
+  // ---- Webhooks EventSub (bot de chat) : signature HMAC vérifiée ----
+  if (req.method === 'POST' && p[0] === 'eventsub') {
+    const raw = await req.text();
+    if (!(await verifyEventsub(req, env, raw))) return new Response('signature invalide', { status: 403 });
+    const body = JSON.parse(raw);
+    const type = req.headers.get('Twitch-Eventsub-Message-Type');
+    if (type === 'webhook_callback_verification') return new Response(body.challenge, { headers: { 'Content-Type': 'text/plain' } });
+    const cond = (body.subscription || {}).condition || {};
+    const bid = cond.broadcaster_user_id || cond.to_broadcaster_user_id;
+    if (!bid) return new Response(null, { status: 204 });
+    const r = await stub('user:' + bid).fetch('https://acc/bot-event', { method: 'POST', headers: { 'X-Origin': url.origin }, body: JSON.stringify({ kind: type, id: req.headers.get('Twitch-Eventsub-Message-Id'), type: body.subscription.type, event: body.event }) });
+    return new Response(null, { status: r.ok ? 204 : 202 });
   }
 
   // ---- Lecture par un overlay (lien court, public mais impossible à deviner) ----
@@ -255,12 +287,17 @@ async function accountRoutes(req, env, url, p) {
   const [sst, sess] = await call('sess:' + sid, '/session-get');
   if (sst !== 200 || !sess.user_id) return json({ error: 'session expirée : reconnecte-toi' }, 401);
   const user = 'user:' + sess.user_id;
-  const envHdr = { 'X-Env': JSON.stringify({ cid: env.TWITCH_CLIENT_ID, secret: env.TWITCH_CLIENT_SECRET, key: env.ENCRYPTION_KEY || '' }) };
+  const envHdr = { 'X-Env': JSON.stringify({ cid: env.TWITCH_CLIENT_ID, secret: env.TWITCH_CLIENT_SECRET, key: env.ENCRYPTION_KEY || '' }), 'X-Origin': url.origin };
   const fwd = (path, method, body) => stub(user).fetch('https://acc' + path, { method, headers: envHdr, body: body == null ? undefined : JSON.stringify(body) }).then((r) => withCors(new Response(r.body, { status: r.status, headers: { 'Content-Type': 'application/json' } })));
   const body = req.method === 'GET' || req.method === 'DELETE' ? null : await req.json().catch(() => ({}));
 
   if (p.length === 1 && req.method === 'GET') return fwd('/me', 'POST', {});
   if (p[1] === 'secrets' && req.method === 'PUT') return fwd('/secrets', 'POST', body);
+  if (p[1] === 'bot') {
+    if (p.length === 2 && req.method === 'GET') return fwd('/bot-get', 'POST', {});
+    if (p.length === 2 && req.method === 'PUT') return fwd('/bot-save', 'POST', body);
+    if (p[2] === 'test' && req.method === 'POST') return fwd('/bot-test', 'POST', body);
+  }
   if (p[1] === 'overlays') {
     if (p.length === 2 && req.method === 'POST') {
       const id = rand(24);
@@ -286,6 +323,17 @@ async function accountRoutes(req, env, url, p) {
   return json({ error: 'route inconnue' }, 404);
 }
 
+async function verifyEventsub(req, env, raw) {
+  const id = req.headers.get('Twitch-Eventsub-Message-Id'), ts = req.headers.get('Twitch-Eventsub-Message-Timestamp'), sig = req.headers.get('Twitch-Eventsub-Message-Signature') || '';
+  if (!id || !ts || !env.EVENTSUB_SECRET || Math.abs(Date.now() - Date.parse(ts)) > 10 * 60000) return false;
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(env.EVENTSUB_SECRET), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const mac = new Uint8Array(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(id + ts + raw)));
+  const expected = 'sha256=' + [...mac].map((b) => b.toString(16).padStart(2, '0')).join('');
+  if (expected.length !== sig.length) return false;
+  let diff = 0; for (let i = 0; i < sig.length; i++) diff |= expected.charCodeAt(i) ^ sig.charCodeAt(i); // comparaison à temps constant
+  return diff === 0;
+}
+
 /* ---- Chiffrement des jetons au repos (AES-GCM, clé ENCRYPTION_KEY) ---- */
 const b64 = { enc: (buf) => btoa(String.fromCharCode(...new Uint8Array(buf))), dec: (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0)) };
 async function aesKey(k) { return k ? crypto.subtle.importKey('raw', b64.dec(k), 'AES-GCM', false, ['encrypt', 'decrypt']) : null; }
@@ -306,13 +354,15 @@ async function unseal(box, k) {
 
 /* Un Durable Object par compte (user:<id>), par session (sess:<id>) et par lien d'overlay (ov:<id>) */
 export class Account {
-  constructor(ctx) { this.ctx = ctx; }
+  constructor(ctx, env) { this.ctx = ctx; this.env = env || {}; }
+  get E() { return { cid: this.env.TWITCH_CLIENT_ID, secret: this.env.TWITCH_CLIENT_SECRET, key: this.env.ENCRYPTION_KEY || '' }; }
   async fetch(req) {
     const url = new URL(req.url), path = url.pathname, st = this.ctx.storage;
     const ok = (d) => new Response(JSON.stringify(d), { headers: { 'Content-Type': 'application/json' } });
     const err = (m, s = 400) => new Response(JSON.stringify({ error: m }), { status: s, headers: { 'Content-Type': 'application/json' } });
     const body = req.method === 'POST' && path !== '/ws' ? await req.json().catch(() => ({})) : {};
-    const E = JSON.parse(req.headers.get('X-Env') || '{}');
+    const E = req.headers.get('X-Env') ? JSON.parse(req.headers.get('X-Env')) : this.E;
+    if (req.headers.get('X-Origin')) await st.put('origin', req.headers.get('X-Origin'));
 
     // --- index d'un lien d'overlay / session ---
     if (path === '/index') return (await st.get('user_id')) ? ok({ user_id: await st.get('user_id') }) : err('?', 404);
@@ -333,6 +383,12 @@ export class Account {
     const profile = await st.get('profile');
     if (!profile) return err('compte inconnu', 404);
     const overlays = async () => (await st.get('overlays')) || {};
+
+    if (path === '/bot-token') { // compte bot du site
+      const s = await secrets();
+      return ok({ user_id: profile.user_id, login: profile.login, access: await this.twitchAccess(s, E) });
+    }
+    if (path.startsWith('/bot-')) return this.botRoute(path, body, profile, await secrets(), E, ok, err);
 
     if (path === '/me') {
       const s = await secrets(); const ov = await overlays();
@@ -404,6 +460,146 @@ export class Account {
     await this.ctx.storage.put('secrets', await seal(s, E.key));
     return s.twitch.access;
   }
+  /* ================= Bot de chat ================= */
+  async botAccount() {
+    if (!this.env.BOT_LOGIN || !this.env.ACCOUNT) return null;
+    const r = await this.env.ACCOUNT.get(this.env.ACCOUNT.idFromName('botaccount')).fetch('https://acc/bot-token', { method: 'POST', body: '{}' });
+    if (!r.ok) return null;
+    const d = await r.json();
+    return d.access ? d : null;
+  }
+
+  async botStatus(cfg, profile) {
+    const st = this.ctx.storage;
+    const bot = await this.botAccount().catch(() => null);
+    const need = (cfg.sender === 'bot' ? 'channel:bot moderator:read:followers' : BOT_SCOPES).split(' ');
+    const missing = need.filter((s) => !(profile.scopes || []).includes(s));
+    const state = (await st.get('botstate')) || {};
+    return { enabled: cfg.enabled, sender: cfg.sender, missing, live: !!state.live, subs: ((await st.get('botsubs')) || []).length,
+      lastError: state.lastError || null, botAccount: { configured: !!this.env.BOT_LOGIN, login: this.env.BOT_LOGIN || null, connected: !!bot },
+      webhooks: !!this.env.EVENTSUB_SECRET };
+  }
+
+  makeApi(cfg, profile, secrets, E, ctx) {
+    const self = this, bid = profile.user_id;
+    const helix = async (path, opt = {}, token) => fetch('https://api.twitch.tv/helix/' + path, Object.assign({}, opt, { headers: { 'Client-Id': E.cid, Authorization: 'Bearer ' + (token || await appAccess(E.cid, E.secret)), 'Content-Type': 'application/json' } }));
+    const sender = async () => (cfg.sender === 'bot' ? await self.botAccount() : null);
+    const modToken = async () => { const b = await sender(); return b ? [b.user_id, b.access] : [bid, await self.twitchAccess(secrets, E)]; };
+    const fail = async (what, r) => { if (r && !r.ok) ctx.state.lastError = `${what} : ${r.status} ${(await r.text().catch(() => '')).slice(0, 160)}`; return r; };
+    return {
+      async say(text, reply) {
+        const b = await sender();
+        if (cfg.sender === 'bot' && !b) { ctx.state.lastError = 'compte bot du site non connecté'; return; }
+        ctx.state.sent = (ctx.state.sent || []).concat({ text, t: Date.now() }).slice(-20);
+        return fail('envoi du message', await helix('chat/messages', { method: 'POST', body: JSON.stringify({ broadcaster_id: bid, sender_id: b ? b.user_id : bid, message: text, reply_parent_message_id: reply || undefined }) }));
+      },
+      async del(msgId) { const [mid, t] = await modToken(); return fail('suppression', await helix(`moderation/chat?broadcaster_id=${bid}&moderator_id=${mid}&message_id=${msgId}`, { method: 'DELETE' }, t)); },
+      async timeout(uid, secs, reason) { const [mid, t] = await modToken(); return fail('timeout', await helix(`moderation/bans?broadcaster_id=${bid}&moderator_id=${mid}`, { method: 'POST', body: JSON.stringify({ data: { user_id: uid, duration: secs, reason } }) }, t)); },
+      async shoutout(to) { const [mid, t] = await modToken(); return helix(`chat/shoutouts?from_broadcaster_id=${bid}&to_broadcaster_id=${to}&moderator_id=${mid}`, { method: 'POST' }, t); },
+      async channel(id) { return ((await (await helix('channels?broadcaster_id=' + (id || bid))).json()).data || [])[0]; },
+      async user(login) { return ((await (await helix('users?login=' + encodeURIComponent(login))).json()).data || [])[0]; },
+      async followedAt(uid) { const d = await (await helix(`channels/followers?broadcaster_id=${bid}&user_id=${uid}`, {}, await self.twitchAccess(secrets, E))).json(); return d.data && d.data[0] ? d.data[0].followed_at : null; },
+      changed() { ctx.changed = true; },
+    };
+  }
+
+  /* Console de test : mêmes règles, mais rien n'est envoyé à Twitch */
+  dryApi(out, state) {
+    return {
+      async say(text) { out.push({ type: 'message', text }); }, async del() { out.push({ type: 'suppression' }); },
+      async timeout(uid, secs) { out.push({ type: 'timeout', secs }); }, async shoutout() { out.push({ type: 'shoutout' }); },
+      async channel() { return { game_name: '(jeu en cours)', title: '(titre du live)' }; },
+      async user(login) { return { id: '0', login: login.toLowerCase(), display_name: login }; },
+      async followedAt() { return new Date(Date.now() - 400 * 86400000).toISOString(); },
+      changed() {},
+    };
+  }
+
+  async syncSubs(cfg, profile, E) {
+    const st = this.ctx.storage, errors = [];
+    const app = await appAccess(E.cid, E.secret);
+    const h = { 'Client-Id': E.cid, Authorization: 'Bearer ' + app, 'Content-Type': 'application/json' };
+    for (const id of (await st.get('botsubs')) || []) await fetch('https://api.twitch.tv/helix/eventsub/subscriptions?id=' + id, { method: 'DELETE', headers: h }).catch(() => {});
+    const ids = [];
+    if (cfg.enabled) {
+      const origin = await st.get('origin');
+      const bot = cfg.sender === 'bot' ? await this.botAccount() : null;
+      if (cfg.sender === 'bot' && !bot) errors.push('compte bot du site non connecté');
+      else for (const sub of wantedSubs(cfg, profile.user_id, bot ? bot.user_id : profile.user_id)) {
+        const r = await fetch('https://api.twitch.tv/helix/eventsub/subscriptions', { method: 'POST', headers: h, body: JSON.stringify(Object.assign(sub, { transport: { method: 'webhook', callback: origin + '/eventsub', secret: this.env.EVENTSUB_SECRET } })) });
+        const d = await r.json().catch(() => ({}));
+        if (r.ok && d.data) ids.push(d.data[0].id);
+        else if (r.status !== 409) errors.push(`${sub.type} : ${d.message || r.status}`); // 409 = déjà abonné
+      }
+    }
+    await st.put('botsubs', ids);
+    return errors;
+  }
+
+  async botRoute(path, body, profile, secrets, E, ok, err) {
+    const st = this.ctx.storage;
+    let cfg = (await st.get('bot')) || sanitizeBot({}, null);
+    if (path === '/bot-get') return ok({ cfg, status: await this.botStatus(cfg, profile) });
+    if (path === '/bot-save') {
+      const prev = cfg;
+      cfg = sanitizeBot(body, prev);
+      const counts = Object.fromEntries(prev.commands.map((c) => [c.name, c.count]));
+      cfg.commands.forEach((c) => { if (counts[c.name] && !c.count) c.count = counts[c.name]; });
+      await st.put('bot', cfg);
+      let errors = [];
+      const subsChanged = cfg.enabled !== prev.enabled || cfg.sender !== prev.sender || JSON.stringify(Object.fromEntries(Object.entries(cfg.events).map(([k, v]) => [k, v.on]))) !== JSON.stringify(Object.fromEntries(Object.entries(prev.events).map(([k, v]) => [k, v.on])));
+      if (subsChanged && this.env.EVENTSUB_SECRET) errors = await this.syncSubs(cfg, profile, E).catch((e) => [e.message]);
+      if (!this.env.EVENTSUB_SECRET && cfg.enabled) errors.push('EVENTSUB_SECRET manquant sur le relais');
+      return ok({ cfg, status: await this.botStatus(cfg, profile), errors });
+    }
+    if (path === '/bot-test') {
+      const out = [];
+      const state = Object.assign({ live: true, startedAt: Date.now() - 83 * 60000 }, structuredClone((await st.get('botstate')) || {}), { live: true });
+      const level = { viewer: [], sub: [{ set_id: 'subscriber' }], vip: [{ set_id: 'vip' }], mod: [{ set_id: 'moderator' }], broadcaster: [{ set_id: 'broadcaster' }] }[body.role] || [];
+      const login = String(body.user || 'viewer_test').toLowerCase().slice(0, 25);
+      const r = await onChat(structuredClone(cfg), state, { text: String(body.text || '').slice(0, 500), login, name: body.user || 'Viewer_Test', userId: '1', badges: level, messageId: 'test' }, this.dryApi(out, state), profile.login);
+      if (r && r.moderated) out.unshift({ type: 'modération', text: { links: 'lien interdit', caps: 'trop de majuscules', words: 'mot interdit' }[r.moderated] });
+      return ok({ actions: out });
+    }
+    if (path === '/bot-event') {
+      if (!cfg.enabled) return ok({ ignored: true });
+      const state = (await st.get('botstate')) || {};
+      state.seen = state.seen || [];
+      if (body.id && state.seen.includes(body.id)) return ok({ duplicate: true }); // Twitch peut renvoyer un webhook
+      state.seen.push(body.id); if (state.seen.length > 200) state.seen.shift();
+      if (body.kind === 'revocation') { state.lastError = 'abonnement Twitch révoqué (' + body.type + ') : reconnecte-toi et réactive le bot'; await st.put('botstate', state); return ok({}); }
+      const ctx = { state, changed: false };
+      const api = this.makeApi(cfg, profile, secrets, E, ctx);
+      const e = body.event || {};
+      if (body.type === 'stream.online') { state.live = true; state.startedAt = Date.parse(e.started_at) || Date.now(); state.lines = 0; state.timers = {}; await st.setAlarm(Date.now() + 60000); }
+      else if (body.type === 'stream.offline') { state.live = false; state.permits = {}; }
+      else if (body.type === 'channel.chat.message') {
+        const text = (e.message && e.message.text) || '';
+        const b = cfg.sender === 'bot' ? await this.botAccount() : null;
+        // Le bot ne se répond jamais à lui-même : compte bot = ignoré ; compte du streamer = on ignore
+        // seulement les messages que le bot vient d'envoyer (le streamer peut toujours taper ses commandes).
+        const own = b ? e.chatter_user_id === b.user_id
+          : e.chatter_user_id === profile.user_id && (state.sent || []).some((x) => x.text === text && Date.now() - x.t < 60000);
+        if (!own) await onChat(cfg, state, { text, login: e.chatter_user_login, name: e.chatter_user_name, userId: e.chatter_user_id, badges: e.badges, messageId: e.message_id, isBroadcaster: e.chatter_user_id === profile.user_id }, api, profile.login);
+      } else await onEvent(cfg, state, body.type, e, api, profile.login);
+      if (ctx.changed) await st.put('bot', cfg);
+      await st.put('botstate', state);
+      return ok({ ok: true });
+    }
+    return err('?', 404);
+  }
+
+  async alarm() { // messages automatiques, chaque minute pendant le live
+    const st = this.ctx.storage;
+    const cfg = await st.get('bot'), state = (await st.get('botstate')) || {}, profile = await st.get('profile');
+    if (!cfg || !cfg.enabled || !state.live || !profile) return;
+    const secrets = await unseal(await st.get('secrets'), this.E.key).catch(() => ({}));
+    const ctx = { state, changed: false };
+    await onTick(cfg, state, this.makeApi(cfg, profile, secrets, this.E, ctx), profile.login);
+    await st.put('botstate', state);
+    await st.setAlarm(Date.now() + 60000);
+  }
+
   broadcast(id, type = 'update') { this.ctx.getWebSockets('ov:' + id).forEach((ws) => { try { ws.send(JSON.stringify({ type })); } catch (e) { /* parti */ } }); }
   broadcastAll() { this.ctx.getWebSockets().forEach((ws) => { try { ws.send(JSON.stringify({ type: 'update' })); } catch (e) { /* parti */ } }); }
 }
