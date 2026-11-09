@@ -7,4 +7,10 @@
  */
 window.SB_CONFIG = {
   twitchClientId: '',
+  // Spotify (overlay Musique) : https://developer.spotify.com/dashboard, URL de redirection https://<ton-site>/spotify.html
+  spotifyClientId: '',
+  // Last.fm (overlay Musique : Deezer, YouTube Music, Apple Music…) : https://www.last.fm/api/account/create
+  lastfmApiKey: '',
+  // Relais StreamBox (dons Ko-fi, musiques des redifs) : voir relay/README.md
+  relayUrl: '',
 };

@@ -84,7 +84,7 @@
   let more = null, styleBox = null; const groups = {};
   function place(wrap, f, i) {
     if (f.group) {
-      const GROUPS = { remote: '🎛️ Panneau de contrôle', style: '🎨 Personnaliser l’apparence' };
+      const GROUPS = { dons: '💸 Dons (StreamElements, Streamlabs, Ko-fi)', remote: '🎛️ Panneau de contrôle', style: '🎨 Personnaliser l’apparence' };
       groups[f.group] = groups[f.group] || (() => { const d = document.createElement('details'); d.className = 'more style'; d.innerHTML = '<summary></summary>'; d.firstChild.textContent = GROUPS[f.group] || f.group; form.appendChild(d); return d; })();
       groups[f.group].appendChild(wrap);
       if (f.group === 'style') styleBox = groups.style;
@@ -126,6 +126,22 @@
             status.textContent = (missing.length ? 'Reconnecte-toi pour donner les nouvelles autorisations. ' : '') + `Connecté en tant que ${d.login} (expire dans ${Math.max(1, Math.round(d.expires_in / 86400))} j). Le lien contient ce jeton : ne le montre pas en stream.`;
           }).catch(() => { status.textContent = 'Connecté (vérification impossible pour le moment).'; });
       }
+      place(wrap, f, i);
+      return;
+    }
+    if (f.type === 'spotify') {
+      wrap.appendChild(Object.assign(document.createElement('label'), { textContent: f.label }));
+      input = document.createElement('input'); input.type = 'hidden'; input.name = f.key; wrap.appendChild(input);
+      const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'btn ghost';
+      const status = document.createElement('small'); wrap.append(btn, status);
+      let sp = null; try { sp = JSON.parse(localStorage.getItem('sb-spotify') || 'null'); } catch (e) { sp = null; }
+      const login = () => { const cid = (form.elements.spotifycid && form.elements.spotifycid.value.trim()) || ''; location.href = 'spotify.html?retour=' + encodeURIComponent('outil.html?id=' + tool.id) + (cid ? '&cid=' + encodeURIComponent(cid) : ''); };
+      if (sp && sp.refresh) {
+        input.value = sp.refresh; btn.textContent = 'Se déconnecter de Spotify';
+        status.textContent = 'Connecté à Spotify ✓ Le lien contient ce jeton : ne le montre pas en stream.';
+        btn.onclick = () => { try { localStorage.removeItem('sb-spotify'); } catch (e) { /* ignore */ } input.value = ''; btn.textContent = 'Se connecter avec Spotify'; btn.onclick = login; status.textContent = ''; update(); };
+        setTimeout(() => { if (form.elements.spotifycid && sp.cid && sp.cid !== SB_CONFIG.spotifyClientId && !form.elements.spotifycid.value) { form.elements.spotifycid.value = sp.cid; update(); } }, 0);
+      } else { btn.textContent = 'Se connecter avec Spotify'; btn.onclick = login; status.textContent = 'Seule permission demandée : voir le morceau en cours.'; }
       place(wrap, f, i);
       return;
     }
@@ -195,10 +211,10 @@
   let timer, lastSrc = '';
   function update() {
     const vals = values();
-    try { const keep = Object.assign({}, vals); tool.fields.forEach((f) => f.type === 'twitch' && delete keep[f.key]); localStorage.setItem(KEY, JSON.stringify(keep)); } catch (e) { /* stockage indisponible */ }
+    try { const keep = Object.assign({}, vals); tool.fields.forEach((f) => (f.type === 'twitch' || f.type === 'spotify') && delete keep[f.key]); localStorage.setItem(KEY, JSON.stringify(keep)); } catch (e) { /* stockage indisponible */ }
     $('url').value = overlayUrl(vals);
     const useDemo = $('demo').checked || !vals.channel;
-    const src = overlayUrl(useDemo ? Object.assign({}, vals, { channel: '', token: '' }) : vals, useDemo ? { demo: '1' } : {});
+    const src = overlayUrl(useDemo ? Object.assign({}, vals, { channel: '', token: '', spotify: '', webhook: '', sejwt: '', sltoken: '', kofi: '' }) : vals, useDemo ? { demo: '1' } : {});
     clearTimeout(timer);
     timer = setTimeout(() => { if (src !== lastSrc) { frame.src = src; lastSrc = src; } }, 350);
   }
@@ -207,7 +223,7 @@
   $('demo').addEventListener('change', update);
   $('gamebg').addEventListener('change', () => preview.classList.toggle('game', $('gamebg').checked));
   $('reset').addEventListener('click', () => {
-    tool.fields.forEach((f) => { const el = form.elements[f.key]; if (f.key === 'channel') return; if (f.type === 'twitch') return; if (f.type === 'checkbox') el.checked = f.default; else el.value = f.default; });
+    tool.fields.forEach((f) => { const el = form.elements[f.key]; if (f.key === 'channel') return; if (f.type === 'twitch' || f.type === 'spotify') return; if (f.type === 'checkbox') el.checked = f.default; else el.value = f.default; });
     update();
   });
   $('copy').addEventListener('click', async () => {
@@ -231,7 +247,7 @@
     }
     tool.fields.forEach((f) => {
       const el = form.elements[f.key];
-      if (!el || f.type === 'twitch') return;
+      if (!el || f.type === 'twitch' || f.type === 'spotify') return;
       const has = u.searchParams.has(f.key), raw = u.searchParams.get(f.key);
       if (f.type === 'checkbox') el.checked = has ? raw === '1' || raw === 'true' : !!f.default;
       else el.value = has ? raw : f.default;

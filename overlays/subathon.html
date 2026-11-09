@@ -18,6 +18,7 @@
 <script src="../js/config.js"></script>
 <script src="../js/sb.js"></script>
 <script src="../js/eventsub.js"></script>
+<script src="../js/dons.js"></script>
 <script>
 const c = SB.params({
   channel: '', token: '', follow: 0, reward: '', rewardmin: 5, title: 'Subathon', start: 4, cap: 0,
@@ -207,6 +208,8 @@ SB.twitchEvents(c, ['follow', 'points'])
   .on('follow', (e) => { if (c.follow) addTime(c.follow, `${e.name} (follow)`, 'follow'); })
   .on('points', (e) => { if (c.reward && e.reward.trim().toLowerCase() === c.reward.trim().toLowerCase()) addTime(c.rewardmin, `${e.name} (${e.reward})`, 'points'); });
 SB.remote('subathon', c.cmd, onMessage);
+// Dons automatiques (StreamElements, Streamlabs, Ko-fi) : « don » minutes par unité de monnaie
+SB.donations(c).on('don', (d) => { if (S.status === 'ended') return; S.totals.don += d.amount; addTime(d.amount * c.don, `don de ${SB.formatMoney(d.amount, d.currency)} de ${d.name}`, 'don'); });
 if (c.autostart && S.status === 'idle') start();
 
 if (c.demo) {

@@ -9,6 +9,8 @@
   const TYPES = {
     follow: { type: 'channel.follow', version: '2', cond: (b, u) => ({ broadcaster_user_id: b, moderator_user_id: u }) },
     points: { type: 'channel.channel_points_custom_reward_redemption.add', version: '1', cond: (b) => ({ broadcaster_user_id: b }) },
+    online: { type: 'stream.online', version: '1', cond: (b) => ({ broadcaster_user_id: b }) },
+    offline: { type: 'stream.offline', version: '1', cond: (b) => ({ broadcaster_user_id: b }) },
   };
 
   SB.EventSub = class {
@@ -51,6 +53,8 @@
           this.seen.add(id); if (this.seen.size > 500) this.seen.clear();
           const ev = m.payload.event, st = m.payload.subscription.type;
           if (st === 'channel.follow') this.emit('follow', { login: ev.user_login, name: ev.user_name });
+          else if (st === 'stream.online') this.emit('online', { start: Date.parse(ev.started_at) || Date.now() });
+          else if (st === 'stream.offline') this.emit('offline', {});
           else if (st === TYPES.points.type) this.emit('points', { login: ev.user_login, name: ev.user_name, reward: ev.reward.title, cost: ev.reward.cost, input: ev.user_input || '' });
         }
       };

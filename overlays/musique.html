@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>StreamBox · Musique</title>
+<link rel="stylesheet" href="../css/overlay.css">
+</head>
+<body>
+<div class="np" id="np">
+  <div class="np-art"><img id="art" alt=""><div class="np-eq"><i></i><i></i><i></i><i></i></div></div>
+  <div class="np-info">
+    <div class="np-label" id="label">En écoute</div>
+    <div class="np-title"><span id="title"></span></div>
+    <div class="np-artist" id="artist"></div>
+    <div class="np-bar" id="bar"><div class="np-fill" id="fill"></div></div>
+  </div>
+</div>
+<script src="../js/config.js"></script>
+<script src="../js/sb.js"></script>
+<script>
+const c = SB.params({
+  source: 'spotify', spotify: '', spotifycid: '', lastfm: '', lfmkey: '',
+  style: 'carte', hideidle: true, progress: true, label: 'En écoute', poll: 4,
+  channel: '', token: '', log: false, relay: '',
+  size: 20, font: 'Inter', accent: '#9b5cff', demo: false,
+});
+SB.loadFont(c.font); SB.setAccent(c.accent);
+document.documentElement.style.setProperty('--size', c.size + 'px');
+document.body.classList.add('np-' + c.style);
+const $ = (id) => document.getElementById(id);
+$('label').textContent = c.label;
+if (!c.progress) $('bar').hidden = true;
+
+let now = null; // { title, artist, album, art, url, duration, progress, at, playing, source }
+
+function show(t) {
+  const changed = !now || !t || t.title !== now.title || t.artist !== now.artist;
+  now = t;
+  document.body.classList.toggle('np-idle', !t || !t.playing);
+  document.body.classList.toggle('np-hide', c.hideidle && (!t || !t.playing));
+  if (!t) return;
+  if (changed) {
+    const box = $('np'); box.classList.remove('np-swap'); void box.offsetWidth; box.classList.add('np-swap');
+    $('title').textContent = t.title; $('artist').textContent = t.artist;
+    $('art').src = t.art || ''; $('art').style.visibility = t.art ? 'visible' : 'hidden';
+    const title = $('title'); title.parentElement.classList.toggle('np-scroll', title.scrollWidth > title.parentElement.clientWidth + 4);
+    if (t.playing) logTrack(t);
+  }
+  $('bar').style.visibility = t.duration ? 'visible' : 'hidden';
+}
+setInterval(() => { // avance la barre entre deux interrogations
+  if (!now || !now.duration) return;
+  const p = now.progress + (now.playing ? Date.now() - now.at : 0);
+  $('fill').style.width = Math.min(100, (p / now.duration) * 100) + '%';
+}, 250);
+
+/* ---------- Spotify (morceau en cours, avec progression) ---------- */
+let spAccess = null, spExp = 0;
+const rtKey = 'sb-spotify-rt-' + (c.spotify || '').slice(-12);
+async function spToken() {
+  if (spAccess && Date.now() < spExp) return spAccess;
+  let refresh = c.spotify;
+  try { refresh = localStorage.getItem(rtKey) || refresh; } catch (e) { /* ignore */ }
+  const cid = c.spotifycid || SB_CONFIG.spotifyClientId;
+  const r = await fetch('https://accounts.spotify.com/api/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: refresh, client_id: cid }) });
+  const d = await r.json();
+  if (!d.access_token) throw new Error('Spotify : reconnecte-toi sur StreamBox (' + (d.error || r.status) + ')');
+  if (d.refresh_token) { try { localStorage.setItem(rtKey, d.refresh_token); } catch (e) { /* ignore */ } } // Spotify peut renouveler le jeton
+  spAccess = d.access_token; spExp = Date.now() + (d.expires_in - 60) * 1000;
+  return spAccess;
+}
+async function pollSpotify() {
+  try {
+    const r = await fetch('https://api.spotify.com/v1/me/player/currently-playing', { headers: { Authorization: 'Bearer ' + (await spToken()) } });
+    if (r.status === 204) return show(null);
+    if (r.status === 401) { spAccess = null; return; }
+    const d = await r.json();
+    const it = d.item;
+    if (!it) return show(null);
+    const imgs = (it.album && it.album.images) || it.images || []; // morceau ou épisode de podcast
+    show({ source: 'Spotify', title: it.name, artist: (it.artists || []).map((x) => x.name).join(', ') || (it.show && it.show.name) || '', album: it.album ? it.album.name : '', art: imgs[0] ? imgs[0].url : '', url: it.external_urls && it.external_urls.spotify, duration: it.duration_ms, progress: d.progress_ms || 0, at: Date.now(), playing: d.is_playing });
+  } catch (e) { console.warn(e.message); }
+}
+
+/* ---------- Last.fm (Deezer, YouTube Music, Apple Music, Spotify…) ---------- */
+async function pollLastfm() {
+  try {
+    const key = c.lfmkey || SB_CONFIG.lastfmApiKey;
+    const r = await fetch(`https://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user=${encodeURIComponent(c.lastfm)}&api_key=${key}&format=json&limit=1`);
+    const d = await r.json();
+    const t = d.recenttracks && [].concat(d.recenttracks.track || [])[0];
+    if (!t || !(t['@attr'] && t['@attr'].nowplaying === 'true')) return show(null);
+    const img = (t.image || []).map((i) => i['#text']).filter((u) => u && !/2a96cbd8b46e442fc41c2b86b821562f/.test(u)).pop(); // ignore l'image « vide » de Last.fm
+    show({ source: 'Last.fm', title: t.name, artist: t.artist && (t.artist['#text'] || t.artist.name), album: t.album && t.album['#text'], art: img || '', url: t.url, duration: 0, progress: 0, at: Date.now(), playing: true });
+  } catch (e) { console.warn(e.message); }
+}
+
+/* ---------- Journal des musiques (pour l'extension « Musiques des redifs ») ---------- */
+async function logTrack(t) {
+  const relay = c.relay || SB_CONFIG.relayUrl;
+  if (!c.log || !relay || !c.token || !c.channel || c.demo) return;
+  fetch(relay.replace(/\/$/, '') + '/tracks/' + encodeURIComponent(c.channel.toLowerCase()), {
+    method: 'POST', headers: { Authorization: 'Bearer ' + c.token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ at: Date.now() - (t.progress || 0), title: t.title, artist: t.artist, album: t.album, art: t.art, url: t.url, source: t.source }),
+  }).catch((e) => console.warn('journal des musiques :', e.message));
+}
+
+if (c.demo) {
+  const demo = [['Midnight City', 'M83', 243000], ['Instant Crush', 'Daft Punk, Julian Casablancas', 337000], ['Pendant que les champs brûlent', 'Niagara', 290000]];
+  let i = 0;
+  const next = () => { const [title, artist, duration] = demo[i++ % demo.length]; show({ title, artist, art: '', duration, progress: 20000, at: Date.now(), playing: true }); };
+  next(); setInterval(next, 6000);
+} else if (c.source === 'lastfm' && c.lastfm) { pollLastfm(); setInterval(pollLastfm, Math.max(5, c.poll) * 1000); }
+else if (c.source === 'spotify' && c.spotify) { pollSpotify(); setInterval(pollSpotify, Math.max(2, c.poll) * 1000); }
+else {
+  document.body.classList.remove('np-hide');
+  const d = SB.el('div', 'sb-hint', 'StreamBox : connecte Spotify ou indique ton pseudo Last.fm dans les réglages de l’outil Musique.');
+  document.body.appendChild(d);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "StreamBox · Musiques des redifs",
+  "version": "1.0.0",
+  "description": "Affiche la musique qui passait pendant le live, en regardant une rediffusion Twitch ou YouTube (pour les chaînes qui utilisent StreamBox).",
+  "content_scripts": [
+    {
+      "matches": ["https://www.twitch.tv/*", "https://www.youtube.com/*"],
+      "js": ["config.js", "content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "options_ui": { "page": "options.html", "open_in_tab": false },
+  "permissions": ["storage"],
+  "browser_specific_settings": { "gecko": { "id": "musiques-redifs@streambox", "strict_min_version": "115.0" } }
+}

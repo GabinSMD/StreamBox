@@ -15,6 +15,7 @@
 <script src="../js/config.js"></script>
 <script src="../js/sb.js"></script>
 <script src="../js/eventsub.js"></script>
+<script src="../js/dons.js"></script>
 <script>
 const c = SB.params({
   channel: '', token: '', type: 'subs', title: '', start: 0, target: 50, next: '', auto: true,
@@ -85,6 +86,7 @@ chat.on('message', onMessage)
   .connect();
 if (c.type === 'follows') SB.twitchEvents(c, ['follow']).on('follow', () => add(1));
 SB.remote('objectifs', c.cmd, onMessage);
+if (c.type === 'dons') SB.donations(c).on('don', (d) => add(d.amount));
 
 // Valeur de départ réelle depuis l'API Twitch (followers ou abonnés), si connecté
 (async () => {
