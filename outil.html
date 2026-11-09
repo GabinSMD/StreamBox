@@ -14,6 +14,10 @@
       <h1 id="name"></h1>
       <p class="lead" id="tagline"></p>
       <form id="form" autocomplete="off"></form>
+      <div class="importbar">
+        <input type="text" id="importurl" placeholder="Coller le lien d’un overlay déjà dans OBS" aria-label="Lien à modifier">
+        <button class="btn ghost" type="button" id="import">Modifier</button>
+      </div>
       <button class="btn ghost" type="button" id="reset">Réglages par défaut</button>
     </section>
     <section>
@@ -26,6 +30,7 @@
         <div class="ptools">
           <label><input type="checkbox" id="demo" checked> Aperçu avec de faux messages</label>
           <label><input type="checkbox" id="gamebg" checked> Fond de jeu</label>
+          <label class="btn ghost small">🖼️ Mon fond d’aperçu<input type="file" id="bgfile" accept="image/*" hidden></label>
           <span id="dims"></span>
         </div>
         <ol class="steps">
@@ -39,6 +44,7 @@
         <h1 style="font-size:17px">Commandes de chat <span class="flag">streamer et modos</span></h1>
         <table class="cmds" id="cmds"></table>
       </div>
+      <div class="box" id="setupbox" style="margin-top:16px" hidden><h1 style="font-size:17px">Installation dans OBS</h1><ol class="steps" id="setup"></ol></div>
       <div class="note" id="note" hidden></div>
     </section>
   </div>
@@ -58,6 +64,7 @@
   $('sizehint').textContent = tool.size[0] + ' × ' + tool.size[1];
   $('dims').textContent = 'Taille conseillée : ' + tool.size[0] + ' × ' + tool.size[1];
   if (tool.fields.some((f) => f.key === 'sound')) $('audiohint').hidden = false;
+  if (tool.setup) { $('setupbox').hidden = false; tool.setup.forEach((t) => $('setup').appendChild(Object.assign(document.createElement('li'), { textContent: t }))); }
   if (tool.note) { $('note').hidden = false; $('note').textContent = tool.note; }
   if (tool.commands) {
     $('cmdbox').hidden = false;
@@ -74,7 +81,17 @@
   /* ----- Formulaire ----- */
   const form = $('form');
   const VISIBLE = 5;
-  let more = null;
+  let more = null, styleBox = null;
+  function place(wrap, f, i) {
+    if (f.group === 'style') {
+      if (!styleBox) { styleBox = document.createElement('details'); styleBox.className = 'more style'; styleBox.innerHTML = '<summary>🎨 Personnaliser l’apparence</summary>'; form.appendChild(styleBox); }
+      styleBox.appendChild(wrap);
+    } else if (i < VISIBLE) form.appendChild(wrap);
+    else {
+      if (!more) { more = document.createElement('details'); more.className = 'more'; more.innerHTML = '<summary>Plus de réglages</summary>'; form.insertBefore(more, styleBox); }
+      more.appendChild(wrap);
+    }
+  }
   tool.fields.forEach((f, i) => {
     const wrap = document.createElement('div');
     wrap.className = 'field' + (f.type === 'checkbox' ? ' check' : '');
@@ -90,8 +107,8 @@
       let tok = ''; try { tok = localStorage.getItem(TK) || ''; } catch (e) { /* ignore */ }
       const setOut = (msg) => {
         input.value = ''; btn.textContent = 'Se connecter avec Twitch';
-        btn.onclick = () => { location.href = 'connexion.html?retour=' + encodeURIComponent('outil.html?id=' + tool.id); };
-        status.textContent = msg || 'Aucune permission demandée : StreamBox lit seulement tes clips publics.';
+        btn.onclick = () => { location.href = 'connexion.html?retour=' + encodeURIComponent('outil.html?id=' + tool.id) + (f.scope ? '&scope=' + encodeURIComponent(f.scope) : ''); };
+        status.textContent = msg || (f.scope === 'clips:edit' ? 'Seule permission demandée : créer des clips de ta chaîne.' : 'Aucune permission demandée : StreamBox lit seulement tes clips publics.');
       };
       if (!window.SB_CONFIG || !SB_CONFIG.twitchClientId) { btn.style.display = 'none'; status.textContent = 'Connexion Twitch pas encore configurée sur ce site (twitchClientId dans js/config.js).'; }
       else if (!tok) setOut();
@@ -103,10 +120,11 @@
           .then((r) => (r.ok ? r.json() : null))
           .then((d) => {
             if (!d) { try { localStorage.removeItem(TK); } catch (e) { /* ignore */ } setOut('Connexion expirée : reconnecte-toi.'); update(); return; }
-            status.textContent = `Connecté en tant que ${d.login} (expire dans ${Math.max(1, Math.round(d.expires_in / 86400))} j). Le lien contient ce jeton en lecture seule : ne le montre pas en stream.`;
+            const missing = f.scope && !(d.scopes || []).includes(f.scope);
+            status.textContent = (missing ? 'Reconnecte-toi pour autoriser la création de clips. ' : '') + `Connecté en tant que ${d.login} (expire dans ${Math.max(1, Math.round(d.expires_in / 86400))} j). Le lien contient ce jeton : ne le montre pas en stream.`;
           }).catch(() => { status.textContent = 'Connecté (vérification impossible pour le moment).'; });
       }
-      (i < VISIBLE ? form : (more || form)).appendChild(wrap);
+      place(wrap, f, i);
       return;
     }
     if (f.type === 'select') {
@@ -115,6 +133,10 @@
         const [v, l] = Array.isArray(o) ? o : [o, o];
         const opt = document.createElement('option'); opt.value = v; opt.textContent = l; input.appendChild(opt);
       });
+    } else if (f.type === 'textarea') {
+      input = document.createElement('textarea');
+      input.rows = 5; input.spellcheck = false;
+      if (f.placeholder) input.placeholder = f.placeholder;
     } else {
       input = document.createElement('input');
       input.type = f.type;
@@ -126,20 +148,21 @@
     if (f.type === 'checkbox') input.checked = !!v; else input.value = v;
     const label = document.createElement('label'); label.htmlFor = inputId;
     if (f.type === 'checkbox') { label.appendChild(input); label.append(f.label); wrap.appendChild(label); }
-    else { label.textContent = f.label; wrap.append(label, input); }
+    else if (f.type === 'range') {
+      label.textContent = f.label; const out = document.createElement('output'); out.className = 'rangeval';
+      const sync = () => { out.textContent = input.value; }; input.addEventListener('input', sync); sync();
+      const row = document.createElement('div'); row.className = 'rangerow'; row.append(input, out);
+      wrap.append(label, row);
+    } else { label.textContent = f.label; wrap.append(label, input); }
     if (f.help) { const s = document.createElement('small'); s.textContent = f.help; wrap.appendChild(s); }
-    if (i < VISIBLE) form.appendChild(wrap);
-    else {
-      if (!more) { more = document.createElement('details'); more.className = 'more'; more.innerHTML = '<summary>Plus de réglages</summary>'; form.appendChild(more); }
-      more.appendChild(wrap);
-    }
+    place(wrap, f, i);
   });
 
   function values() {
     const out = {};
     tool.fields.forEach((f) => {
       const el = form.elements[f.key];
-      out[f.key] = f.type === 'checkbox' ? el.checked : f.type === 'number' ? (el.value === '' ? f.default : parseFloat(el.value)) : el.value.trim();
+      out[f.key] = f.type === 'checkbox' ? el.checked : (f.type === 'number' || f.type === 'range') ? (el.value === '' ? f.default : parseFloat(el.value)) : el.value.trim();
     });
     return out;
   }
@@ -194,6 +217,39 @@
     catch (e) { $('url').select(); document.execCommand('copy'); }
     toast('Lien copié, colle-le dans OBS');
   });
+  /* Reprendre un overlay existant : on relit les paramètres de son lien */
+  $('import').addEventListener('click', () => {
+    let u;
+    try { u = new URL($('importurl').value.trim()); } catch (e) { toast('Ce lien n’est pas valide'); return; }
+    if (!u.pathname.endsWith('/' + tool.overlay.split('/').pop())) {
+      const other = SB_TOOLS.find((t) => u.pathname.endsWith('/' + t.overlay.split('/').pop()));
+      if (other) { toast('Ce lien est un overlay « ' + other.name + ' » : ouverture…'); setTimeout(() => { location.href = 'outil.html?id=' + other.id + '#import=' + encodeURIComponent(u.href); }, 800); }
+      else toast('Ce lien ne vient pas de StreamBox');
+      return;
+    }
+    tool.fields.forEach((f) => {
+      const el = form.elements[f.key];
+      if (!el || f.type === 'twitch') return;
+      const has = u.searchParams.has(f.key), raw = u.searchParams.get(f.key);
+      if (f.type === 'checkbox') el.checked = has ? raw === '1' || raw === 'true' : !!f.default;
+      else el.value = has ? raw : f.default;
+      el.dispatchEvent(new Event('input'));
+    });
+    $('importurl').value = '';
+    update(); toast('Réglages chargés : modifie-les puis recopie le lien');
+  });
+  const imp = new URLSearchParams(location.hash.slice(1)).get('import');
+  if (imp) { $('importurl').value = imp; history.replaceState(null, '', location.pathname + location.search); setTimeout(() => $('import').click(), 0); }
+
+  /* Fond d'aperçu personnel (capture de son jeu, de sa scène…) : reste dans le navigateur */
+  $('bgfile').addEventListener('change', (e) => {
+    const file = e.target.files[0]; if (!file) return;
+    preview.style.backgroundImage = `url("${URL.createObjectURL(file)}")`;
+    preview.style.backgroundSize = 'cover'; preview.style.backgroundPosition = 'center';
+    preview.classList.remove('game'); $('gamebg').checked = false;
+  });
+  $('gamebg').addEventListener('change', () => { if ($('gamebg').checked) preview.style.backgroundImage = ''; });
+
   fit(); update();
 })();
 </script>
