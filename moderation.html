@@ -3,8 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="img/logo.svg" type="image/svg+xml">
 <title>Panneau de modération · StreamBox</title>
 <meta name="description" content="Panneau de modération Twitch pour toi et tes modos : sanctions en un clic, AutoMod, journal, sondages, prédictions et récompenses.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="StreamBox">
+<meta property="og:title" content="Panneau de modération · StreamBox">
+<meta property="og:description" content="Panneau de modération Twitch pour toi et tes modos : sanctions en un clic, AutoMod, journal, sondages, prédictions et récompenses.">
+<meta property="og:image" content="https://gabinsmd.github.io/StreamBox/img/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400..700&family=Tektur:wght@700&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="css/site.css">
 <script src="js/i18n.js"></script>
@@ -200,7 +209,7 @@ async function tw(method, path, body, retry = true) {
   return d;
 }
 const B = () => `broadcaster_id=${ch.id}&moderator_id=${me.id}`;
-async function act(label, fn) { try { await fn(); toast(label + ' ✓'); return true; } catch (e) { toast(label + ' : ' + e.message); return false; } }
+async function act(label, fn) { return busy(async () => { try { await fn(); toast(label + ' ✓'); return true; } catch (e) { toast(label + ' : ' + e.message); return false; } }); }
 
 /* ---------- Actions de modération ---------- */
 const del = (id) => act('Message supprimé', () => tw('DELETE', `moderation/chat?${B()}&message_id=${encodeURIComponent(id)}`));
@@ -259,7 +268,7 @@ async function openCard(login) {
     if (p.profile_image_url) { $('cAvatar').src = p.profile_image_url; $('cAvatar').hidden = false; }
     const f = (fol.data || [])[0];
     const days = (d) => Math.floor((Date.now() - Date.parse(d)) / 86400000);
-    $('cInfo').textContent = [p.created_at && `compte créé il y a ${days(p.created_at)} j`, f ? `suit depuis ${days(f.followed_at)} j` : 'ne suit pas la chaîne'].filter(Boolean).join(' · ');
+    $('cInfo').replaceChildren(SB.meta(p.created_at && `compte créé il y a ${days(p.created_at)} j`, f ? `suit depuis ${days(f.followed_at)} j` : 'ne suit pas la chaîne'));
     const b = (banned.data || [])[0];
     if (b) { $('cBan').hidden = false; $('cBan').textContent = (b.expires_at ? `En timeout jusqu’à ${hhmm(b.expires_at)}` : 'Banni') + (b.reason ? ` : ${b.reason}` : '') + (b.moderator_name ? ` (par ${b.moderator_name})` : ''); $('cUnban').hidden = false; }
   } catch (e) { $('cInfo').textContent = e.message; }
@@ -284,7 +293,7 @@ function held(ev) {
   const box = el('div', 'md-held'); box.dataset.id = ev.message_id;
   const why = ev.reason === 'blocked_term' ? 'mot bloqué' : ev.automod ? `${ev.automod.category || 'AutoMod'} (niveau ${ev.automod.level})` : 'AutoMod';
   const who = el('button', 'md-name', ev.user_name); who.type = 'button'; who.onclick = () => { if (users.has(ev.user_login)) openCard(ev.user_login); };
-  const head = el('div'); head.append(who, el('small', null, ` · ${why} · ${hhmm(ev.held_at || Date.now())}`));
+  const head = el('div'); head.append(who, SB.meta(why, hhmm(ev.held_at || Date.now())));
   const row = el('div', 'pn-row');
   const go = (action) => act(action === 'ALLOW' ? 'Message autorisé' : 'Message refusé', () => tw('POST', 'moderation/automod/message', { user_id: me.id, msg_id: ev.message_id, action })).then((ok) => ok && removeHeld(ev.message_id));
   const a = el('button', 'btn small', '✅ Autoriser'); a.onclick = () => go('ALLOW');
@@ -322,7 +331,7 @@ function journal(ev) {
 function unbanRow(r) {
   if ($('unban').querySelector(`[data-id="${CSS.escape(r.id)}"]`)) return;
   const box = el('div', 'md-held'); box.dataset.id = r.id;
-  const head = el('div'); head.append(el('b', null, r.user_name), el('small', null, ` · ${hhmm(r.created_at)}`));
+  const head = el('div'); head.append(el('b', null, r.user_name), SB.meta(hhmm(r.created_at)));
   const res = el('input'); res.type = 'text'; res.placeholder = 'Réponse au viewer (facultative)'; res.maxLength = 500;
   const go = (status) => act(status === 'approved' ? 'Déban accepté' : 'Déban refusé', () => tw('PATCH', `moderation/unban_requests?${B()}&unban_request_id=${r.id}&status=${status}${res.value.trim() ? '&resolution_text=' + encodeURIComponent(res.value.trim()) : ''}`)).then((ok) => { if (ok) { box.remove(); countUnban(); } });
   const a = el('button', 'btn small', '✅ Accepter'); a.onclick = () => go('approved');
@@ -465,7 +474,7 @@ function renderPoll() {
   $('pollNew').open = !poll || poll.status !== 'ACTIVE' ? $('pollNew').open : false;
   if (!poll || (poll.status !== 'ACTIVE' && !recent(poll.ended_at || poll.started_at)) || poll.status === 'ARCHIVED') return;
   const card = el('div', 'md-held bx-card');
-  const head = el('div'); head.append(el('b', null, '📊 '), skip(el('b', null, poll.title)), el('small', null, ' · ' + (poll.status === 'ACTIVE' ? `${mmss(left(poll.started_at, poll.duration))} restantes` : POLL_ST[poll.status] || poll.status)));
+  const head = el('div'); head.append(el('b', null, '📊 '), skip(el('b', null, poll.title)), SB.meta(poll.status === 'ACTIVE' ? `${mmss(left(poll.started_at, poll.duration))} restantes` : POLL_ST[poll.status] || poll.status));
   const total = poll.choices.reduce((a, c) => a + c.votes, 0);
   card.append(head, ...bars(poll.choices, (c) => c.votes), el('small', null, `${total.toLocaleString(SB_LANG_TAG)} vote(s)`));
   const row = el('div', 'pn-row');
@@ -479,7 +488,7 @@ function renderPred() {
   const box = $('predNow'); box.replaceChildren();
   if (!pred || (/RESOLVED|CANCELED/.test(pred.status) && !recent(pred.ended_at || pred.created_at))) return;
   const card = el('div', 'md-held bx-card');
-  const head = el('div'); head.append(el('b', null, '🔮 '), skip(el('b', null, pred.title)), el('small', null, ' · ' + (pred.status === 'ACTIVE' ? `${mmss(left(pred.created_at, pred.prediction_window))} pour parier` : PRED_ST[pred.status] || pred.status)));
+  const head = el('div'); head.append(el('b', null, '🔮 '), skip(el('b', null, pred.title)), SB.meta(pred.status === 'ACTIVE' ? `${mmss(left(pred.created_at, pred.prediction_window))} pour parier` : PRED_ST[pred.status] || pred.status));
   const outs = pred.outcomes.map((o) => Object.assign({}, o, { _extra: ` pts · ${o.users || 0} 👤`, title: (pred.winning_outcome_id === o.id ? '🏆 ' : '') + o.title }));
   card.append(head, ...bars(outs, (o) => o.channel_points || 0));
   const row = el('div', 'pn-row');
@@ -545,12 +554,12 @@ function renderQueue(q) {
   const groups = {}; q.forEach((r) => (groups[r.reward.id] = groups[r.reward.id] || []).push(r));
   const out = [];
   for (const [rid, list] of Object.entries(groups)) {
-    const h = el('div', 'bx-grp'); h.append(skip(el('b', null, list[0].reward.title)), el('small', null, ` · ${list.length}`));
+    const h = el('div', 'bx-grp'); h.append(skip(el('b', null, list[0].reward.title)), SB.meta(String(list.length)));
     if (list.length > 1) { const all = el('button', 'btn ghost small', '✅ Tout valider'); all.onclick = () => act('Tout validé', () => redeem(rid, list.map((r) => r.id), 'FULFILLED')).then(loadQueue); h.appendChild(all); }
     out.push(h);
     list.forEach((r) => {
       const row = el('div', 'md-held bx-red');
-      const top = el('div'); top.append(el('b', null, r.user_name), el('small', null, ` · il y a ${ago(r.redeemed_at)}`));
+      const top = el('div'); top.append(el('b', null, r.user_name), SB.meta(`il y a ${ago(r.redeemed_at)}`));
       row.appendChild(top);
       if (r.user_input) row.appendChild(skip(el('p', null, r.user_input)));
       const acts = el('div', 'pn-row');
@@ -567,7 +576,7 @@ function renderRewards() {
   $('rwNew').hidden = !owner;
   const rows = rewards.map((r) => {
     const row = el('div', 'md-mode bx-rw');
-    const name = el('span'); name.append(skip(el('b', null, r.title)), el('small', null, ` · ${r.cost.toLocaleString(SB_LANG_TAG)} pts${r.is_paused ? ' · en pause' : ''}${r.is_enabled ? '' : ' · désactivée'}`));
+    const name = el('span'); name.append(skip(el('b', null, r.title)), SB.meta(`${r.cost.toLocaleString(SB_LANG_TAG)} pts`, r.is_paused && 'en pause', !r.is_enabled && 'désactivée'));
     row.appendChild(name);
     if (owner) {
       const acts = el('span', 'pn-row');
@@ -594,7 +603,7 @@ function renderRewards() {
   if (others.length) {
     rows.push(el('p', 'bt-help', 'Créées sur Twitch (Twitch ne laisse pas une autre application les valider) :'));
     others.forEach((r) => {
-      const row = el('div', 'md-mode bx-rw'); const name = el('span'); name.append(skip(el('span', null, r.title)), el('small', null, ` · ${r.cost.toLocaleString(SB_LANG_TAG)} pts`)); row.appendChild(name);
+      const row = el('div', 'md-mode bx-rw'); const name = el('span'); name.append(skip(el('span', null, r.title)), SB.meta(`${r.cost.toLocaleString(SB_LANG_TAG)} pts`)); row.appendChild(name);
       if (owner) {
         const b = el('button', 'btn ghost small', '↻ Recréer avec StreamBox');
         b.title = 'Crée une copie gérée par StreamBox ; supprime ensuite l’originale sur Twitch';
@@ -640,7 +649,7 @@ $('tabs').onclick = (e) => {
 async function stream() {
   try {
     const s = ((await tw('GET', 'streams?user_id=' + ch.id)).data || [])[0];
-    $('live').textContent = s ? `🔴 ${s.viewer_count.toLocaleString(SB_LANG_TAG)} viewers · ${fmtDur(Math.floor((Date.now() - Date.parse(s.started_at)) / 1000))}` : 'hors ligne';
+    $('live').replaceChildren(s ? SB.meta(`🔴 ${s.viewer_count.toLocaleString(SB_LANG_TAG)} viewers`, fmtDur(Math.floor((Date.now() - Date.parse(s.started_at)) / 1000))) : 'hors ligne');
   } catch (e) { $('live').textContent = ''; }
 }
 function select(c) {

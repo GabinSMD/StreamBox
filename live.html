@@ -3,8 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="img/logo.svg" type="image/svg+xml">
 <title>Subathon en direct · StreamBox</title>
 <meta name="description" content="Suis le subathon en direct : temps restant, paliers, idées et votes du chat.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="StreamBox">
+<meta property="og:title" content="Subathon en direct · StreamBox">
+<meta property="og:description" content="Suis le subathon en direct : temps restant, paliers, idées et votes du chat.">
+<meta property="og:image" content="https://gabinsmd.github.io/StreamBox/img/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400..700&family=Tektur:wght@700&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="css/site.css">
 <script src="js/i18n.js"></script>
@@ -90,7 +99,7 @@ function render() {
   if (d.totals.don) meta.push(`${nf(d.totals.don)} € de dons`);
   if (d.totals.added) meta.push(`${fmtShort(d.totals.added)} ajoutées`);
   if (d.cap) meta.push(`maximum ${d.cap} h`);
-  $('meta').textContent = meta.join(' · ');
+  $('meta').replaceChildren(SB.meta(...meta));
   $('happy').hidden = !d.happy;
 
   const unit = { subs: 'abos', bits: 'bits', dons: '€', heures: 'h de live' }[d.metric];
@@ -122,7 +131,7 @@ function render() {
     btn.disabled = x.status !== 'approved';
     btn.onclick = () => voteFor(x.id);
     const txt = el('div', 'lv-itext'); txt.append(el('span', 'lv-num', '#' + x.id), ' ' + x.text);
-    const by = el('small', null, 'par ' + x.by + (x.status === 'done' ? ' · ✅ réalisée' : x.status === 'pending' ? ' · ⏳ en attente de validation' : ''));
+    const by = SB.meta('par ' + x.by, x.status === 'done' ? '✅ réalisée' : x.status === 'pending' ? '⏳ en attente de validation' : '');
     txt.appendChild(by);
     row.append(btn, txt); return row;
   }) : [el('p', 'bt-help', 'Aucune idée pour l’instant : sois le premier !')]));

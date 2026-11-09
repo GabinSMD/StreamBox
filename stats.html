@@ -3,8 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="img/logo.svg" type="image/svg+xml">
 <title>Statistiques · StreamBox</title>
 <meta name="description" content="Statistiques de tes lives Twitch : viewers minute par minute, chat, follows, abos, bits et raids.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="StreamBox">
+<meta property="og:title" content="Statistiques · StreamBox">
+<meta property="og:description" content="Statistiques de tes lives Twitch : viewers minute par minute, chat, follows, abos, bits et raids.">
+<meta property="og:image" content="https://gabinsmd.github.io/StreamBox/img/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400..700&family=Tektur:wght@700&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="css/site.css">
 <script src="js/i18n.js"></script>
@@ -155,7 +164,7 @@ function render() {
   $('liveBox').hidden = !data.live;
   if (data.live) {
     const L = data.live;
-    $('liveInfo').textContent = `${dur(Date.now() - L.startedAt)} · ${L.games.map((g) => g.name).join(', ')}`;
+    $('liveInfo').replaceChildren(SB.meta(dur(Date.now() - L.startedAt), L.games.map((g) => g.name).join(', ')));
     const lastV = L.samples.length ? L.samples[L.samples.length - 1][1] : 0;
     $('liveTiles').replaceChildren(tile('Viewers', nf(lastV)), tile('Moyenne', nf(L.avg)), tile('Pic', nf(L.peak)), tile('Messages', nf(L.msgs)), tile('Follows', nf(L.follows)), tile('Abos', nf(L.subs + L.resubs + L.gifts)));
     chart($('liveChart'), L.samples, { label: 'Viewers du live en cours', unit: 'viewers', h: 180, markers: gameMarks(L) });
@@ -185,7 +194,7 @@ async function open(key) {
     const r = DEMO ? demoLive(key) : await SBA.api('GET', '/me/stats/' + key);
     current = r; render(); $('detail').hidden = false;
     $('dTitle').textContent = r.title || '(sans titre)';
-    $('dInfo').textContent = `${day(r.startedAt)}, ${hm(r.startedAt)} → ${hm(r.endedAt)} · ${dur(r.duration)}`;
+    $('dInfo').replaceChildren(SB.meta(`${day(r.startedAt)}, ${hm(r.startedAt)} → ${hm(r.endedAt)}`, dur(r.duration)));
     $('dTiles').replaceChildren(tile('Moyenne', nf(r.avg)), tile('Pic', nf(r.peak)), tile('Heures regardées', r.hoursWatched.toLocaleString(SB_LANG_TAG)), tile('Messages', nf(r.msgs)),
       tile('Chatteurs', nf(r.chatters) + (r.chattersCapped ? '+' : '')), tile('Follows', nf(r.follows)), tile('Nouveaux abos', nf(r.subs)), tile('Réabos', nf(r.resubs)),
       tile('Abos offerts', nf(r.gifts)), tile('Bits', nf(r.bits)), ...(Object.keys(r.dons).length ? [tile('Dons', money(r.dons))] : []));

@@ -3,8 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="img/logo.svg" type="image/svg+xml">
 <title>Demandes de musique · StreamBox</title>
 <meta name="description" content="File publique des demandes de musique d’une chaîne Twitch.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="StreamBox">
+<meta property="og:title" content="Demandes de musique · StreamBox">
+<meta property="og:description" content="File publique des demandes de musique d’une chaîne Twitch.">
+<meta property="og:image" content="https://gabinsmd.github.io/StreamBox/img/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400..700&family=Tektur:wght@700&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="css/site.css">
 <script src="js/i18n.js"></script>
@@ -36,7 +45,7 @@ function row(x, i) {
   const r = el('div', 'sr-item');
   if (x.thumb) { const img = el('img'); img.src = x.thumb; img.alt = ''; r.appendChild(img); }
   const t = el('div', 'sr-t'); const a = el('a', null, x.title); a.dataset.i18nSkip = ''; a.href = x.url || '#'; a.target = '_blank'; a.rel = 'noopener';
-  t.append(i != null ? el('b', 'lv-num', `${i + 1}. `) : '', a, el('small', null, [x.artist, len(x.duration), 'demandé par ' + x.by].filter(Boolean).join(' · ')));
+  t.append(i != null ? el('b', 'lv-num', `${i + 1}. `) : '', a, SB.meta(x.artist, len(x.duration), 'demandé par ' + x.by));
   r.appendChild(t); return r;
 }
 async function load() {

@@ -3,8 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="img/logo.svg" type="image/svg+xml">
 <title>Chaîne · StreamBox</title>
 <meta name="description" content="Commandes du chat, planning des lives, liens, musique et subathon d’une chaîne Twitch.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="StreamBox">
+<meta property="og:title" content="Chaîne · StreamBox">
+<meta property="og:description" content="Commandes du chat, planning des lives, liens, musique et subathon d’une chaîne Twitch.">
+<meta property="og:image" content="https://gabinsmd.github.io/StreamBox/img/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400..700&family=Tektur:wght@700&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="css/site.css">
 <script src="js/i18n.js"></script>
@@ -116,7 +125,7 @@ async function extras() {
     const r = await fetch(`${R}/public/${chan}/sr`).catch(() => null); const d = r && r.ok ? await r.json() : null;
     $('secMusic').hidden = !(d && d.enabled);
     if (d && d.enabled) {
-      const row = (x, lead) => { const p = el('div', 'ch-song'); p.append(el('b', null, lead), skip(el('span', null, x.title + (x.artist ? ' · ' + x.artist : '')))); return p; };
+      const row = (x, lead) => { const p = el('div', 'ch-song'); p.append(el('b', null, lead), skip(el('span', null, x.title)), x.artist ? skip(SB.meta(x.artist)) : ''); return p; };
       const items = [];
       if (d.current) items.push(row(d.current, '▶ '));
       d.queue.slice(0, 5).forEach((x, i) => items.push(row(x, `${i + 1}. `)));
@@ -141,7 +150,7 @@ async function load() {
     $('live').replaceChildren();
     if (d.live) {
       const a = el('a', 'ch-on'); a.href = 'https://twitch.tv/' + chan; a.target = '_blank'; a.rel = 'noopener';
-      a.append(el('b', null, '🔴 En live'), ' ', skip(el('span', null, d.live.title)), el('small', null, ` · ${d.live.game ? d.live.game + ' · ' : ''}${d.live.viewers.toLocaleString(SB_LANG_TAG)} viewers`));
+      a.append(el('b', null, '🔴 En live'), ' ', skip(el('span', null, d.live.title)), SB.meta(d.live.game && skip(el('span', null, d.live.game)), `${d.live.viewers.toLocaleString(SB_LANG_TAG)} viewers`));
       $('live').appendChild(a);
     } else $('live').appendChild(el('span', 'ch-off', 'Hors ligne'));
     $('links').replaceChildren(...(d.links || []).map((l) => { const u = safeUrl(l.url); if (!u) return ''; const a = skip(el('a', 'btn small ghost', l.label)); a.href = u; a.target = '_blank'; a.rel = 'noopener nofollow'; return a; }));
