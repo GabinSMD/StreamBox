@@ -12,5 +12,5 @@ window.SB_CONFIG = {
   // Last.fm (overlay Musique : Deezer, YouTube Music, Apple Music…) : https://www.last.fm/api/account/create
   lastfmApiKey: '',
   // Relais StreamBox (dons Ko-fi, musiques des redifs) : voir relay/README.md
-  relayUrl: '',
+  relayUrl: 'https://streambox-relay.gabinsmd.workers.dev',
 };
