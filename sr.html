@@ -5,13 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Demandes de musique · StreamBox</title>
 <meta name="description" content="Demandes de musique Twitch (!sr) : file YouTube ou Spotify, limites et modération.">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400..800&family=Tektur:wght@500..800&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="css/site.css">
 <script src="js/i18n.js"></script>
+<script src="js/icons.js"></script>
 </head>
 <body>
 <main class="wrap">
-  <h1 class="sec" style="margin-top:36px">🎶 Demandes de musique</h1>
+  <h1 class="sec" style="margin-top:36px"><svg class="ic ic-list-music" aria-hidden="true" focusable="false"><use href="img/icons.svg#list-music"/></svg>Demandes de musique</h1>
   <p class="sec">Tes viewers demandent des morceaux avec <code>!sr</code>. La file tourne sur le relais StreamBox, et toi et tes modos la gérez ici ou depuis le chat.</p>
   <div id="need" class="box" hidden></div>
 
@@ -29,9 +30,9 @@
     <div class="bt-grid">
       <div>
         <section class="box">
-          <h2 class="bt-h">▶ En cours</h2>
+          <h2 class="bt-h"><svg class="ic ic-play" aria-hidden="true" focusable="false"><use href="img/icons.svg#play"/></svg>En cours</h2>
           <div id="current"></div>
-          <h2 class="bt-h" style="margin-top:16px">📋 File d’attente <small id="count"></small></h2>
+          <h2 class="bt-h" style="margin-top:16px"><svg class="ic ic-list-ordered" aria-hidden="true" focusable="false"><use href="img/icons.svg#list-ordered"/></svg>File d’attente <small id="count"></small></h2>
           <div id="queue"></div>
           <div class="pn-row"><button class="btn ghost small" data-a="clear">Vider la file</button><button class="btn ghost small" id="pause" type="button"></button></div>
           <details class="more" style="margin-top:14px"><summary>Déjà joués</summary><div id="history"></div></details>
@@ -39,7 +40,7 @@
       </div>
       <aside class="bt-side">
         <section class="box">
-          <h2 class="bt-h">⚙️ Réglages</h2>
+          <h2 class="bt-h"><svg class="ic ic-settings" aria-hidden="true" focusable="false"><use href="img/icons.svg#settings"/></svg>Réglages</h2>
           <div id="settings" class="sr-settings"></div>
         </section>
         <div class="bt-save"><span id="dirty"></span><button class="btn" id="save" type="button">Enregistrer</button></div>
@@ -86,7 +87,7 @@ function render() {
   const link = new URL('demandes.html?c=' + SBA.session().login, location.href).toString(); $('pubLink').value = link; $('openPub').href = link;
   const warn = [];
   if (cfg.source === 'youtube') {
-    warn.push('Ajoute l’overlay 🎧 Lecteur dans OBS (enregistré dans ton compte) : c’est lui qui joue la file. Coche « Contrôler l’audio via OBS ».');
+    warn.push('Ajoute l’overlay « Lecteur » dans OBS (enregistré dans ton compte) : c’est lui qui joue la file. Coche « Contrôler l’audio via OBS ».');
     if (!info.ytSearch) warn.push('Recherche par titre désactivée : les viewers doivent envoyer un lien YouTube (le propriétaire du site peut ajouter YOUTUBE_API_KEY au relais).');
   } else if (!info.spotify) warn.push('Connecte Spotify dans Mon compte (Spotify Premium nécessaire pour ajouter à la file).');
   $('warn').hidden = !warn.length; $('warn').replaceChildren(...warn.map((w) => el('div', null, '• ' + w)));

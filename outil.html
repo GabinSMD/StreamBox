@@ -5,9 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>StreamBox, configurer un overlay</title>
 <meta name="description" content="Configure un overlay StreamBox avec aperçu en direct, puis copie son lien dans OBS.">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Roboto+Mono&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400..800&family=Tektur:wght@500..800&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="css/site.css">
 <script src="js/i18n.js"></script>
+<script src="js/icons.js"></script>
 </head>
 <body>
 <main class="wrap">
@@ -33,7 +34,7 @@
         <div class="ptools">
           <label><input type="checkbox" id="demo" checked> Aperçu avec de faux messages</label>
           <label><input type="checkbox" id="gamebg" checked> Fond de jeu</label>
-          <label class="btn ghost small">🖼️ Mon fond d’aperçu<input type="file" id="bgfile" accept="image/*" hidden></label>
+          <label class="btn ghost small"><svg class="ic ic-image" aria-hidden="true" focusable="false"><use href="img/icons.svg#image"/></svg>Mon fond d’aperçu<input type="file" id="bgfile" accept="image/*" hidden></label>
           <span id="dims"></span>
         </div>
         <ol class="steps">

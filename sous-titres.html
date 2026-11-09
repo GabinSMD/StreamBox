@@ -5,13 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Sous-titres en direct · StreamBox</title>
 <meta name="description" content="Sous-titres de ta voix en direct, traduits pour tes viewers du monde entier.">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400..800&family=Tektur:wght@500..800&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="css/site.css">
 <script src="js/i18n.js"></script>
+<script src="js/icons.js"></script>
 </head>
 <body>
 <main class="wrap sx-page">
-  <h1 class="sec" style="margin-top:36px">💬 Sous-titres en direct</h1>
+  <h1 class="sec" style="margin-top:36px"><svg class="ic ic-message-square" aria-hidden="true" focusable="false"><use href="img/icons.svg#message-square"/></svg>Sous-titres en direct</h1>
   <p class="sec">Ta voix transcrite et traduite à l’écran, en direct. Laisse cette page ouverte dans Chrome ou Edge pendant ton live (pas dans OBS : une source OBS n’a pas accès au micro) ; les sous-titres s’affichent dans l’overlay « Sous-titres » de ta scène.</p>
   <div id="need" class="box" hidden></div>
 
@@ -23,7 +24,7 @@
         <div class="bt-f"><span>Traduire en</span><div id="targets" class="st-targets"></div></div>
       </div>
       <div class="pn-row" style="margin-top:14px">
-        <button class="btn" id="go" type="button">🎙️ Démarrer les sous-titres</button>
+        <button class="btn" id="go" type="button"><svg class="ic ic-mic" aria-hidden="true" focusable="false"><use href="img/icons.svg#mic"/></svg>Démarrer les sous-titres</button>
         <span class="flag" id="st">arrêtés</span>
         <span class="bt-help" id="trInfo"></span>
       </div>

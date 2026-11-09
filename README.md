@@ -132,7 +132,10 @@ python3 -m http.server 8000
 ## Structure
 
 ```
-index.html            Accueil et catalogue
+index.html            Accueil (outils phares, étapes, panneau des modos, catégories)
+outils.html           Catalogue complet des outils, par catégorie
+js/catalogue.js       Cartes d’outils communes à l’accueil et au catalogue
+js/icons.js           Icônes à la place des emojis de l’interface (sprite img/icons.svg, Lucide, licence ISC)
 outil.html            Configurateur générique (formulaire, lien, aperçu)
 annuaire.html         Annuaire des outils externes
 redimensionneur.html  Redimensionneur d'emotes

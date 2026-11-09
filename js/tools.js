@@ -608,7 +608,7 @@
   const DONS = [
     { key: 'kofi', label: 'Clé Ko-fi du relais StreamBox', type: 'text', default: '', group: 'dons', help: 'Voir relay/README.md : Ko-fi envoie tes dons au relais, qui les transmet ici.' },
     { key: 'sltoken', label: 'Jeton Socket API Streamlabs', type: 'text', default: '', group: 'dons', help: 'Streamlabs → Paramètres → Clés API → Socket API Token.' },
-    { key: 'sejwt', label: 'Jeton JWT StreamElements', type: 'text', default: '', group: 'dons', help: 'StreamElements → Mon compte → Chaînes → Afficher les secrets. ⚠️ Ce jeton donne accès à ton compte StreamElements : ne montre jamais le lien de l’overlay.' },
+    { key: 'sejwt', label: 'Jeton JWT StreamElements', type: 'text', default: '', group: 'dons', help: 'StreamElements → Mon compte → Chaînes → Afficher les secrets. Attention : ce jeton donne accès à ton compte StreamElements : ne montre jamais le lien de l’overlay.' },
   ];
   const WITH_DONS = ['alertes', 'subathon', 'objectifs', 'tts', 'etiquettes'];
   const PILOTABLE = ['sondage', 'giveaway', 'subathon', 'minuteur', 'alertes', 'objectifs', 'roue', 'tts', 'compteurs', 'sons', 'qrdons', 'generique', 'pngtuber', 'shoutout', 'clips', 'etiquettes'];

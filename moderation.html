@@ -5,9 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Panneau de modération · StreamBox</title>
 <meta name="description" content="Panneau de modération Twitch pour toi et tes modos : sanctions en un clic, AutoMod, journal, sondages, prédictions et récompenses.">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400..800&family=Tektur:wght@500..800&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="css/site.css">
 <script src="js/i18n.js"></script>
+<script src="js/icons.js"></script>
 </head>
 <body class="md-body">
 <main class="wrap md-wrap">
@@ -15,12 +16,12 @@
 
   <div id="app" hidden>
     <header class="md-top">
-      <h1>🛡️ Modération</h1>
+      <h1><svg class="ic ic-shield" aria-hidden="true" focusable="false"><use href="img/icons.svg#shield"/></svg>Modération</h1>
       <select id="chan" aria-label="Chaîne"></select>
       <span class="flag" id="live"></span>
-      <span class="md-st" id="stChat" title="Chat">💬 …</span>
-      <span class="md-st" id="stEs" title="Événements de modération">🛡️ …</span>
-      <label class="md-quick" title="Durée du bouton ⏱ dans le chat">⏱ rapide <select id="quickT"><option value="60">1 min</option><option value="600" selected>10 min</option><option value="3600">1 h</option><option value="86400">24 h</option></select></label>
+      <span class="md-st" id="stChat" title="Chat"><svg class="ic ic-message-square" aria-hidden="true" focusable="false"><use href="img/icons.svg#message-square"/></svg>…</span>
+      <span class="md-st" id="stEs" title="Événements de modération"><svg class="ic ic-shield" aria-hidden="true" focusable="false"><use href="img/icons.svg#shield"/></svg>…</span>
+      <label class="md-quick" title="Durée du bouton ⏱ dans le chat"><svg class="ic ic-timer" aria-hidden="true" focusable="false"><use href="img/icons.svg#timer"/></svg>rapide <select id="quickT"><option value="60">1 min</option><option value="600" selected>10 min</option><option value="3600">1 h</option><option value="86400">24 h</option></select></label>
     </header>
     <div class="note" id="scopeWarn" hidden></div>
 
@@ -61,19 +62,19 @@
         </section>
         <section class="box md-pane" id="p-modes" hidden>
           <div class="md-modes" id="modes"></div>
-          <h2 class="bt-h" style="margin-top:18px">📣 Annonce</h2>
+          <h2 class="bt-h" style="margin-top:18px"><svg class="ic ic-megaphone" aria-hidden="true" focusable="false"><use href="img/icons.svg#megaphone"/></svg>Annonce</h2>
           <textarea id="annText" aria-label="Message mis en avant dans le chat" rows="2" maxlength="500" placeholder="Message mis en avant dans le chat"></textarea>
           <div class="pn-row">
             <select id="annColor" aria-label="Couleur de l’annonce"><option value="primary">Couleur de la chaîne</option><option value="purple">Violet</option><option value="blue">Bleu</option><option value="green">Vert</option><option value="orange">Orange</option></select>
             <button class="btn small" id="annGo" type="button">Envoyer</button>
           </div>
-          <div class="pn-row" style="margin-top:18px"><button class="btn ghost small" id="clearChat" type="button">🧹 Effacer tout le chat</button></div>
+          <div class="pn-row" style="margin-top:18px"><button class="btn ghost small" id="clearChat" type="button"><svg class="ic ic-message-square-x" aria-hidden="true" focusable="false"><use href="img/icons.svg#message-square-x"/></svg>Effacer tout le chat</button></div>
         </section>
         <section class="box md-pane" id="p-votes" hidden>
           <div class="bx-need" hidden></div>
           <div class="bx-body">
             <div id="pollNow"></div>
-            <details class="md-new" id="pollNew"><summary>📊 Nouveau sondage</summary>
+            <details class="md-new" id="pollNew"><summary><svg class="ic ic-chart-column" aria-hidden="true" focusable="false"><use href="img/icons.svg#chart-column"/></svg>Nouveau sondage</summary>
               <label class="bt-f"><span>Question</span><input type="text" id="pTitle" maxlength="60"></label>
               <label class="bt-f"><span>Choix (un par ligne, 2 à 5)</span><textarea id="pChoices" rows="3" placeholder="Oui&#10;Non"></textarea></label>
               <div class="pn-row">
@@ -83,7 +84,7 @@
               <div class="pn-row"><button class="btn small" id="pGo" type="button">Lancer le sondage</button><span class="md-recent" id="pRecent"></span></div>
             </details>
             <div id="predNow"></div>
-            <details class="md-new" id="predNew"><summary>🔮 Nouvelle prédiction</summary>
+            <details class="md-new" id="predNew"><summary><svg class="ic ic-sparkle" aria-hidden="true" focusable="false"><use href="img/icons.svg#sparkle"/></svg>Nouvelle prédiction</summary>
               <label class="bt-f"><span>Question</span><input type="text" id="rTitle" maxlength="45"></label>
               <label class="bt-f"><span>Réponses possibles (une par ligne, 2 à 10)</span><textarea id="rOutcomes" rows="3" placeholder="Victoire&#10;Défaite"></textarea></label>
               <label class="bt-f"><span>Paris ouverts pendant</span><select id="rWin"><option value="30">30 s</option><option value="60">1 min</option><option value="120" selected>2 min</option><option value="300">5 min</option><option value="600">10 min</option><option value="1800">30 min</option></select></label>
@@ -94,11 +95,11 @@
         <section class="box md-pane" id="p-points" hidden>
           <div class="bx-need" hidden></div>
           <div class="bx-body">
-            <p class="bt-help">Récompenses de points de chaîne à valider : ✅ c’est fait, ↩ rembourser le viewer.</p>
+            <p class="bt-help">Récompenses de points de chaîne à valider ou à rembourser.</p>
             <div id="queue"></div>
-            <h2 class="bt-h" style="margin-top:18px">🎁 Récompenses</h2>
+            <h2 class="bt-h" style="margin-top:18px"><svg class="ic ic-gift" aria-hidden="true" focusable="false"><use href="img/icons.svg#gift"/></svg>Récompenses</h2>
             <div id="rewards"></div>
-            <details class="md-new" id="rwNew" hidden><summary>➕ Nouvelle récompense</summary>
+            <details class="md-new" id="rwNew" hidden><summary><svg class="ic ic-plus" aria-hidden="true" focusable="false"><use href="img/icons.svg#plus"/></svg>Nouvelle récompense</summary>
               <label class="bt-f"><span>Nom</span><input type="text" id="wTitle" maxlength="45"></label>
               <div class="pn-row">
                 <label class="bt-f"><span>Prix (points)</span><input type="number" id="wCost" min="1" value="500"></label>
@@ -117,11 +118,11 @@
             <label class="bt-f"><span>Catégorie</span><input type="text" id="game" list="games" autocomplete="off"></label>
             <datalist id="games"></datalist>
             <div class="pn-row"><button class="btn small" id="saveLive" type="button">Mettre à jour</button></div>
-            <h2 class="bt-h" style="margin-top:18px">🚀 Raid</h2>
+            <h2 class="bt-h" style="margin-top:18px"><svg class="ic ic-rocket" aria-hidden="true" focusable="false"><use href="img/icons.svg#rocket"/></svg>Raid</h2>
             <div class="pn-row"><input type="text" id="raidTo" aria-label="chaîne à raider" placeholder="chaîne à raider"><button class="btn small" id="raidGo" type="button">Lancer</button><button class="btn ghost small" id="raidStop" type="button">Annuler</button></div>
           </div>
           <div id="teamBox" hidden>
-            <h2 class="bt-h" style="margin-top:18px">🤝 Équipe</h2>
+            <h2 class="bt-h" style="margin-top:18px"><svg class="ic ic-handshake" aria-hidden="true" focusable="false"><use href="img/icons.svg#handshake"/></svg>Équipe</h2>
             <label class="bt-toggle"><input type="checkbox" id="teamMods"><b>Mes modos peuvent gérer sondages, prédictions et file des récompenses</b></label>
             <p class="bt-help">Twitch réserve ces actions au compte du streamer : StreamBox les fait pour tes modos, après avoir vérifié auprès de Twitch qu’ils sont bien modos. Créer ou supprimer une récompense reste réservé à toi.</p>
           </div>
@@ -133,7 +134,7 @@
 
 <div class="md-card" id="card" hidden role="dialog" aria-label="Fiche du viewer">
   <div class="md-card-in box">
-    <button class="md-x" id="cardX" type="button" aria-label="Fermer">✕</button>
+    <button class="md-x" id="cardX" type="button" aria-label="Fermer"><svg class="ic ic-x ic-solo" aria-hidden="true" focusable="false"><use href="img/icons.svg#x"/></svg></button>
     <div class="md-who"><img id="cAvatar" alt="" hidden><div><b id="cName"></b><small id="cInfo"></small></div></div>
     <div class="note" id="cBan" hidden></div>
     <input type="text" id="cReason" aria-label="Raison (facultative, obligatoire pour un avertissement)" maxlength="200" placeholder="Raison (facultative, obligatoire pour un avertissement)">
@@ -142,11 +143,11 @@
       <button data-to="60">1 min</button><button data-to="600">10 min</button><button data-to="3600">1 h</button><button data-to="86400">1 j</button><button data-to="604800">7 j</button>
     </div>
     <div class="md-acts">
-      <button id="cPurge" title="Timeout d’une seconde : efface ses messages">🧽 Purger</button>
-      <button id="cWarn">⚠️ Avertir</button>
-      <button id="cBanBtn" class="danger">🔨 Bannir</button>
-      <button id="cUnban" hidden>✅ Débannir</button>
-      <a id="cTwitch" target="_blank" rel="noopener">Fiche Twitch ↗</a>
+      <button id="cPurge" title="Timeout d’une seconde : efface ses messages"><svg class="ic ic-eraser" aria-hidden="true" focusable="false"><use href="img/icons.svg#eraser"/></svg>Purger</button>
+      <button id="cWarn"><svg class="ic ic-triangle-alert" aria-hidden="true" focusable="false"><use href="img/icons.svg#triangle-alert"/></svg>Avertir</button>
+      <button id="cBanBtn" class="danger"><svg class="ic ic-gavel" aria-hidden="true" focusable="false"><use href="img/icons.svg#gavel"/></svg>Bannir</button>
+      <button id="cUnban" hidden><svg class="ic ic-circle-check" aria-hidden="true" focusable="false"><use href="img/icons.svg#circle-check"/></svg>Débannir</button>
+      <a id="cTwitch" target="_blank" rel="noopener">Fiche Twitch <svg class="ic ic-arrow-up-right" aria-hidden="true" focusable="false"><use href="img/icons.svg#arrow-up-right"/></svg></a>
     </div>
     <h3>Messages pendant cette session <small id="cCount"></small></h3>
     <div class="md-hist" id="cHist" data-i18n-skip></div>

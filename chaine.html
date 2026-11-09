@@ -5,9 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Chaîne · StreamBox</title>
 <meta name="description" content="Commandes du chat, planning des lives, liens, musique et subathon d’une chaîne Twitch.">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400..800&family=Tektur:wght@500..800&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="css/site.css">
 <script src="js/i18n.js"></script>
+<script src="js/icons.js"></script>
 </head>
 <body>
 <main class="wrap ch">
@@ -25,22 +26,22 @@
 
     <div class="ch-grid">
       <section class="box" id="secCommands" hidden>
-        <div class="ch-h"><h2 class="bt-h">💬 Commandes du chat</h2><input type="text" id="q" placeholder="Chercher une commande" aria-label="Chercher une commande"></div>
+        <div class="ch-h"><h2 class="bt-h"><svg class="ic ic-message-square" aria-hidden="true" focusable="false"><use href="img/icons.svg#message-square"/></svg>Commandes du chat</h2><input type="text" id="q" placeholder="Chercher une commande" aria-label="Chercher une commande"></div>
         <div id="commands"></div>
       </section>
       <div class="ch-col">
         <section class="box" id="secSchedule" hidden>
-          <h2 class="bt-h">📅 Prochains lives</h2>
+          <h2 class="bt-h"><svg class="ic ic-calendar" aria-hidden="true" focusable="false"><use href="img/icons.svg#calendar"/></svg>Prochains lives</h2>
           <div id="schedule"></div>
         </section>
         <section class="box" id="secSubathon" hidden>
-          <h2 class="bt-h">⏱️ Subathon en cours</h2>
+          <h2 class="bt-h"><svg class="ic ic-timer" aria-hidden="true" focusable="false"><use href="img/icons.svg#timer"/></svg>Subathon en cours</h2>
           <div class="ch-big" id="subTime"></div>
           <p class="bt-help" id="subInfo"></p>
           <a class="btn small" id="subLink">Suivre le subathon et voter</a>
         </section>
         <section class="box" id="secMusic" hidden>
-          <h2 class="bt-h">🎵 Musique</h2>
+          <h2 class="bt-h"><svg class="ic ic-music" aria-hidden="true" focusable="false"><use href="img/icons.svg#music"/></svg>Musique</h2>
           <div id="music"></div>
           <a class="btn small ghost" id="musicLink">Voir toute la file</a>
         </section>

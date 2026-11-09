@@ -5,13 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Bot de chat · StreamBox</title>
 <meta name="description" content="Bot de chat Twitch gratuit : commandes, messages automatiques, modération et remerciements, actif 24 h/24 même OBS fermé.">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Roboto+Mono&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400..800&family=Tektur:wght@500..800&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="css/site.css">
 <script src="js/i18n.js"></script>
+<script src="js/icons.js"></script>
 </head>
 <body>
 <main class="wrap">
-  <h1 class="sec" style="margin-top:36px">🤖 Bot de chat</h1>
+  <h1 class="sec" style="margin-top:36px"><svg class="ic ic-bot" aria-hidden="true" focusable="false"><use href="img/icons.svg#bot"/></svg>Bot de chat</h1>
   <p class="sec">Il tourne sur le relais StreamBox, 24 h/24, même OBS fermé : commandes, messages automatiques, modération, remerciements. Rien à installer.</p>
 
   <div id="need" class="box" hidden></div>
@@ -22,32 +23,32 @@
     <div class="bt-grid">
       <div>
         <section class="box">
-          <h2 class="bt-h">💬 Commandes <small>Variables : {user} {touser} {args} {count} {random:1-6} {uptime} {game} {title} {followage} {channel}</small></h2>
+          <h2 class="bt-h"><svg class="ic ic-message-square" aria-hidden="true" focusable="false"><use href="img/icons.svg#message-square"/></svg>Commandes <small>Variables : {user} {touser} {args} {count} {random:1-6} {uptime} {game} {title} {followage} {channel}</small></h2>
           <div id="cmds"></div>
           <button class="btn ghost small" id="addcmd" type="button">+ Ajouter une commande</button>
           <details class="more" style="margin-top:14px"><summary>Commandes intégrées</summary><div id="builtins"></div></details>
         </section>
 
         <section class="box">
-          <h2 class="bt-h">⏰ Messages automatiques <small>Envoyés pendant le live seulement, quand le chat est actif</small></h2>
+          <h2 class="bt-h"><svg class="ic ic-alarm-clock" aria-hidden="true" focusable="false"><use href="img/icons.svg#alarm-clock"/></svg>Messages automatiques <small>Envoyés pendant le live seulement, quand le chat est actif</small></h2>
           <div id="timers"></div>
           <button class="btn ghost small" id="addtimer" type="button">+ Ajouter un message</button>
         </section>
 
         <section class="box">
-          <h2 class="bt-h">🛡️ Modération <small>Les modos et le streamer ne sont jamais concernés</small></h2>
+          <h2 class="bt-h"><svg class="ic ic-shield" aria-hidden="true" focusable="false"><use href="img/icons.svg#shield"/></svg>Modération <small>Les modos et le streamer ne sont jamais concernés</small></h2>
           <div id="mod"></div>
         </section>
 
         <section class="box">
-          <h2 class="bt-h">🎉 Messages d’événements</h2>
+          <h2 class="bt-h"><svg class="ic ic-party-popper" aria-hidden="true" focusable="false"><use href="img/icons.svg#party-popper"/></svg>Messages d’événements</h2>
           <div id="events"></div>
         </section>
       </div>
 
       <aside class="bt-side">
         <section class="box">
-          <h2 class="bt-h">🧪 Console de test</h2>
+          <h2 class="bt-h"><svg class="ic ic-flask-conical" aria-hidden="true" focusable="false"><use href="img/icons.svg#flask-conical"/></svg>Console de test</h2>
           <p class="bt-help">Essaie le bot sans être en live : rien n’est envoyé sur Twitch, et rien n’est enregistré (un !addcom tapé ici reste une simulation).</p>
           <div class="pn-row">
             <select id="trole" style="width:auto"><option value="viewer">Viewer</option><option value="sub">Abonné</option><option value="vip">VIP</option><option value="mod">Modo</option><option value="broadcaster">Toi</option></select>

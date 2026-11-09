@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tous les outils · StreamBox</title>
+<meta name="description" content="Tous les outils StreamBox : overlays OBS, bot de chat, alertes, subathon, musique, modération et outils pratiques. Gratuits, open source et sans installation.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400..800&family=Tektur:wght@500..800&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="css/site.css">
+<script src="js/i18n.js"></script>
+<script src="js/icons.js"></script>
+</head>
+<body>
+<main class="wrap">
+  <h1 class="sec" style="margin-top:36px">Tous les outils</h1>
+  <p class="sec" id="lead">Choisis un outil, règle-le avec l’aperçu en direct, puis colle son lien dans OBS.</p>
+  <nav class="cat-nav" id="catNav" aria-label="Catégories"></nav>
+  <div id="outils"></div>
+</main>
+<script src="js/tools.js"></script>
+<script src="js/config.js"></script>
+<script src="js/account.js"></script>
+<script src="js/site.js"></script>
+<script src="js/catalogue.js"></script>
+<script>
+const all = SB.catalogue.all;
+document.getElementById('lead').textContent = SB.t('{0} outils. Choisis-en un, règle-le avec l’aperçu en direct, puis colle son lien dans OBS.', [all.length]);
+const box = document.getElementById('outils'), nav = document.getElementById('catNav');
+SB_CATEGORIES.forEach((c) => {
+  const items = all.filter((t) => t.cat === c.id);
+  if (!items.length) return;
+  const sec = document.createElement('section'); sec.className = 'cat'; sec.id = 'cat-' + c.id;
+  const h = document.createElement('h2'); h.className = 'sec'; h.append(SB.catalogue.icon(c.icon), c.name);
+  const p = document.createElement('p'); p.className = 'sec'; p.textContent = c.desc;
+  const grid = document.createElement('div'); grid.className = 'grid'; items.forEach((t) => grid.appendChild(SB.catalogue.card(t)));
+  sec.append(h, p, grid); box.appendChild(sec);
+  const l = document.createElement('a'); l.className = 'chip'; l.href = '#cat-' + c.id; l.append(SB.catalogue.icon(c.icon), c.name, ' ', Object.assign(document.createElement('small'), { textContent: items.length })); nav.appendChild(l);
+});
+</script>
+</body>
+</html>
