@@ -2240,6 +2240,7 @@
 "Politique de confidentialité":"Privacy policy",
 "Poster un récap à la fin (messages, chatteurs, abos, bits)":"Post a recap at the end (messages, chatters, subs, bits)",
 "Pour 100 bits":"Per 100 bits",
+"Pour aller plus loin. Classes utiles : .msg, .name, .text (chat) ; .panel, h1, .opt (sondage, giveaway) ; .alert-card, .title (alertes) ; .sa-box, .sa-time (subathon) ; .timer-time (minuteur) ; .rw-slide, .rw-cap (Rewind).":"For advanced users. Useful classes: .msg, .name, .text (chat); .panel, h1, .opt (poll, giveaway); .alert-card, .title (alerts); .sa-box, .sa-time (subathon); .timer-time (timer); .rw-slide, .rw-cap (Rewind).",
 "Pour aller plus loin. Classes utiles : .msg, .name, .text (chat) · .panel, h1, .opt (sondage, giveaway) · .alert-card, .title (alertes) · .sa-box, .sa-time (subathon) · .timer-time (minuteur) · .rw-slide, .rw-cap (Rewind).":"For advanced users. Useful classes: .msg, .name, .text (chat) · .panel, h1, .opt (poll, giveaway) · .alert-card, .title (alerts) · .sa-box, .sa-time (subathon) · .timer-time (timer) · .rw-slide, .rw-cap (Rewind).",
 "pour ce duel.":"for this duel.",
 "Pour changer le titre, la catégorie ou lancer un raid d’ici, autorise ces permissions en plus.":"To change the title or category, or start a raid from here, allow these extra permissions.",

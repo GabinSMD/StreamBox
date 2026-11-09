@@ -2270,6 +2270,7 @@
 "Position":"Posición",
 "Poster un récap à la fin (messages, chatteurs, abos, bits)":"Publicar un resumen al final (mensajes, chatters, subs, bits)",
 "Pour 100 bits":"Por 100 bits",
+"Pour aller plus loin. Classes utiles : .msg, .name, .text (chat) ; .panel, h1, .opt (sondage, giveaway) ; .alert-card, .title (alertes) ; .sa-box, .sa-time (subathon) ; .timer-time (minuteur) ; .rw-slide, .rw-cap (Rewind).":"Para ir más allá. Clases útiles: .msg, .name, .text (chat) ; .panel, h1, .opt (encuesta, sorteo) ; .alert-card, .title (alertas) ; .sa-box, .sa-time (subathon) ; .timer-time (temporizador) ; .rw-slide, .rw-cap (Rewind).",
 "Pour aller plus loin. Classes utiles : .msg, .name, .text (chat) · .panel, h1, .opt (sondage, giveaway) · .alert-card, .title (alertes) · .sa-box, .sa-time (subathon) · .timer-time (minuteur) · .rw-slide, .rw-cap (Rewind).":"Para ir más allá. Clases útiles: .msg, .name, .text (chat) · .panel, h1, .opt (encuesta, sorteo) · .alert-card, .title (alertas) · .sa-box, .sa-time (subathon) · .timer-time (temporizador) · .rw-slide, .rw-cap (Rewind).",
 "pour ce duel.":"para este duelo.",
 "Pour changer le titre, la catégorie ou lancer un raid d’ici, autorise ces permissions en plus.":"Para cambiar el título o la categoría, o lanzar un raid desde aquí, autoriza también estos permisos.",

@@ -598,7 +598,7 @@
     { key: 'shadow', label: 'Ombres portées', type: 'checkbox', default: true, group: 'style' },
     { key: 'outline', label: 'Contour de la couleur principale', type: 'checkbox', default: false, group: 'style' },
     { key: 'css', label: 'CSS personnalisé', type: 'textarea', default: '', group: 'style', placeholder: '.msg .name { text-transform: uppercase; }',
-      help: 'Pour aller plus loin. Classes utiles : .msg, .name, .text (chat) · .panel, h1, .opt (sondage, giveaway) · .alert-card, .title (alertes) · .sa-box, .sa-time (subathon) · .timer-time (minuteur) · .rw-slide, .rw-cap (Rewind).' },
+      help: 'Pour aller plus loin. Classes utiles : .msg, .name, .text (chat) ; .panel, h1, .opt (sondage, giveaway) ; .alert-card, .title (alertes) ; .sa-box, .sa-time (subathon) ; .timer-time (minuteur) ; .rw-slide, .rw-cap (Rewind).' },
   ];
   /* Panneau de contrôle : les overlays pilotables reçoivent ses boutons via OBS */
   const REMOTE = [
