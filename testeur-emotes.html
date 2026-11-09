@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Testeur d’emotes · StreamBox</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="css/site.css">
+<script src="js/i18n.js"></script>
+</head>
+<body>
+<main class="wrap sx-page">
+  <h2 class="sec" style="margin-top:36px">🧪 Testeur d’emotes</h2>
+  <p class="sec">Vois tes emotes comme tes viewers les verront : dans le chat Twitch et Discord, en thème sombre et clair, à leurs vraies tailles. Tout se passe dans ton navigateur : les images ne sont envoyées nulle part.</p>
+  <label class="drop" id="drop" style="display:block;margin-bottom:16px">
+    <b>Glisse tes emotes ici ou clique pour les choisir</b>
+    <span>PNG, GIF ou WebP, jusqu’à 6 à la fois. Pour les redimensionner ensuite : <a href="redimensionneur.html">redimensionneur d’emotes</a>.</span>
+    <input type="file" id="file" accept="image/png,image/gif,image/webp,image/jpeg" multiple hidden>
+  </label>
+
+  <div id="app" hidden>
+    <section class="box">
+      <h3 class="bt-h">Tes emotes</h3>
+      <div class="et-list" id="list"></div>
+    </section>
+    <section class="box">
+      <div class="sx-head"><h3 class="bt-h">Dans le chat</h3>
+        <label class="md-inline" style="margin:0"><input type="checkbox" id="hidpi"> Écran haute définition (2×)</label></div>
+      <div class="et-grid" id="chats"></div>
+    </section>
+    <section class="box">
+      <h3 class="bt-h">Toutes les tailles</h3>
+      <p class="bt-help">Réduites comme le fait Twitch (112, 56 et 28 px pour une emote, 72, 36 et 18 px pour un badge), sur fond sombre et clair.</p>
+      <div id="sizes"></div>
+    </section>
+  </div>
+</main>
+<script src="js/config.js"></script>
+<script src="js/account.js"></script>
+<script src="js/site.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+let emotes = []; // { name, url, img, w, h, size, type, checks }
+
+/* ---------- Thèmes des chats ---------- */
+const THEMES = [
+  { id: 'tw-dark', label: 'Twitch · sombre', bg: '#18181b', fg: '#efeff1', size: 28, names: ['#9b5cff', '#ff7f50', '#1e90ff'] },
+  { id: 'tw-light', label: 'Twitch · clair', bg: '#ffffff', fg: '#0e0e10', size: 28, names: ['#8a2be2', '#d2691e', '#0e6ab8'] },
+  { id: 'dc-dark', label: 'Discord · sombre', bg: '#313338', fg: '#dbdee1', size: 22, jumbo: 48, names: ['#f47fff', '#57f287', '#5865f2'] },
+  { id: 'dc-light', label: 'Discord · clair', bg: '#ffffff', fg: '#313338', size: 22, jumbo: 48, names: ['#b33bb3', '#248046', '#4752c4'] },
+];
+const NAMES = ['Pixelmaud', 'Kevin_le_roux', 'Lou'];
+
+/* ---------- Analyse : format, poids, forme, transparence, contraste ---------- */
+const lum = (r, g, b) => { const f = (c) => { c /= 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; }; return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b); };
+const ratio = (a, b) => (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+function analyse(e) {
+  const c = document.createElement('canvas'), n = 112; c.width = n; c.height = n;
+  const x = c.getContext('2d'); x.drawImage(e.img, 0, 0, n, n);
+  const d = x.getImageData(0, 0, n, n).data;
+  const corners = [0, n - 1, n * (n - 1), n * n - 1].map((i) => d[i * 4 + 3]);
+  let opaque = 0, lowDark = 0, lowLight = 0;
+  const dark = lum(24, 24, 27), light = 1;
+  for (let i = 0; i < d.length; i += 4) {
+    if (d[i + 3] < 128) continue;
+    opaque++;
+    const L = lum(d[i], d[i + 1], d[i + 2]);
+    if (ratio(L, dark) < 1.6) lowDark++;
+    if (ratio(L, light) < 1.6) lowLight++;
+  }
+  const kb = e.size / 1024, out = [];
+  const add = (ok, text) => out.push({ ok, text });
+  add(['image/png', 'image/gif'].includes(e.type), e.type === 'image/gif' ? SB.t('GIF : emote animée possible sur Twitch (60 images au plus)') : e.type === 'image/png' ? 'PNG ✓' : SB.t('Twitch demande un PNG (ou un GIF pour une emote animée)'));
+  add(e.w === e.h, e.w === e.h ? SB.t('Carrée ({0} × {1} px)', [e.w, e.h]) : SB.t('Pas carrée ({0} × {1} px) : Twitch et Discord la déformeront ou ajouteront des bords', [e.w, e.h]));
+  add(e.w >= 112, e.w >= 112 ? SB.t('Assez grande pour Twitch (112 px ou plus)') : SB.t('Trop petite : Twitch demande au moins 112 × 112 px'));
+  const ko = kb < 1 ? '< 1' : Math.round(kb);
+  add(kb <= 1024, kb <= 1024 ? SB.t('{0} Ko : sous la limite de Twitch (1 Mo)', [ko]) : SB.t('{0} Ko : trop lourde pour Twitch (1 Mo au plus)', [ko]));
+  add(kb <= 256, kb <= 256 ? SB.t('Sous la limite de Discord (256 Ko)') : SB.t('Trop lourde pour un emoji Discord (256 Ko au plus)'));
+  const transparent = corners.filter((a) => a < 20).length >= 3;
+  add(transparent, transparent ? SB.t('Fond transparent') : SB.t('Fond non transparent : un carré de couleur apparaîtra dans le chat'));
+  const pd = opaque ? Math.round((lowDark / opaque) * 100) : 0, pl = opaque ? Math.round((lowLight / opaque) * 100) : 0;
+  add(pd < 35, pd < 35 ? SB.t('Bien visible sur fond sombre') : SB.t('{0} % de l’emote se fond dans le thème sombre : ajoute un contour clair', [pd]));
+  add(pl < 35, pl < 35 ? SB.t('Bien visible sur fond clair') : SB.t('{0} % de l’emote se fond dans le thème clair : ajoute un contour foncé', [pl]));
+  return out;
+}
+
+/* Réduction de bonne qualité (par étapes, comme les sites d'emotes) */
+function scaled(e, px) {
+  let src = e.img, w = e.w, h = e.h;
+  const target = Math.round(px * (w >= h ? 1 : w / h)), targetH = Math.round(px * (h > w ? 1 : h / w));
+  while (w / 2 > target) { const c = document.createElement('canvas'); c.width = Math.round(w / 2); c.height = Math.round(h / 2); c.getContext('2d').drawImage(src, 0, 0, c.width, c.height); src = c; w = c.width; h = c.height; }
+  const c = document.createElement('canvas'); c.width = target; c.height = targetH;
+  const x = c.getContext('2d'); x.imageSmoothingQuality = 'high'; x.drawImage(src, 0, 0, target, targetH);
+  return c.toDataURL('image/png');
+}
+
+/* ---------- Affichage ---------- */
+function emoteImg(e, px) {
+  const i = el('img', 'et-e'); i.alt = e.name; i.title = e.name;
+  // GIF animé : l'image d'origine (sinon l'animation serait perdue) ; sinon la version réduite à la taille réelle
+  i.src = e.type === 'image/gif' ? e.url : scaled(e, px * ($('hidpi').checked ? 2 : 1));
+  i.style.height = px + 'px'; return i;
+}
+function line(theme, who, color, parts) {
+  const p = el('div', 'et-line');
+  const n = el('b', null, who); n.style.color = color;
+  p.append(n, theme.id.startsWith('dc') ? ' ' : ': ');
+  parts.forEach((x) => p.append(typeof x === 'string' ? x : x));
+  return p;
+}
+function renderChats() {
+  $('chats').replaceChildren(...THEMES.map((t) => {
+    const box = el('div', 'et-chat'); box.style.background = t.bg; box.style.color = t.fg;
+    box.appendChild(el('div', 'et-label', t.label));
+    if (!emotes.length) return box;
+    const a = emotes[0];
+    box.append(
+      line(t, NAMES[0], t.names[0], [SB.t('trop bien ce boss') + ' ', emoteImg(a, t.size)]),
+      line(t, NAMES[1], t.names[1], emotes.slice(0, 6).flatMap((e) => [emoteImg(e, t.size), ' '])),
+      line(t, NAMES[2], t.names[2], [SB.t('gg'), ' ', emoteImg(emotes[emotes.length - 1], t.size), ' ', SB.t('à la prochaine')]));
+    if (t.jumbo) { const j = el('div', 'et-line'); const n = el('b', null, NAMES[0]); n.style.color = t.names[0]; j.append(n, el('br')); emotes.slice(0, 3).forEach((e) => j.append(emoteImg(e, t.jumbo), ' ')); box.appendChild(j); } // message avec seulement des emotes : grande taille sur Discord
+    return box;
+  }));
+}
+function renderSizes() {
+  $('sizes').replaceChildren(...emotes.map((e) => {
+    const row = el('div', 'et-sizes');
+    row.appendChild(el('b', 'et-sname', e.name));
+    [['#18181b', '#efeff1'], ['#ffffff', '#0e0e10']].forEach(([bg, fg]) => {
+      const strip = el('div', 'et-strip'); strip.style.background = bg; strip.style.color = fg;
+      [112, 56, 28, 72, 36, 18].forEach((px, i) => {
+        const cell = el('figure'); const img = el('img'); img.src = scaled(e, px); img.style.height = px + 'px'; img.alt = '';
+        cell.append(img, el('figcaption', null, `${px}${i >= 3 ? ' · ' + SB.t('badge') : ''}`)); strip.appendChild(cell);
+      });
+      row.appendChild(strip);
+    });
+    return row;
+  }));
+}
+function renderList() {
+  $('list').replaceChildren(...emotes.map((e, k) => {
+    const card = el('div', 'et-card');
+    const head = el('div', 'et-head');
+    const img = el('img'); img.src = e.url; img.alt = '';
+    const name = el('input'); name.type = 'text'; name.value = e.name; name.maxLength = 25; name.title = SB.t('Code de l’emote'); name.oninput = () => { e.name = name.value.replace(/\s+/g, ''); renderChats(); };
+    const rm = el('button', 'btn ghost small', '✕'); rm.type = 'button'; rm.title = SB.t('Retirer'); rm.onclick = () => { emotes.splice(k, 1); render(); };
+    head.append(img, name, rm);
+    const ul = el('ul', 'et-checks'); e.checks.forEach((c) => ul.appendChild(el('li', c.ok ? 'ok' : 'warn', (c.ok ? '✓ ' : '⚠️ ') + c.text)));
+    card.append(head, ul); return card;
+  }));
+}
+function render() { $('app').hidden = !emotes.length; renderList(); renderChats(); renderSizes(); }
+$('hidpi').onchange = renderChats;
+
+/* ---------- Chargement des fichiers ---------- */
+async function add(files) {
+  for (const f of [...files].slice(0, 6 - emotes.length)) {
+    if (!/^image\//.test(f.type)) continue;
+    const url = URL.createObjectURL(f);
+    const img = await new Promise((ok, ko) => { const i = new Image(); i.onload = () => ok(i); i.onerror = ko; i.src = url; }).catch(() => null);
+    if (!img) { toast(SB.t('Image illisible : {0}', [f.name])); continue; }
+    const e = { name: f.name.replace(/\.[^.]+$/, '').replace(/[^\w]/g, '').slice(0, 25) || 'emote', url, img, w: img.naturalWidth, h: img.naturalHeight, size: f.size, type: f.type };
+    e.checks = analyse(e); emotes.push(e);
+  }
+  if (files.length && emotes.length >= 6) toast(SB.t('6 emotes au maximum'));
+  render();
+}
+$('file').onchange = () => { add($('file').files); $('file').value = ''; };
+['dragover', 'dragenter'].forEach((ev) => $('drop').addEventListener(ev, (e) => { e.preventDefault(); $('drop').classList.add('over'); }));
+['dragleave', 'drop'].forEach((ev) => $('drop').addEventListener(ev, (e) => { e.preventDefault(); $('drop').classList.remove('over'); }));
+$('drop').addEventListener('drop', (e) => add(e.dataTransfer.files));
+</script>
+</body>
+</html>

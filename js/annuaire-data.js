@@ -39,7 +39,7 @@ window.SB_DIRECTORY = [
   { cat: 'Clients de chat', name: 'HeatSync', url: 'https://heatsync.org', alt: 'chat', flags: [], desc: 'Chats Twitch, Kick et YouTube dans un seul panneau.' },
   { cat: 'Clients de chat', name: 'Frosty', url: 'https://github.com/tommyxchow/frosty', flags: ['Mobile', 'Open source'], desc: 'Client Twitch iOS et Android avec 7TV, BTTV et FFZ.' },
   // Emote tools
-  { cat: 'Outils d’emotes', name: 'Emote Tester', url: 'https://levi506.net/emote-tester/', alt: 'resizer', flags: ['Gratuit'], desc: 'Prévisualise tes emotes comme sur Twitch et Discord.' },
+  { cat: 'Outils d’emotes', name: 'Emote Tester', url: 'https://levi506.net/emote-tester/', alt: 'testeur', flags: ['Gratuit'], desc: 'Prévisualise tes emotes comme sur Twitch et Discord.' },
   { cat: 'Outils d’emotes', name: 'Twitch Emotes', url: 'https://twitchemotes.com/', alt: 'emotes', flags: ['Gratuit'], desc: 'Consulte les emotes de n’importe quelle chaîne.' },
   { cat: 'Outils d’emotes', name: 'Twitch Emote Resizer', url: 'https://tma02.github.io/twitch-emote-resizer/', alt: 'resizer', flags: ['Gratuit'], desc: 'Redimensionne automatiquement aux tailles requises.' },
   { cat: 'Outils d’emotes', name: 'EmoteResizer', url: 'https://emoteresizer.net', alt: 'resizer', flags: ['Gratuit'], desc: 'Emotes, badges et stickers à toutes les tailles (GIF animés compris), et calculateurs de revenus.' },

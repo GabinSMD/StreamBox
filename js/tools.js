@@ -516,6 +516,7 @@
     { id: 'panneau', icon: '🎛️', name: 'Panneau de contrôle', href: 'panneau.html', tagline: 'Des boutons pour piloter sondages, giveaways, subathon, roue, objectifs et scènes OBS, sans taper de commandes. Utilisable comme dock OBS.', replaces: ['Kloot', 'Poltergeist', 'Xenon'] },
     { id: 'integrations', icon: '🔌', name: 'Intégrations', href: 'integrations.html', tagline: 'Twitch, OBS, Discord, Spotify, Deezer, YouTube Music, Ko-fi, StreamElements, Streamlabs : ce que chaque service apporte et comment le brancher.', replaces: [] },
     { id: 'extension', icon: '🧩', name: 'Extension « Musiques des redifs »', href: 'integrations.html#extension', tagline: 'Pour tes viewers : dans tes VODs Twitch et tes rediffusions YouTube, la musique qui passait pendant le live, avec les liens pour l’écouter.', replaces: [] },
+    { id: 'testeur', icon: '🧪', name: 'Testeur d’emotes', href: 'testeur-emotes.html', tagline: 'Tes emotes dans un faux chat Twitch et Discord, en sombre et en clair, à leurs vraies tailles, avec une vérification du format, du poids, de la transparence et du contraste.', replaces: ['Emote Tester'] },
     { id: 'resizer', icon: '🖼️', name: 'Redimensionneur d’emotes', href: 'redimensionneur.html', tagline: 'Une image, et toutes les tailles d’emotes et de badges Twitch, Discord, 7TV, BTTV et FFZ en un clic. Tout reste sur ton ordinateur.', replaces: ['EmoteResizer', 'Emote Resizer', 'Twitch Emote Resizer'] },
     { id: 'calc', icon: '💰', name: 'Calculateur de revenus', href: 'calculateur.html', tagline: 'Estime ce que te rapportent tes abonnements et tes bits chaque mois.', replaces: ['calculateurs d’EmoteResizer'] },
     { id: 'annuaire', icon: '🧭', name: 'Annuaire des outils', href: 'annuaire.html', tagline: 'Les autres outils de la communauté (clips, bots, stats…), triés et commentés.', replaces: [] },
@@ -557,7 +558,7 @@
     alertes: 'alertes', objectifs: 'alertes', discord: 'alertes', tts: 'alertes', qrdons: 'alertes', sons: 'communaute', compteurs: 'communaute', generique: 'evenements',
     'subathon-live': 'evenements', minuteur: 'evenements', rewind: 'evenements',
     musique: 'musique', sr: 'musique', extension: 'musique',
-    panneau: 'outils', automatisations: 'outils', soustitres: 'communaute', 'sous-titres': 'communaute', pngtuber: 'communaute', stats: 'outils', integrations: 'outils', resizer: 'outils', calc: 'outils', annuaire: 'outils' };
+    panneau: 'outils', automatisations: 'outils', soustitres: 'communaute', 'sous-titres': 'communaute', pngtuber: 'communaute', stats: 'outils', integrations: 'outils', resizer: 'outils', testeur: 'outils', calc: 'outils', annuaire: 'outils' };
   const MERGED = { subathon: 'subathon-live', lecteur: 'sr', jeux: 'minijeux', soustitres: 'sous-titres' };
   [...window.SB_TOOLS, ...window.SB_PAGES].forEach((t) => { t.cat = CAT[t.id] || 'outils'; if (MERGED[t.id]) t.mergedInto = MERGED[t.id]; });
 
