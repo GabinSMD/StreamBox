@@ -80,3 +80,22 @@ export function pageUrl(page, login) {
   if (!page || !page.enabled || !page.site) return '';
   return page.site.replace(/[^/]*$/, '') + 'chaine.html?c=' + encodeURIComponent(login);
 }
+
+/* Simulateur : faux événement nettoyé avant d'être envoyé aux overlays (texte borné, nombres plafonnés) */
+const SIM_KINDS = ['follow', 'sub', 'resub', 'gift', 'raid', 'bits', 'don', 'points', 'hype', 'chat'];
+export function simEvent(input) {
+  const e = input && typeof input === 'object' ? input : {};
+  if (!SIM_KINDS.includes(e.kind)) return null;
+  const int = (v, min, max, d) => { const n = Math.round(+v); return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : d; };
+  const name = /^[A-Za-z0-9_]{2,25}$/.test(String(e.name || '')) ? String(e.name) : 'Viewer_Test';
+  const out = { kind: e.kind, name };
+  if (e.kind === 'resub') out.months = int(e.months, 2, 120, 12);
+  if (e.kind === 'gift') out.count = int(e.count, 1, 100, 5);
+  if (e.kind === 'raid') out.viewers = int(e.viewers, 1, 100000, 42);
+  if (e.kind === 'bits') out.bits = int(e.bits, 1, 100000, 500);
+  if (e.kind === 'don') { out.amount = Math.min(10000, Math.max(0.5, Math.round((+e.amount || 5) * 100) / 100)); out.currency = /^[A-Z]{3}$/.test(e.currency) ? e.currency : 'EUR'; }
+  if (e.kind === 'points') { out.reward = String(e.reward || 'Hydrate-toi').slice(0, 45); out.cost = int(e.cost, 1, 1000000, 500); }
+  if (e.kind === 'hype') out.level = int(e.level, 1, 25, 2);
+  if (['resub', 'bits', 'don', 'points', 'chat'].includes(e.kind)) out.message = String(e.message || '').replace(/[\u0000-\u001f]/g, ' ').slice(0, 200);
+  return out;
+}

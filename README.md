@@ -48,6 +48,7 @@ Une boîte à outils gratuite pour streamers. Elle regroupe dans un seul site ce
 | 🎛️ Panneau de contrôle : boutons pour tous les overlays et les scènes OBS | Page web / dock OBS | Kloot, Poltergeist, Xenon |
 | 🖼️ Redimensionneur d’emotes et de badges | Page web | EmoteResizer, Twitch Emote Resizer |
 | 💰 Calculateur de revenus | Page web | Calculateurs divers |
+| ✅ Vérifier mon installation : relais, connexion Twitch et permissions, abonnements aux événements, overlays ouverts dans OBS, test d’OBS ; simulateur qui envoie de faux follows, abos, raids, bits, dons, points de chaîne ou Hype Train aux overlays ouverts | Page web + relais | Bouton « Test alert » de Streamlabs |
 | 🧭 Annuaire des autres outils (clips, bots, stats…) | Page web | |
 
 ## Comment ça marche
@@ -189,6 +190,7 @@ Prochaines étapes :
 - [x] Site, overlays et réponses du bot en français, anglais et espagnol
 - [x] Comptes StreamBox (connexion Twitch, réglages et jetons enregistrés, liens courts)
 - [x] Planning des lives (overlay et image à partager), Hype Train, sauvegarde et import de la configuration
+- [x] Vérification de l’installation et simulateur d’événements
 
 ## Contribuer
 

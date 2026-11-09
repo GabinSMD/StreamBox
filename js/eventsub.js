@@ -25,6 +25,7 @@
 
   SB.EventSub = class {
     constructor(token, channel, wanted) {
+      if (SB.sources) SB.sources('events').push(this); // simulateur
       this.token = token; this.channel = (channel || '').toLowerCase(); this.wanted = wanted || ['follow', 'points'];
       this.handlers = {}; this.seen = new Set(); this.retry = 0;
     }

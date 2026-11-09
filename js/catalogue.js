@@ -6,11 +6,11 @@
   const SB = (window.SB = window.SB || {});
   const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
   // Pages qui ont besoin d'un compte StreamBox (connexion Twitch)
-  const ACCOUNT = ['bot', 'moderation', 'stats', 'subathon-live', 'sr', 'minijeux', 'automatisations', 'chaine', 'sous-titres'];
+  const ACCOUNT = ['diagnostic', 'bot', 'moderation', 'stats', 'subathon-live', 'sr', 'minijeux', 'automatisations', 'chaine', 'sous-titres'];
   // Plateformes : Twitch par défaut ; « toutes » pour ce qui ne dépend d'aucune plateforme
   const PLATFORMS = { chat: ['twitch', 'kick', 'youtube'], extension: ['twitch', 'youtube'], qrdons: ['toutes'], panneau: ['toutes'], 'sous-titres': ['toutes'], integrations: ['toutes'], annuaire: ['toutes'] };
   // Aperçus disponibles (img/apercus/<id>.jpg)
-  const PREVIEWS = new Set('alertes annuaire automatisations bot calc chaine chat clips compteurs discord emotes etiquettes extension generique giveaway integrations minijeux minuteur moderation musique objectifs panneau pngtuber qrdons resizer rewind roue shoutout sondage sons sous-titres sr stats subathon-live testeur tts planning hypetrain'.split(' '));
+  const PREVIEWS = new Set('alertes annuaire automatisations bot calc chaine chat clips compteurs discord emotes etiquettes extension generique giveaway integrations minijeux minuteur moderation musique objectifs panneau pngtuber qrdons resizer rewind roue shoutout sondage sons sous-titres sr stats subathon-live testeur tts planning hypetrain diagnostic'.split(' '));
   const all = [...window.SB_TOOLS, ...window.SB_PAGES].filter((t) => !t.mergedInto).map((t) => {
     const f = t.fields || [];
     t.kind = t.overlay ? 'overlay' : t.id === 'extension' ? 'extension' : 'page';
