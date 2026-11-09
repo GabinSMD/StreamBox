@@ -3,8 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="img/logo.svg" type="image/svg+xml">
 <title>Panneau de contrôle · StreamBox</title>
 <meta name="description" content="Panneau de contrôle StreamBox : pilote sondages, giveaways, subathon, roue et sons depuis un dock OBS.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="StreamBox">
+<meta property="og:title" content="Panneau de contrôle · StreamBox">
+<meta property="og:description" content="Panneau de contrôle StreamBox : pilote sondages, giveaways, subathon, roue et sons depuis un dock OBS.">
+<meta property="og:image" content="https://gabinsmd.github.io/StreamBox/img/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400..700&family=Tektur:wght@700&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="css/site.css">
 <script src="js/i18n.js"></script>
@@ -26,16 +35,16 @@
     <section class="box pn-card" data-tool="scenes"><h2><svg class="ic ic-clapperboard" aria-hidden="true" focusable="false"><use href="img/icons.svg#clapperboard"/></svg>Scènes</h2><div class="pn-row" id="scenes"><small>Connecte OBS pour voir tes scènes.</small></div></section>
 
     <section class="box pn-card"><h2><svg class="ic ic-chart-column" aria-hidden="true" focusable="false"><use href="img/icons.svg#chart-column"/></svg>Sondage</h2>
-      <input type="text" id="pq" aria-label="Question" placeholder="Question">
-      <input type="text" id="po" aria-label="Choix séparés par des virgules (vide = Oui, Non)" placeholder="Choix séparés par des virgules (vide = Oui, Non)">
-      <div class="pn-row"><input type="number" id="pd" aria-label="Durée (s)" placeholder="Durée (s)" min="5" style="max-width:120px">
+      <label class="pn-f"><span>Question</span><input type="text" id="pq"></label>
+      <label class="pn-f"><span>Choix, séparés par des virgules</span><input type="text" id="po" placeholder="vide = Oui, Non"></label>
+      <div class="pn-row"><label class="pn-f" style="max-width:120px"><span>Durée (s)</span><input type="number" id="pd" min="5"></label>
         <button class="btn" data-send="sondage" data-args-fn="poll">Lancer</button>
         <button class="btn ghost" data-send="sondage" data-args="fin">Terminer</button>
         <button class="btn ghost" data-send="sondage" data-args="cacher">Cacher</button></div>
     </section>
 
     <section class="box pn-card"><h2><svg class="ic ic-gift" aria-hidden="true" focusable="false"><use href="img/icons.svg#gift"/></svg>Giveaway</h2>
-      <div class="pn-row"><input type="text" id="gk" aria-label="Mot-clé (vide = celui des réglages)" placeholder="Mot-clé (vide = celui des réglages)">
+      <div class="pn-row"><label class="pn-f"><span>Mot-clé</span><input type="text" id="gk" placeholder="vide = celui des réglages"></label>
         <button class="btn" data-send="giveaway" data-args-fn="giveaway">Ouvrir</button></div>
       <div class="pn-row"><button class="btn ghost" data-send="giveaway" data-args="stop">Fermer</button>
         <button class="btn" data-send="giveaway" data-args="tirage"><svg class="ic ic-dices" aria-hidden="true" focusable="false"><use href="img/icons.svg#dices"/></svg>Tirer au sort</button>
@@ -49,7 +58,7 @@
         <button class="btn ghost" data-send="subathon" data-args="+5">+5 min</button>
         <button class="btn ghost" data-send="subathon" data-args="+10">+10 min</button>
         <button class="btn ghost" data-send="subathon" data-args="-5">−5 min</button></div>
-      <div class="pn-row"><input type="number" id="sd" aria-label="Don (€)" placeholder="Don (€)" min="0" step="0.5" style="max-width:110px"><input type="text" id="sdn" aria-label="Pseudo" placeholder="Pseudo">
+      <div class="pn-row"><label class="pn-f" style="max-width:110px"><span>Don (€)</span><input type="number" id="sd" min="0" step="0.5"></label><label class="pn-f"><span>Pseudo</span><input type="text" id="sdn"></label>
         <button class="btn ghost" data-send="subathon" data-args-fn="don">Ajouter le don</button></div>
       <div class="pn-row"><button class="btn ghost" data-send="subathon" data-args="happy 2 30m">Happy hour ×2 (30 min)</button>
         <button class="btn ghost" data-send="subathon" data-args="happy off">Fin happy hour</button></div>
@@ -63,7 +72,7 @@
       <div class="pn-row"><button class="btn ghost" data-send="objectifs" data-args="+1">+1</button>
         <button class="btn ghost" data-send="objectifs" data-args="+5">+5</button>
         <button class="btn ghost" data-send="objectifs" data-args="-1">−1</button>
-        <input type="number" id="ov" aria-label="Valeur" placeholder="Valeur" style="max-width:110px">
+        <label class="pn-f" style="max-width:110px"><span>Valeur</span><input type="number" id="ov"></label>
         <button class="btn ghost" data-send="objectifs" data-args-fn="goalset">Régler</button></div>
     </section>
 
@@ -76,21 +85,21 @@
     </section>
 
     <section class="box pn-card"><h2><svg class="ic ic-hash" aria-hidden="true" focusable="false"><use href="img/icons.svg#hash"/></svg>Compteurs</h2>
-      <div class="pn-row"><input type="text" id="ctid" aria-label="commande (mort)" value="mort" placeholder="commande (mort)" style="max-width:140px">
+      <div class="pn-row"><label class="pn-f" style="max-width:140px"><span>Compteur</span><input type="text" id="ctid" value="mort" placeholder="mort"></label>
         <button class="btn ghost" data-send="compteurs" data-args-fn="ctplus">+1</button>
         <button class="btn ghost" data-send="compteurs" data-args-fn="ctminus">−1</button>
         <button class="btn ghost" data-send="compteurs" data-args-fn="ctreset">Remettre à zéro</button></div>
     </section>
 
     <section class="box pn-card"><h2><svg class="ic ic-volume-1" aria-hidden="true" focusable="false"><use href="img/icons.svg#volume-1"/></svg>Sons et écran de fin</h2>
-      <div class="pn-row"><input type="text" id="sndname" aria-label="nom du son" value="tada" placeholder="nom du son" style="max-width:140px">
+      <div class="pn-row"><label class="pn-f" style="max-width:140px"><span>Son</span><input type="text" id="sndname" value="tada" placeholder="tada"></label>
         <button class="btn ghost" data-send="sons" data-args-fn="sound">Jouer</button>
         <button class="btn ghost" data-send="qrdons" data-args=""><svg class="ic ic-qr-code" aria-hidden="true" focusable="false"><use href="img/icons.svg#qr-code"/></svg>Montrer le QR code</button>
         <button class="btn ghost" data-send="generique" data-args=""><svg class="ic ic-clapperboard" aria-hidden="true" focusable="false"><use href="img/icons.svg#clapperboard"/></svg>Relancer le générique</button></div>
     </section>
 
     <section class="box pn-card"><h2><svg class="ic ic-megaphone" aria-hidden="true" focusable="false"><use href="img/icons.svg#megaphone"/></svg>Shoutout et clips</h2>
-      <div class="pn-row"><input type="text" id="sologin" aria-label="pseudo" placeholder="pseudo" style="max-width:160px">
+      <div class="pn-row"><label class="pn-f" style="max-width:160px"><span>Pseudo</span><input type="text" id="sologin"></label>
         <button class="btn ghost" data-send="shoutout" data-args-fn="so">Shoutout</button>
         <button class="btn ghost" data-send="clips" data-args="suivant"><svg class="ic ic-skip-forward" aria-hidden="true" focusable="false"><use href="img/icons.svg#skip-forward"/></svg>Clip suivant</button>
         <button class="btn ghost" data-send="etiquettes" data-args="reset"><svg class="ic ic-tag" aria-hidden="true" focusable="false"><use href="img/icons.svg#tag"/></svg>Remettre les top à zéro</button></div>

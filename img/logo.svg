@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 414 482" role="img" aria-label="StreamBox">
+<mask id="m"><rect width="414" height="482" fill="#fff"/><polygon points="160,150 308,246 160,324" fill="#000" stroke="#000" stroke-width="10" stroke-linejoin="round"/></mask>
+<g mask="url(#m)"><polygon fill="#aa74fc" points="5,376 136.5,305 160,317.5 160,158 275,178 405,250 405,361 191,477"/><polygon fill="#8235f7" points="9,122 229,5 408,108 160,239 160,317.5 9,237"/></g>
+</svg>

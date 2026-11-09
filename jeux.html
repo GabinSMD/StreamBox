@@ -3,8 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="img/logo.svg" type="image/svg+xml">
 <title>Mini-jeux du chat · StreamBox</title>
 <meta name="description" content="Mini-jeux du chat Twitch : points virtuels, duels, prédictions, quiz et classement, sans argent réel.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="StreamBox">
+<meta property="og:title" content="Mini-jeux du chat · StreamBox">
+<meta property="og:description" content="Mini-jeux du chat Twitch : points virtuels, duels, prédictions, quiz et classement, sans argent réel.">
+<meta property="og:image" content="https://gabinsmd.github.io/StreamBox/img/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400..700&family=Tektur:wght@700&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="css/site.css">
 <script src="js/i18n.js"></script>
@@ -109,7 +118,7 @@ function render() {
     const h = el('div'); h.append(el('b', null, p.question + ' '), el('small', 'bt-help', p.cancelled ? 'annulée' : p.resolved ? 'terminée' : p.open ? `paris ouverts (${Math.max(0, Math.ceil((p.endsAt - now) / 1000))} s)` : 'paris fermés')); box.append(h);
     p.options.forEach((o, i) => {
       const row = el('div', 'pn-row');
-      row.append(el('span', 'lv-num', `${i + 1}.`), el('span', null, o.label), el('small', null, `${fmt(o.total)} ${C} · ${o.bettors} parieur(s) · ${pool ? Math.round((o.total / pool) * 100) : 0} %${p.resolved && p.winner === i ? ' · ✅ gagnant' : ''}`));
+      row.append(el('span', 'lv-num', `${i + 1}.`), el('span', null, o.label), SB.meta(`${fmt(o.total)} ${C}`, `${o.bettors} parieur(s)`, `${pool ? Math.round((o.total / pool) * 100) : 0} %`, p.resolved && p.winner === i && '✅ gagnant'));
       if (live) row.append(btn('✅ Gagnant', () => { if (confirm(`« ${o.label} » gagne ? Les ${C} sont distribués aux gagnants.`)) run(`!pred fin ${i + 1}`); }));
       box.appendChild(row);
     });
@@ -129,7 +138,7 @@ function render() {
   // Classement
   $('players').textContent = '';
   $('top').replaceChildren(...(S.top.length ? S.top.map((x, i) => { const r = el('div', 'pn-row'); r.append(el('span', 'lv-num', `${i + 1}.`), el('span', null, x.name), el('b', null, `${fmt(x.n)} ${C}`)); return r; }) : [el('p', 'bt-help', `Personne n’a encore de ${C} : il suffit d’écrire dans le chat quand les jeux sont activés.`)]));
-  $('events').replaceChildren(...(S.events.length ? S.events.map((e) => el('div', 'bt-help', `${new Date(e.t).toLocaleTimeString(SB_LANG_TAG, { hour: '2-digit', minute: '2-digit' })} · ${e.text}`)) : [el('p', 'bt-help', 'Rien pour l’instant.')]));
+  $('events').replaceChildren(...(S.events.length ? S.events.map((e) => (() => { const d = el('div', 'bt-help'); d.append(SB.meta(new Date(e.t).toLocaleTimeString(SB_LANG_TAG, { hour: '2-digit', minute: '2-digit' })), ' ', e.text); return d; })()) : [el('p', 'bt-help', 'Rien pour l’instant.')]));
   if (!dirty) $('settings').replaceChildren(
     field('currency', 'Nom des points', 'text'),
     field('start', 'Points offerts au premier message', 'number'),

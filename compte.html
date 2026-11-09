@@ -3,8 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="img/logo.svg" type="image/svg+xml">
 <title>Mon compte · StreamBox</title>
 <meta name="description" content="Mon compte StreamBox : tes overlays enregistrés, tes intégrations, ta page publique et tes images.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="StreamBox">
+<meta property="og:title" content="Mon compte · StreamBox">
+<meta property="og:description" content="Mon compte StreamBox : tes overlays enregistrés, tes intégrations, ta page publique et tes images.">
+<meta property="og:image" content="https://gabinsmd.github.io/StreamBox/img/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400..700&family=Tektur:wght@700&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="css/site.css">
 <script src="js/i18n.js"></script>
@@ -126,7 +135,7 @@ async function renderAssets() {
       copy.onclick = () => { navigator.clipboard.writeText(a.url).catch(() => {}); toast2('Lien copié'); };
       const del = document.createElement('button'); del.type = 'button'; del.className = 'btn ghost small'; del.textContent = 'Supprimer';
       del.onclick = async () => { if (!confirm('Supprimer cette image ? Elle disparaîtra des overlays qui l’utilisent.')) return; try { await SBA.api('DELETE', '/me/assets/' + a.id); renderAssets(); } catch (e) { toast2('Erreur : ' + e.message); } };
-      const meta = document.createElement('small'); meta.textContent = `${a.type.split('/')[1].toUpperCase()} · ${Math.round(a.size / 1024)} Ko`;
+      const meta = SB.meta(a.type.split('/')[1].toUpperCase(), `${Math.round(a.size / 1024)} Ko`);
       card.append(img, meta, copy, del); return card;
     }));
   } catch (e) { box.textContent = 'Erreur : ' + e.message; }
@@ -139,7 +148,7 @@ function renderOverlays() {
     const tool = SB_TOOLS.find((t) => t.id === o.tool) || (o.tool === 'automatisations' ? { icon: '⚡', name: 'Automatisations', overlay: 'overlays/automatisations.html' } : { icon: '❔', name: o.tool, overlay: '' });
     const row = el('div', 'acc-row');
     const info = el('div', 'acc-info');
-    info.append(el('b', null, tool.icon + ' ' + o.name), el('small', null, tool.name + ' · modifié le ' + new Date(o.updatedAt).toLocaleString(SB_LANG_TAG, { dateStyle: 'short', timeStyle: 'short' })));
+    info.append(el('b', null, tool.icon + ' ' + o.name), SB.meta(tool.name, 'modifié le ' + new Date(o.updatedAt).toLocaleString(SB_LANG_TAG, { dateStyle: 'short', timeStyle: 'short' })));
     const acts = el('div', 'pn-row');
     const btn = (label, cls, fn) => { const b = el('button', 'btn small ' + (cls || 'ghost'), label); b.type = 'button'; b.onclick = fn; acts.appendChild(b); return b; };
     const edit = el('a', 'btn small', 'Modifier'); edit.href = o.tool === 'automatisations' ? 'automatisations.html' : `outil.html?id=${o.tool}&o=${o.id}`; acts.appendChild(edit);

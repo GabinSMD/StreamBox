@@ -3,8 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="img/logo.svg" type="image/svg+xml">
 <title>Tous les outils · StreamBox</title>
 <meta name="description" content="Tous les outils StreamBox : overlays OBS, bot de chat, alertes, subathon, musique, modération et outils pratiques. Gratuits, open source et sans installation.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="StreamBox">
+<meta property="og:title" content="Tous les outils · StreamBox">
+<meta property="og:description" content="Tous les outils StreamBox : overlays OBS, bot de chat, alertes, subathon, musique, modération et outils pratiques. Gratuits, open source et sans installation.">
+<meta property="og:image" content="https://gabinsmd.github.io/StreamBox/img/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400..700&family=Tektur:wght@700&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="css/site.css">
@@ -15,8 +24,19 @@
 <main class="wrap">
   <h1 class="sec" style="margin-top:36px">Tous les outils</h1>
   <p class="sec" id="lead">Choisis un outil, règle-le avec l’aperçu en direct, puis colle son lien dans OBS.</p>
+  <div class="cat-tools" role="search">
+    <label class="cat-search"><svg class="ic ic-search" aria-hidden="true" focusable="false"><use href="img/icons.svg#search"/></svg><input type="search" id="q" placeholder="Chercher : chat, alertes, Nightbot…" aria-label="Chercher un outil" autocomplete="off"></label>
+    <label class="cat-f"><span>Type</span><select id="fKind"><option value="">Tous</option><option value="overlay">Overlay OBS</option><option value="page">Page web</option><option value="extension">Extension</option></select></label>
+    <label class="cat-f"><span>Connexion</span><select id="fLogin"><option value="">Peu importe</option><option value="non">Sans connexion</option><option value="oui">Avec connexion Twitch</option></select></label>
+    <label class="cat-f"><span>Plateforme</span><select id="fPf"><option value="">Toutes</option><option value="twitch">Twitch</option><option value="kick">Kick</option><option value="youtube">YouTube</option></select></label>
+  </div>
+  <p class="cat-count" id="count" role="status"></p>
   <nav class="cat-nav" id="catNav" aria-label="Catégories"></nav>
   <div id="outils"></div>
+  <div class="cat-empty" id="empty" hidden>
+    <p>Aucun outil ne correspond à cette recherche.</p>
+    <button class="btn ghost" type="button" id="reset">Effacer la recherche et les filtres</button>
+  </div>
 </main>
 <script src="js/tools.js"></script>
 <script src="js/config.js"></script>
@@ -24,19 +44,43 @@
 <script src="js/site.js"></script>
 <script src="js/catalogue.js"></script>
 <script>
-const all = SB.catalogue.all;
-document.getElementById('lead').textContent = SB.t('{0} outils. Choisis-en un, règle-le avec l’aperçu en direct, puis colle son lien dans OBS.', [all.length]);
-const box = document.getElementById('outils'), nav = document.getElementById('catNav');
+const C = SB.catalogue, $ = (id) => document.getElementById(id);
+const box = $('outils'), nav = $('catNav');
+$('lead').textContent = SB.t('{0} outils. Choisis-en un, règle-le avec l’aperçu en direct, puis colle son lien dans OBS.', [C.all.length]);
+const cards = new Map(); const sections = [];
 SB_CATEGORIES.forEach((c) => {
-  const items = all.filter((t) => t.cat === c.id);
+  const items = C.all.filter((t) => t.cat === c.id);
   if (!items.length) return;
   const sec = document.createElement('section'); sec.className = 'cat'; sec.id = 'cat-' + c.id;
-  const h = document.createElement('h2'); h.className = 'sec'; h.append(SB.catalogue.icon(c.icon), c.name);
+  const h = document.createElement('h2'); h.className = 'sec'; h.append(C.icon(c.icon), c.name);
   const p = document.createElement('p'); p.className = 'sec'; p.textContent = c.desc;
-  const grid = document.createElement('div'); grid.className = 'grid'; items.forEach((t) => grid.appendChild(SB.catalogue.card(t)));
+  const grid = document.createElement('div'); grid.className = 'grid'; items.forEach((t) => { const k = C.card(t); cards.set(t, k); grid.appendChild(k); });
   sec.append(h, p, grid); box.appendChild(sec);
-  const l = document.createElement('a'); l.className = 'chip'; l.href = '#cat-' + c.id; l.append(SB.catalogue.icon(c.icon), c.name, ' ', Object.assign(document.createElement('small'), { textContent: items.length })); nav.appendChild(l);
+  const l = document.createElement('a'); l.className = 'chip'; l.href = '#cat-' + c.id; const n = document.createElement('small');
+  l.append(C.icon(c.icon), c.name, ' ', n); nav.appendChild(l);
+  sections.push({ c, sec, items, chip: l, n });
 });
+/* Recherche et filtres, gardés dans l'adresse (?q=…&type=…&cnx=…&pf=…) pour partager une recherche */
+const F = { q: $('q'), kind: $('fKind'), login: $('fLogin'), platform: $('fPf') };
+const KEYS = { q: 'q', kind: 'type', login: 'cnx', platform: 'pf' };
+const params = new URLSearchParams(location.search);
+for (const [k, el] of Object.entries(F)) { const v = params.get(KEYS[k]); if (v && (el.tagName !== 'SELECT' || [...el.options].some((o) => o.value === v))) el.value = v; }
+function apply(push) {
+  const f = Object.fromEntries(Object.entries(F).map(([k, el]) => [k, el.value.trim()]));
+  let shown = 0;
+  sections.forEach(({ sec, items, chip, n }) => {
+    let k = 0; items.forEach((t) => { const ok = C.match(t, f); cards.get(t).hidden = !ok; if (ok) k++; });
+    sec.hidden = !k; chip.hidden = !k; n.textContent = k; shown += k;
+  });
+  const active = Object.values(f).some(Boolean);
+  $('count').textContent = active ? SB.t('{0} outil(s) sur {1}', [shown, C.all.length]) : '';
+  $('empty').hidden = shown > 0;
+  if (push) { const u = new URL(location.href); for (const [k, v] of Object.entries(f)) { if (v) u.searchParams.set(KEYS[k], v); else u.searchParams.delete(KEYS[k]); } history.replaceState(null, '', u); }
+}
+let tq; F.q.addEventListener('input', () => { clearTimeout(tq); tq = setTimeout(() => apply(true), 120); });
+[F.kind, F.login, F.platform].forEach((el) => el.addEventListener('change', () => apply(true)));
+$('reset').onclick = () => { Object.values(F).forEach((el) => { el.value = ''; }); apply(true); F.q.focus(); };
+apply(false);
 </script>
 </body>
 </html>

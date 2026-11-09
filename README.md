@@ -133,7 +133,8 @@ python3 -m http.server 8000
 
 ```
 index.html            Accueil (outils phares, étapes, panneau des modos, catégories)
-outils.html           Catalogue complet des outils, par catégorie
+outils.html           Catalogue complet des outils : recherche et filtres (type, connexion, plateforme) gardés dans l’adresse
+img/logo.svg          Logo (symbole) ; img/og.png : image de partage ; img/apercus/ : aperçus des cartes du catalogue
 js/catalogue.js       Cartes d’outils communes à l’accueil et au catalogue
 js/icons.js           Icônes à la place des emojis de l’interface (sprite img/icons.svg, Lucide, licence ISC)
 outil.html            Configurateur générique (formulaire, lien, aperçu)

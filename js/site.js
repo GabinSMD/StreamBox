@@ -5,7 +5,7 @@
   const links = [['outils.html', 'Outils'], ['integrations.html', 'Intégrations', 'opt-link'], ['annuaire.html', 'Annuaire', 'opt-link'], ['apropos.html', 'À propos', 'opt-small']];
   const header = document.createElement('header');
   header.className = 'top';
-  header.innerHTML = '<div class="wrap"><a class="logo" href="index.html"><i><svg class="ic" aria-hidden="true" focusable="false"><use href="img/icons.svg#play"/></svg></i>StreamBox</a><nav></nav></div>';
+  header.innerHTML = '<div class="wrap"><a class="logo" href="index.html"><img class="logo-mark" src="img/logo.svg" alt="" width="24" height="28">StreamBox</a><nav></nav></div>';
   const nav = header.querySelector('nav');
   links.forEach(([href, label, cls]) => {
     const a = document.createElement('a');
@@ -19,7 +19,7 @@
     acc.className = 'btn small acc';
     const label = (long, short) => { const l = document.createElement('span'); l.className = 'acc-long'; l.textContent = long; const sh = document.createElement('span'); sh.className = 'acc-short'; sh.textContent = short; acc.append(l, sh); };
     if (SBA.loggedIn()) { acc.href = 'compte.html'; acc.title = 'Mon espace'; label('👤 ' + SBA.session().login, '👤'); }
-    else { acc.href = '#'; label('Se connecter avec Twitch', 'Connexion'); acc.onclick = (e) => { e.preventDefault(); SBA.login(); }; }
+    else { acc.href = '#'; acc.classList.add('acc-login'); label('🟣 Connexion Twitch', '🟣 Connexion'); acc.onclick = (e) => { e.preventDefault(); SBA.login(); }; }
     nav.appendChild(acc);
   }
   // Langue du site (français, anglais, espagnol) : mémorisée, et envoyée au relais pour les réponses du bot
@@ -36,6 +36,14 @@
     nav.appendChild(sel);
   }
   document.body.prepend(header);
+  // Lien d'évitement : au clavier, Tab puis Entrée saute directement au contenu
+  const mainEl = document.querySelector('main');
+  if (mainEl) {
+    if (!mainEl.id) mainEl.id = 'contenu';
+    mainEl.tabIndex = -1;
+    const skip = document.createElement('a'); skip.className = 'skip'; skip.href = '#' + mainEl.id; skip.textContent = 'Aller au contenu';
+    document.body.prepend(skip);
+  }
 
   /* ---------- Mon espace : barre latérale commune aux écrans du streamer ----------
    * Chaque écran garde sa page et son adresse ; ?dock=1 (dock OBS) masque la barre. */
@@ -94,20 +102,38 @@
   const footer = document.createElement('footer');
   footer.innerHTML = `<div class="wrap foot">
     <div class="foot-main">
-      <a class="logo" href="index.html"><i><svg class="ic" aria-hidden="true" focusable="false"><use href="img/icons.svg#play"/></svg></i>StreamBox</a>
+      <a class="logo" href="index.html"><img class="logo-mark" src="img/logo.svg" alt="" width="24" height="28">StreamBox</a>
       <p>Des outils gratuits pour streamers, sans rien installer. Fait par Igatax, inspiré par PiRDub.</p>
       <p class="foot-small">Logiciel libre sous licence <a href="${REPO}/blob/main/LICENSE" target="_blank" rel="noopener">AGPL-3.0</a>. Annuaire basé sur <a href="https://github.com/sammwyy/awesome-twitch" target="_blank" rel="noopener">awesome-twitch</a>. StreamBox n’est ni affilié à Twitch, ni approuvé par Twitch.</p>
     </div>
     <div class="foot-cols">
+      <div><b>Outils</b><a href="outils.html">Tous les outils</a><a href="integrations.html">Intégrations</a><a href="annuaire.html">Annuaire</a><a href="compte.html">Mon espace</a></div>
       <div><b>Projet</b><a href="apropos.html">À propos</a><a href="${REPO}" target="_blank" rel="noopener">Code source</a><a href="${REPO}/issues/new?template=suggestion.md" target="_blank" rel="noopener">Proposer une idée</a><a href="${REPO}/issues/new?template=bug.md" target="_blank" rel="noopener">Signaler un bug</a></div>
       <div><b>Légal</b><a href="legal.html#cgu">Conditions d’utilisation</a><a href="legal.html#confidentialite">Confidentialité</a><a href="legal.html#mentions">Mentions légales</a></div>
     </div>
   </div>`;
   document.body.appendChild(footer);
 
+  /* Bouton occupé : le bouton cliqué est désactivé pendant l'action (pas de double envoi), puis réactivé */
+  let lastBtn = null, lastAt = 0;
+  document.addEventListener('click', (e) => { lastBtn = e.target.closest && e.target.closest('button'); lastAt = Date.now(); }, true);
+  window.busy = async function (fn) {
+    const b = Date.now() - lastAt < 800 ? lastBtn : null;
+    if (b) { if (b.getAttribute('aria-busy') === 'true') return undefined; b.setAttribute('aria-busy', 'true'); b.disabled = true; }
+    try { return await fn(); } finally { if (b) { b.disabled = false; b.removeAttribute('aria-busy'); } }
+  };
+
+  /* Ligne d'informations : chaque morceau dans son élément, séparés par un espace (pas de « A · B · C ») */
+  window.SB = window.SB || {};
+  SB.meta = function (...parts) {
+    const s = document.createElement('small'); s.className = 'meta';
+    parts.filter((p) => p != null && p !== false && p !== '').forEach((p) => { const x = document.createElement('span'); if (p instanceof Node) x.appendChild(p); else x.textContent = p; s.appendChild(x); });
+    return s;
+  };
+
   window.toast = function (msg) {
     let t = document.querySelector('.toast');
-    if (!t) { t = document.createElement('div'); t.className = 'toast'; document.body.appendChild(t); }
+    if (!t) { t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); t.setAttribute('aria-live', 'polite'); document.body.appendChild(t); }
     t.textContent = msg; t.classList.add('on');
     clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('on'), 1800);
   };
