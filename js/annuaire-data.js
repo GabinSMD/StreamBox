@@ -8,7 +8,7 @@ window.SB_DIRECTORY = [
   { cat: 'Widgets', name: 'Amuse', url: 'https://6klabs.com/amuse', alt: 'musique', flags: [], desc: 'Affiche la musique en cours de lecture sur ton stream.' },
   { cat: 'Widgets', name: 'ChatIS', url: 'https://chatis.is2511.com/', alt: 'chat', flags: ['Gratuit'], desc: 'Overlay de chat (fork de jChat) avec les emotes 7TV.' },
   { cat: 'Widgets', name: 'CodingFreaks Chat Overlay', url: 'https://twitch-overlays.coding-freaks.com/en/overlays/chat-overlay', alt: 'chat', flags: ['Gratuit'], desc: 'Overlay de chat en lecture seule, avec les emotes 7TV, BTTV et FFZ et six thèmes. Aucun bot ni token requis.' },
-  { cat: 'Widgets', name: 'Facecam PNGTuber', url: 'https://www.facecam.ai/pngtuber-maker', flags: ['Gratuit'], desc: 'Crée un PNGTuber dans le navigateur, qui s’anime quand tu parles.' },
+  { cat: 'Widgets', name: 'Facecam PNGTuber', url: 'https://www.facecam.ai/pngtuber-maker', alt: 'pngtuber', flags: ['Gratuit'], desc: 'Crée un PNGTuber dans le navigateur, qui s’anime quand tu parles.' },
   { cat: 'Widgets', name: 'GGCombat Esports Overlay', url: 'https://ggcombat.com/en/widgets', flags: ['Gratuit'], desc: 'Bandeau de score pour les matchs pro de LoL, Dota 2, MLBB et AoV, avec une barre de chances de victoire.' },
   { cat: 'Widgets', name: 'PixelyChat', url: 'https://pixelychat.com', alt: 'chat', flags: [], desc: 'Fusion du chat et des événements de Twitch, YouTube, TikTok et Kick, avec TTS, traduction et outils de modération.' },
   { cat: 'Widgets', name: 'Poltergeist', url: 'https://poltergeist.cc', alt: 'panneau', flags: [], desc: 'Contrôle d’overlays en temps réel pour les streamers Twitch, Kick et YouTube et leurs modos.' },

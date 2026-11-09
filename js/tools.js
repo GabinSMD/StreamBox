@@ -244,6 +244,29 @@
       ],
     },
     {
+      id: 'pngtuber', icon: '🐱', name: 'PNGTuber', overlay: 'overlays/pngtuber.html', size: [600, 600],
+      tagline: 'Un avatar qui ouvre la bouche quand tu parles, cligne des yeux et change d’humeur. Pas de webcam, pas de logiciel.',
+      replaces: ['Facecam PNGTuber', 'Veadotube mini', 'PNGTuber Plus'],
+      commands: [['!humeur content', 'Change d’humeur (modos), « !humeur normal » pour revenir']],
+      note: 'Le volume du micro est lu directement dans OBS : renseigne le mot de passe du serveur WebSocket d’OBS (plus bas) et, au besoin, le nom de ta source micro. Sans image, un avatar intégré s’affiche. Astuce : ajoute « &debug=1 » au lien pour régler le seuil.',
+      fields: [
+        { key: 'idle', label: 'Image bouche fermée', type: 'image', default: '' },
+        { key: 'talk', label: 'Image bouche ouverte', type: 'image', default: '' },
+        { key: 'blink', label: 'Image yeux fermés (facultatif)', type: 'image', default: '' },
+        { key: 'talkblink', label: 'Image bouche ouverte et yeux fermés (facultatif)', type: 'image', default: '' },
+        { key: 'mic', label: 'Nom de la source micro dans OBS (vide = trouvée toute seule)', type: 'text', default: '' },
+        { key: 'threshold', label: 'Seuil de parole (dB, de -60 à 0)', type: 'number', default: -40, min: -60, max: 0, help: 'Plus bas = plus sensible. Monte-le si l’avatar parle tout seul avec le bruit de fond.' },
+        { key: 'hold', label: 'Garder la bouche ouverte après la voix (ms)', type: 'number', default: 250, min: 0, max: 2000 },
+        { key: 'anim', label: 'Animation quand tu parles', type: 'select', default: 'rebond', options: [['rebond', 'Rebond'], ['tremble', 'Tremblement'], ['aucune', 'Aucune']] },
+        { key: 'dim', label: 'Assombrir l’avatar quand tu ne parles pas', type: 'checkbox', default: true },
+        { key: 'flip', label: 'Retourner l’avatar (miroir)', type: 'checkbox', default: false },
+        { key: 'blinkevery', label: 'Cligner des yeux toutes les (s, environ)', type: 'number', default: 4, min: 1, max: 30 },
+        { key: 'moods', label: 'Humeurs (une par ligne : nom | image bouche fermée | image bouche ouverte)', type: 'textarea', default: '', placeholder: 'content | https://…/content.png | https://…/content-parle.png' },
+        { ...channel, label: 'Ta chaîne Twitch (facultatif, pour !humeur)' },
+        { key: 'cmd', label: 'Commande des humeurs', type: 'text', default: '!humeur' },
+      ],
+    },
+    {
       id: 'soustitres', icon: '💬', name: 'Sous-titres (overlay)', overlay: 'overlays/soustitres.html', size: [1920, 300],
       tagline: 'Ta voix transcrite et traduite à l’écran, en direct.',
       replaces: ['StreamTranslate', 'Web Captioner'],
@@ -518,7 +541,7 @@
     { key: 'sejwt', label: 'Jeton JWT StreamElements', type: 'text', default: '', group: 'dons', help: 'StreamElements → Mon compte → Chaînes → Afficher les secrets. ⚠️ Ce jeton donne accès à ton compte StreamElements : ne montre jamais le lien de l’overlay.' },
   ];
   const WITH_DONS = ['alertes', 'subathon', 'objectifs', 'tts'];
-  const PILOTABLE = ['sondage', 'giveaway', 'subathon', 'minuteur', 'alertes', 'objectifs', 'roue', 'tts', 'compteurs', 'sons', 'qrdons', 'generique'];
+  const PILOTABLE = ['sondage', 'giveaway', 'subathon', 'minuteur', 'alertes', 'objectifs', 'roue', 'tts', 'compteurs', 'sons', 'qrdons', 'generique', 'pngtuber'];
   /* Catégories de l'accueil. Les outils « merged » sont regroupés dans une autre carte (Subathon, Demandes de musique). */
   window.SB_CATEGORIES = [
     { id: 'communaute', icon: '💬', name: 'Chat et communauté', desc: 'Faire vivre ton chat : affichage, bot, sondages, giveaways, jeux.' },
@@ -531,7 +554,7 @@
     alertes: 'alertes', objectifs: 'alertes', discord: 'alertes', tts: 'alertes', qrdons: 'alertes', sons: 'communaute', compteurs: 'communaute', generique: 'evenements',
     'subathon-live': 'evenements', minuteur: 'evenements', rewind: 'evenements',
     musique: 'musique', sr: 'musique', extension: 'musique',
-    panneau: 'outils', automatisations: 'outils', soustitres: 'communaute', 'sous-titres': 'communaute', stats: 'outils', integrations: 'outils', resizer: 'outils', calc: 'outils', annuaire: 'outils' };
+    panneau: 'outils', automatisations: 'outils', soustitres: 'communaute', 'sous-titres': 'communaute', pngtuber: 'communaute', stats: 'outils', integrations: 'outils', resizer: 'outils', calc: 'outils', annuaire: 'outils' };
   const MERGED = { subathon: 'subathon-live', lecteur: 'sr', jeux: 'minijeux', soustitres: 'sous-titres' };
   [...window.SB_TOOLS, ...window.SB_PAGES].forEach((t) => { t.cat = CAT[t.id] || 'outils'; if (MERGED[t.id]) t.mergedInto = MERGED[t.id]; });
 

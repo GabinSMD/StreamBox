@@ -359,3 +359,19 @@ img.emote { height: 1.6em; vertical-align: middle; margin: -0.3em 0.1em; }
 .sub-o.interim { opacity: .75; }
 .sub-t { font-weight: 600; font-size: .82em; overflow-wrap: anywhere; }
 .sub-lang { font-size: .6em; background: var(--accent); color: #fff; border-radius: 4px; padding: 0 .35em; vertical-align: .2em; text-shadow: none; }
+
+/* ---------- PNGTuber ---------- */
+.pt { position: absolute; inset: 0; display: flex; align-items: flex-end; justify-content: center; }
+.pt img { max-width: 100%; max-height: 100%; object-fit: contain; transform-origin: 50% 100%; transition: filter .25s; }
+.pt.flip img { transform: scaleX(-1); }
+.pt-quiet .pt img { filter: brightness(.72); }
+.pt-rebond.pt-talking .pt img { animation: pt-bounce .32s ease-in-out infinite alternate; }
+.pt-rebond.pt-talking .pt.flip img { animation-name: pt-bounce-flip; }
+.pt-tremble.pt-talking .pt img { animation: pt-shake .12s linear infinite; }
+@keyframes pt-bounce { from { transform: translateY(0) scale(1, 1); } to { transform: translateY(-4%) scale(.98, 1.02); } }
+@keyframes pt-bounce-flip { from { transform: scaleX(-1) translateY(0); } to { transform: scaleX(-1) translateY(-4%); } }
+@keyframes pt-shake { 0% { transform: translate(0, 0); } 25% { transform: translate(1px, -1px); } 50% { transform: translate(-1px, 1px); } 75% { transform: translate(1px, 1px); } }
+.pt-debug { position: absolute; left: 8px; top: 8px; right: 8px; font: 12px Inter, system-ui, sans-serif; color: #fff; background: rgba(0,0,0,.7); border-radius: 8px; padding: 6px 8px; }
+.pt-meter { position: relative; height: 8px; background: rgba(255,255,255,.15); border-radius: 4px; margin-bottom: 4px; overflow: hidden; }
+.pt-meter i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: #6ee7a8; }
+.pt-meter b { position: absolute; top: -2px; bottom: -2px; width: 2px; background: #ff5c8a; }

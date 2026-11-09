@@ -57,6 +57,29 @@
 <script src="js/site.js"></script>
 <script>
 /* Valeur affichée au départ : la langue du site pour « lang », les textes par défaut dans la langue du site */
+/* Champ image : aperçu, et envoi d'une image depuis le PC (gardée dans le compte, servie par le relais) */
+function imageTools(input) {
+  const row = document.createElement('div'); row.className = 'img-tools';
+  const prev = document.createElement('img'); prev.alt = ''; prev.className = 'img-prev';
+  const show = () => { const v = input.value.trim(); prev.hidden = !/^https:\/\//.test(v) && !/^http:\/\/localhost/.test(v); if (!prev.hidden) prev.src = v; };
+  input.addEventListener('input', show); setTimeout(show);
+  row.appendChild(prev);
+  if (window.SBA && SBA.enabled() && SBA.loggedIn()) {
+    const file = document.createElement('input'); file.type = 'file'; file.accept = 'image/png,image/gif,image/webp,image/jpeg'; file.hidden = true;
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'btn ghost small'; b.textContent = '⬆ Envoyer une image';
+    b.onclick = () => file.click();
+    file.onchange = async () => {
+      const f = file.files[0]; if (!f) return;
+      if (f.size > 512 * 1024) return toast('Image trop lourde : 500 Ko maximum');
+      const data = await new Promise((ok) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1]); r.readAsDataURL(f); });
+      try { const d = await SBA.api('POST', '/me/assets', { type: f.type, data }); input.value = d.url; input.dispatchEvent(new Event('input', { bubbles: true })); toast('Image envoyée ✓'); }
+      catch (e) { toast('Erreur : ' + e.message); }
+      file.value = '';
+    };
+    row.append(b, file);
+  } else row.appendChild(Object.assign(document.createElement('small'), { textContent: 'Connecte-toi pour envoyer une image depuis ton PC (sinon, colle un lien https).' }));
+  return row;
+}
 const initial = (f) => (f.key === 'lang' ? (window.SB_LANG || 'fr') : typeof f.default === 'string' && SB.t ? SB.t(f.default) : f.default);
 // Un texte par défaut (même traduit) n'est pas mis dans le lien : l'overlay le traduit lui-même dans sa langue
 const isDefault = (f, v) => v === f.default || (f.type === 'checkbox' && !!v === !!f.default) || (f.key !== 'lang' && typeof f.default === 'string' && SB.t && v === SB.t(f.default));
@@ -174,6 +197,8 @@ const isDefault = (f, v) => v === f.default || (f.type === 'checkbox' && !!v ===
         const [v, l] = Array.isArray(o) ? o : [o, o];
         const opt = document.createElement('option'); opt.value = v; opt.textContent = l; input.appendChild(opt);
       });
+    } else if (f.type === 'image') { // lien d'image, ou image envoyée dans le compte StreamBox
+      input = document.createElement('input'); input.type = 'text'; input.placeholder = f.placeholder || 'https://…';
     } else if (f.type === 'textarea') {
       input = document.createElement('textarea');
       input.rows = 5; input.spellcheck = false;
@@ -195,6 +220,7 @@ const isDefault = (f, v) => v === f.default || (f.type === 'checkbox' && !!v ===
       const row = document.createElement('div'); row.className = 'rangerow'; row.append(input, out);
       wrap.append(label, row);
     } else { label.textContent = f.label; wrap.append(label, input); }
+    if (f.type === 'image') wrap.appendChild(imageTools(input));
     if (f.help) { const s = document.createElement('small'); s.textContent = f.help; wrap.appendChild(s); }
     place(wrap, f, i);
   });
