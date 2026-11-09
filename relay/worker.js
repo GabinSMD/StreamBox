@@ -135,7 +135,7 @@ export default {
             await room('yt:' + ch).fetch('https://room/alias', { method: 'POST', body: JSON.stringify({ login }) });
             return json({ ok: true });
           }
-          const t = { at: +body.at || Date.now(), title: clean(body.title, 200), artist: clean(body.artist, 200), album: clean(body.album, 200), art: clean(body.art, 400), url: clean(body.url, 400), source: clean(body.source, 20) };
+          const t = { at: +body.at || Date.now(), title: clean(body.title, 200), artist: clean(body.artist, 200), album: clean(body.album, 200), art: clean(body.art, 400), url: clean(body.url, 400), source: clean(body.source, 20), duration: Math.max(0, Math.min(3600000, +body.duration || 0)) };
           if (!t.title) return json({ error: 'titre manquant' }, 400);
           return room('chan:' + login).fetch('https://room/tracks', { method: 'POST', body: JSON.stringify(t) }).then(withCors);
         }

@@ -1,5 +1,6 @@
 {
 ", créé par":", creado por",
+", elle joue même la musique en même temps que la VOD, au bon moment du morceau (pratique quand Twitch a coupé le son).":", incluso reproduce la música a la vez que el VOD, en el punto exacto de la canción (útil cuando Twitch ha silenciado el sonido).",
 ", maximum":", máximo",
 ", qui efface immédiatement ton compte, tes réglages, tes jetons et tes abonnements Twitch. Pour toute autre demande, ouvre une issue GitHub, sans y mettre de données personnelles. Tu peux aussi saisir la":", que borra de inmediato tu cuenta, tus ajustes, tus tokens y tus suscripciones a eventos de Twitch. Para cualquier otra solicitud, abre una issue en GitHub, sin incluir datos personales. También puedes presentar una reclamación ante la",
 ", sous licence GNU AGPL-3.0.":", bajo licencia GNU AGPL-3.0.",
@@ -1350,6 +1351,7 @@
 "La connexion Twitch n’est pas configurée sur ce site.":"La conexión con Twitch no está configurada en este sitio.",
 "la file est pleine, réessaie plus tard.":"la cola está llena, inténtalo más tarde.",
 "La file est vide : à toi de jouer !":"La cola está vacía: ¡te toca!",
+"La liste complète est cliquable et saute au bon moment de la vidéo. Avec le":"La lista completa se puede pulsar y salta al momento exacto del vídeo. Con el",
 "la musique est trop bien":"la música está genial",
 "La première personne qui écrit une bonne réponse dans le chat gagne. Majuscules et accents ne comptent pas.":"Gana la primera persona que escriba una respuesta correcta en el chat. Las mayúsculas y los acentos no cuentan.",
 "La réponse de Spotify ne correspond pas à la demande. Réessaie.":"La respuesta de Spotify no corresponde a la solicitud. Inténtalo de nuevo.",
@@ -1549,6 +1551,7 @@
 "Mode":"Modo",
 "Mode bouclier activé":"Modo escudo activado",
 "Mode bouclier désactivé":"Modo escudo desactivado",
+"mode synchro":"modo sincronizado",
 "Modèle":"Plantilla",
 "Modérateur":"Moderador",
 "modération":"moderación",

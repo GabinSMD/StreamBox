@@ -112,7 +112,7 @@ async function logTrack(t) {
   if (!c.log || !relay || !c.token || !c.channel || c.demo) return;
   fetch(relay.replace(/\/$/, '') + '/tracks/' + encodeURIComponent(c.channel.toLowerCase()), {
     method: 'POST', headers: { Authorization: 'Bearer ' + c.token, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ at: Date.now() - (t.progress || 0), title: t.title, artist: t.artist, album: t.album, art: t.art, url: t.url, source: t.source }),
+    body: JSON.stringify({ at: Date.now() - (t.progress || 0), title: t.title, artist: t.artist, album: t.album, art: t.art, url: t.url, source: t.source, duration: t.duration || 0 }), // at = début réel du morceau (synchro de l'extension)
   }).catch((e) => console.warn('journal des musiques :', e.message));
 }
 

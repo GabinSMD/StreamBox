@@ -1,5 +1,6 @@
 {
 ", créé par":", created by",
+", elle joue même la musique en même temps que la VOD, au bon moment du morceau (pratique quand Twitch a coupé le son).":", it even plays the music along with the VOD, at the right point in the song (handy when Twitch has muted the sound).",
 ", maximum":", max",
 ", qui efface immédiatement ton compte, tes réglages, tes jetons et tes abonnements Twitch. Pour toute autre demande, ouvre une issue GitHub, sans y mettre de données personnelles. Tu peux aussi saisir la":", which immediately deletes your account, settings, tokens and Twitch event subscriptions. For any other request, open a GitHub issue, without including personal data. You can also file a complaint with the",
 ", sous licence GNU AGPL-3.0.":", under the GNU AGPL-3.0 license.",
@@ -1340,6 +1341,7 @@
 "La connexion Twitch n’est pas configurée sur ce site.":"Twitch login isn't set up on this site.",
 "la file est pleine, réessaie plus tard.":"the queue is full, try again later.",
 "La file est vide : à toi de jouer !":"The queue is empty: your turn!",
+"La liste complète est cliquable et saute au bon moment de la vidéo. Avec le":"The full list is clickable and jumps to the right moment in the video. With",
 "la musique est trop bien":"the music is so good",
 "La première personne qui écrit une bonne réponse dans le chat gagne. Majuscules et accents ne comptent pas.":"The first person to type a correct answer in chat wins. Caps and accents don't matter.",
 "La réponse de Spotify ne correspond pas à la demande. Réessaie.":"Spotify’s response doesn’t match the request. Try again.",
@@ -1532,6 +1534,7 @@
 "Mod View de Twitch":"Twitch Mod View",
 "Mode bouclier activé":"Shield mode on",
 "Mode bouclier désactivé":"Shield mode off",
+"mode synchro":"sync mode",
 "Modèle":"Template",
 "Modérateur":"Moderator",
 "modération":"moderation",
