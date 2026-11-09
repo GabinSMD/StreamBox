@@ -4,13 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Demandes de musique · StreamBox</title>
+<meta name="description" content="Demandes de musique Twitch (!sr) : file YouTube ou Spotify, limites et modération.">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
 <link rel="stylesheet" href="css/site.css">
 <script src="js/i18n.js"></script>
 </head>
 <body>
 <main class="wrap">
-  <h2 class="sec" style="margin-top:36px">🎶 Demandes de musique</h2>
+  <h1 class="sec" style="margin-top:36px">🎶 Demandes de musique</h1>
   <p class="sec">Tes viewers demandent des morceaux avec <code>!sr</code>. La file tourne sur le relais StreamBox, et toi et tes modos la gérez ici ou depuis le chat.</p>
   <div id="need" class="box" hidden></div>
 
@@ -28,9 +29,9 @@
     <div class="bt-grid">
       <div>
         <section class="box">
-          <h3 class="bt-h">▶ En cours</h3>
+          <h2 class="bt-h">▶ En cours</h2>
           <div id="current"></div>
-          <h3 class="bt-h" style="margin-top:16px">📋 File d’attente <small id="count"></small></h3>
+          <h2 class="bt-h" style="margin-top:16px">📋 File d’attente <small id="count"></small></h2>
           <div id="queue"></div>
           <div class="pn-row"><button class="btn ghost small" data-a="clear">Vider la file</button><button class="btn ghost small" id="pause" type="button"></button></div>
           <details class="more" style="margin-top:14px"><summary>Déjà joués</summary><div id="history"></div></details>
@@ -38,7 +39,7 @@
       </div>
       <aside class="bt-side">
         <section class="box">
-          <h3 class="bt-h">⚙️ Réglages</h3>
+          <h2 class="bt-h">⚙️ Réglages</h2>
           <div id="settings" class="sr-settings"></div>
         </section>
         <div class="bt-save"><span id="dirty"></span><button class="btn" id="save" type="button">Enregistrer</button></div>

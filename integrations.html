@@ -4,13 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Intégrations · StreamBox</title>
+<meta name="description" content="Les services que StreamBox sait relier : Twitch, OBS, Discord, Spotify, Deezer, YouTube Music, Ko-fi, StreamElements, Streamlabs.">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
 <link rel="stylesheet" href="css/site.css">
 <script src="js/i18n.js"></script>
 </head>
 <body>
 <main class="wrap">
-  <h2 class="sec" style="margin-top:36px">🔌 Intégrations</h2>
+  <h1 class="sec" style="margin-top:36px">🔌 Intégrations</h1>
   <p class="sec">StreamBox se branche sur les services que tu utilises déjà. Rien à installer : chaque connexion se fait depuis la page de l’outil concerné.</p>
   <div class="grid" id="list"></div>
 
@@ -45,7 +46,7 @@ I.forEach((it) => {
   const h = document.createElement('h3'); h.textContent = it.icon + ' ' + it.name;
   const ok = it.ready();
   const st = document.createElement('span'); st.className = 'flag'; st.style.marginLeft = '8px';
-  st.textContent = ok ? 'prêt' : 'à configurer sur ce site'; st.style.color = ok ? 'var(--ok)' : '#ffb86b';
+  st.textContent = ok ? 'prêt' : 'à configurer sur ce site'; st.style.color = ok ? 'var(--ok)' : 'var(--warn)';
   h.appendChild(st);
   const p = document.createElement('p'); p.textContent = it.how + (it.warn ? ' ' + it.warn : '');
   const links = document.createElement('div'); links.className = 'rep';

@@ -4,19 +4,20 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Automatisations · StreamBox</title>
+<meta name="description" content="Automatisations pour ton live : quand il se passe un événement (raid, abo, commande), StreamBox change de scène, joue un son ou écrit dans le chat.">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
 <link rel="stylesheet" href="css/site.css">
 <script src="js/i18n.js"></script>
 </head>
 <body>
 <main class="wrap">
-  <h2 class="sec" style="margin-top:36px">⚡ Automatisations</h2>
+  <h1 class="sec" style="margin-top:36px">⚡ Automatisations</h1>
   <p class="sec">« Quand il se passe ça, fais ça. » Un raid change de scène, un abo active un filtre, une récompense de points de chaîne affiche une source pendant 10 secondes… Les automatisations tournent dans OBS, dans une source navigateur invisible.</p>
   <div id="need" class="box" hidden></div>
 
   <div id="app" hidden>
     <section class="box">
-      <h3 class="bt-h">1. Ajoute la source dans OBS</h3>
+      <h2 class="bt-h">1. Ajoute la source dans OBS</h2>
       <p class="bt-help">Dans OBS : Sources → + → Navigateur, colle ce lien (taille 300 × 200, la source reste invisible). Pour voir le journal des automatisations, ajoute aussi le lien avec le journal comme dock : Docks → Docks de navigateur personnalisés.</p>
       <div class="pn-row"><input type="text" id="link" readonly style="flex:1;min-width:220px"><button class="btn small" id="copy" type="button">Copier</button></div>
       <div class="pn-row"><input type="text" id="linkDebug" readonly style="flex:1;min-width:220px"><button class="btn ghost small" id="copyDebug" type="button">Copier (avec journal)</button></div>
@@ -24,13 +25,13 @@
     </section>
 
     <section class="box">
-      <div class="sx-head"><h3 class="bt-h">2. Tes automatisations <small id="count"></small></h3>
+      <div class="sx-head"><h2 class="bt-h">2. Tes automatisations <small id="count"></small></h2>
         <div class="pn-row" style="margin:0"><select id="tpl" aria-label="Modèle"></select><button class="btn ghost small" id="addTpl" type="button">Ajouter ce modèle</button><button class="btn small" id="add" type="button">+ Nouvelle</button></div></div>
       <div id="rules"></div>
     </section>
 
     <section class="box">
-      <h3 class="bt-h">3. Tester depuis cette page (facultatif)</h3>
+      <h2 class="bt-h">3. Tester depuis cette page (facultatif)</h2>
       <p class="bt-help">Connecte cette page à OBS pour choisir tes scènes et sources dans une liste, et pour lancer une automatisation avec le bouton ▶ Tester (OBS doit être ouvert sur ce PC).</p>
       <div class="pn-row"><input type="password" id="obspass" placeholder="Mot de passe du serveur WebSocket d’OBS" autocomplete="off" style="max-width:280px"><button class="btn ghost small" id="obsGo" type="button">Connecter OBS</button><span class="bt-help" id="obsSt"></span></div>
     </section>
