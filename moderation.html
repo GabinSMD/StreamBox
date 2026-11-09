@@ -1,0 +1,450 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Panneau de modération · StreamBox</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="css/site.css">
+</head>
+<body class="md-body">
+<main class="wrap md-wrap">
+  <div id="need" class="box" hidden style="margin-top:36px"></div>
+
+  <div id="app" hidden>
+    <header class="md-top">
+      <h2>🛡️ Modération</h2>
+      <select id="chan" aria-label="Chaîne"></select>
+      <span class="flag" id="live"></span>
+      <span class="md-st" id="stChat" title="Chat">💬 …</span>
+      <span class="md-st" id="stEs" title="Événements de modération">🛡️ …</span>
+      <label class="md-quick" title="Durée du bouton ⏱ dans le chat">⏱ rapide <select id="quickT"><option value="60">1 min</option><option value="600" selected>10 min</option><option value="3600">1 h</option><option value="86400">24 h</option></select></label>
+    </header>
+    <div class="note" id="scopeWarn" hidden></div>
+
+    <div class="md-grid">
+      <section class="md-chat box">
+        <div class="md-filters">
+          <input type="text" id="filter" placeholder="Filtrer : pseudo ou mot">
+          <label><input type="checkbox" id="fFirst"> Premiers messages</label>
+          <label><input type="checkbox" id="fLinks"> Liens</label>
+          <label><input type="checkbox" id="fHide"> Masquer les messages supprimés</label>
+        </div>
+        <div class="md-feed" id="feed" aria-live="off"></div>
+        <button class="btn small md-more" id="more" type="button" hidden></button>
+      </section>
+
+      <aside class="md-side">
+        <nav class="md-tabs" id="tabs">
+          <button data-t="automod" class="on">AutoMod <b id="nAutomod"></b></button>
+          <button data-t="journal">Journal</button>
+          <button data-t="unban">Débans <b id="nUnban"></b></button>
+          <button data-t="modes">Chat</button>
+          <button data-t="livetab" id="tabLive" hidden>Live</button>
+        </nav>
+        <section class="box md-pane" id="p-automod">
+          <p class="bt-help">Messages retenus par AutoMod : ils n’apparaissent dans le chat que si un modo les autorise.</p>
+          <label class="md-inline"><input type="checkbox" id="amSound" checked> Son à chaque message retenu</label>
+          <div id="automod"></div>
+        </section>
+        <section class="box md-pane" id="p-journal" hidden>
+          <p class="bt-help">Toutes les actions de l’équipe de modération sur la chaîne, en direct.</p>
+          <div id="journal"></div>
+        </section>
+        <section class="box md-pane" id="p-unban" hidden>
+          <p class="bt-help">Demandes de débannissement envoyées par les viewers bannis.</p>
+          <div id="unban"></div>
+        </section>
+        <section class="box md-pane" id="p-modes" hidden>
+          <div class="md-modes" id="modes"></div>
+          <h3 class="bt-h" style="margin-top:18px">📣 Annonce</h3>
+          <textarea id="annText" rows="2" maxlength="500" placeholder="Message mis en avant dans le chat"></textarea>
+          <div class="pn-row">
+            <select id="annColor"><option value="primary">Couleur de la chaîne</option><option value="purple">Violet</option><option value="blue">Bleu</option><option value="green">Vert</option><option value="orange">Orange</option></select>
+            <button class="btn small" id="annGo" type="button">Envoyer</button>
+          </div>
+          <div class="pn-row" style="margin-top:18px"><button class="btn ghost small" id="clearChat" type="button">🧹 Effacer tout le chat</button></div>
+        </section>
+        <section class="box md-pane" id="p-livetab" hidden>
+          <div id="liveNeed" hidden></div>
+          <div id="liveForm">
+            <label class="bt-f"><span>Titre du live</span><input type="text" id="title" maxlength="140"></label>
+            <label class="bt-f"><span>Catégorie</span><input type="text" id="game" list="games" autocomplete="off"></label>
+            <datalist id="games"></datalist>
+            <div class="pn-row"><button class="btn small" id="saveLive" type="button">Mettre à jour</button></div>
+            <h3 class="bt-h" style="margin-top:18px">🚀 Raid</h3>
+            <div class="pn-row"><input type="text" id="raidTo" placeholder="chaîne à raider"><button class="btn small" id="raidGo" type="button">Lancer</button><button class="btn ghost small" id="raidStop" type="button">Annuler</button></div>
+          </div>
+        </section>
+      </aside>
+    </div>
+  </div>
+</main>
+
+<div class="md-card" id="card" hidden role="dialog" aria-label="Fiche du viewer">
+  <div class="md-card-in box">
+    <button class="md-x" id="cardX" type="button" aria-label="Fermer">✕</button>
+    <div class="md-who"><img id="cAvatar" alt=""><div><b id="cName"></b><small id="cInfo"></small></div></div>
+    <div class="note" id="cBan" hidden></div>
+    <input type="text" id="cReason" maxlength="200" placeholder="Raison (facultative, obligatoire pour un avertissement)">
+    <div class="md-acts">
+      <span>Timeout :</span>
+      <button data-to="60">1 min</button><button data-to="600">10 min</button><button data-to="3600">1 h</button><button data-to="86400">1 j</button><button data-to="604800">7 j</button>
+    </div>
+    <div class="md-acts">
+      <button id="cPurge" title="Timeout d’une seconde : efface ses messages">🧽 Purger</button>
+      <button id="cWarn">⚠️ Avertir</button>
+      <button id="cBanBtn" class="danger">🔨 Bannir</button>
+      <button id="cUnban" hidden>✅ Débannir</button>
+      <a id="cTwitch" target="_blank" rel="noopener">Fiche Twitch ↗</a>
+    </div>
+    <h4>Messages pendant cette session <small id="cCount"></small></h4>
+    <div class="md-hist" id="cHist"></div>
+  </div>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/sb.js"></script>
+<script src="js/eventsub.js"></script>
+<script src="js/account.js"></script>
+<script src="js/site.js"></script>
+<script>
+/* Panneau de modération : chaque modo se connecte avec SON compte Twitch. Les actions partent directement
+ * de son navigateur vers Twitch ; le jeton est gardé en mémoire (jamais dans l'URL ni dans le stockage). */
+const $ = (id) => document.getElementById(id);
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+const DEMO = new URLSearchParams(location.search).get('demo') === '1';
+const cid = window.SB_CONFIG && SB_CONFIG.twitchClientId;
+const NEED = ['user:read:moderated_channels', 'moderator:manage:banned_users', 'moderator:manage:chat_messages', 'moderator:manage:chat_settings', 'moderator:manage:automod', 'moderator:manage:shield_mode', 'moderator:manage:announcements', 'moderator:manage:warnings', 'moderator:manage:unban_requests', 'moderator:read:moderators', 'moderator:read:vips', 'moderator:manage:blocked_terms'];
+const LIVE_NEED = ['channel:manage:broadcast', 'channel:manage:raids'];
+const MAX = 400; // messages gardés à l'écran
+let T = null, me = null, ch = null, chat = null, es = null, emotes = null;
+const users = new Map(); // login → { id, name, msgs: [] }
+let atBottom = true, unseen = 0, cardUser = null, heldCount = 0;
+const fmtDur = (s) => (s >= 86400 ? `${Math.round(s / 86400)} j` : s >= 3600 ? `${Math.round(s / 3600)} h` : s >= 60 ? `${Math.round(s / 60)} min` : `${s} s`);
+const hhmm = (t) => new Date(t).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+const LINK = /(https?:\/\/|www\.)\S+|\b[a-z0-9-]+\.(com|fr|net|org|io|gg|tv|ly|me|xyz|be|ru)\b/i;
+
+/* ---------- Jeton et API Twitch ---------- */
+async function loadToken() {
+  if (DEMO) { T = { access: 'demo', scopes: NEED.concat(LIVE_NEED), login: 'tachaine', user_id: '1' }; return T; }
+  if (SBA.enabled() && SBA.loggedIn()) T = await SBA.api('GET', '/me/twitch-token');
+  else { // sans relais : jeton de connexion directe (connexion.html, flux implicite)
+    let t = null; try { t = localStorage.getItem('sb-twitch-token'); } catch (e) { /* ignore */ }
+    const v = t && await SB.validateToken(t);
+    if (!v) throw Object.assign(new Error('non connecté'), { login: true });
+    T = { access: t, scopes: v.scopes || [], login: v.login, user_id: v.user_id };
+  }
+  T.at = Date.now();
+  return T;
+}
+async function tw(method, path, body, retry = true) {
+  if (DEMO) return demoApi(method, path, body);
+  if (Date.now() - T.at > 30 * 60000) await loadToken(); // le relais renouvelle le jeton avant expiration
+  const r = await fetch('https://api.twitch.tv/helix/' + path, { method, headers: { 'Client-Id': cid, Authorization: 'Bearer ' + T.access, 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+  if (r.status === 401 && retry) { await loadToken(); return tw(method, path, body, false); }
+  if (r.status === 204) return {};
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.message || 'erreur ' + r.status);
+  return d;
+}
+const B = () => `broadcaster_id=${ch.id}&moderator_id=${me.id}`;
+async function act(label, fn) { try { await fn(); toast(label + ' ✓'); return true; } catch (e) { toast(label + ' : ' + e.message); return false; } }
+
+/* ---------- Actions de modération ---------- */
+const del = (id) => act('Message supprimé', () => tw('DELETE', `moderation/chat?${B()}&message_id=${encodeURIComponent(id)}`));
+const timeout = (uid, secs, reason) => act(secs === 1 ? 'Messages purgés' : `Timeout ${fmtDur(secs)}`, () => tw('POST', `moderation/bans?${B()}`, { data: { user_id: uid, duration: secs, reason: reason || undefined } }));
+const ban = (uid, reason) => act('Banni', () => tw('POST', `moderation/bans?${B()}`, { data: { user_id: uid, reason: reason || undefined } }));
+const unban = (uid) => act('Débanni', () => tw('DELETE', `moderation/bans?${B()}&user_id=${uid}`));
+const warn = (uid, reason) => act('Averti', () => tw('POST', `moderation/warnings?${B()}`, { data: { user_id: uid, reason } }));
+
+/* ---------- Chat ---------- */
+function badgeText(m) { return m.isBroadcaster ? '🎥' : m.isMod ? '🗡️' : m.isVip ? '💎' : m.isSub ? '⭐' : ''; }
+function addMessage(m) {
+  const u = users.get(m.login) || { id: m.userId, name: m.name, msgs: [] };
+  u.id = m.userId || u.id; u.name = m.name; u.msgs.push({ id: m.id, text: m.text, ts: m.ts }); if (u.msgs.length > 50) u.msgs.shift();
+  users.set(m.login, u);
+  const row = el('div', 'md-msg' + (m.first ? ' first' : '') + (LINK.test(m.text) ? ' link' : ''));
+  row.dataset.id = m.id; row.dataset.login = m.login; row.dataset.text = m.text.toLowerCase();
+  const acts = el('span', 'md-a');
+  if (!m.isBroadcaster && !m.isMod) { // Twitch ne permet pas de sanctionner un modo
+    const b = (label, title, fn) => { const x = el('button', null, label); x.type = 'button'; x.title = title; x.onclick = (e) => { e.stopPropagation(); fn(); }; acts.appendChild(x); };
+    b('🗑', 'Supprimer le message', () => del(m.id));
+    b('⏱', 'Timeout (durée choisie en haut)', () => timeout(u.id, +$('quickT').value));
+    b('🔨', 'Bannir', () => { if (confirm(`Bannir ${m.name} ?`)) ban(u.id); });
+  }
+  const name = el('button', 'md-name', m.name); name.type = 'button'; name.style.color = SB.nameColor(m); name.onclick = () => openCard(m.login);
+  const text = el('span', 'md-text'); text.append(...SB.messageNodes(m, emotes));
+  row.append(el('time', null, hhmm(m.ts)), acts, el('span', 'md-b', badgeText(m)), name, el('span', 'md-sep', m.action ? '' : ':'), text);
+  if (m.first) row.prepend(el('span', 'md-tag', 'Nouveau'));
+  row.onclick = (e) => { if (e.target.closest('a,button')) return; document.querySelectorAll('.md-msg.sel').forEach((r) => r !== row && r.classList.remove('sel')); row.classList.toggle('sel'); }; // écran tactile : touche le message pour voir les actions
+  const feed = $('feed');
+  applyFilter(row); feed.appendChild(row);
+  while (feed.children.length > MAX) feed.firstChild.remove();
+  if (atBottom) feed.scrollTop = feed.scrollHeight; else { unseen++; $('more').hidden = false; $('more').textContent = `⬇ ${unseen} nouveau(x) message(s)`; }
+  if (cardUser === m.login) renderHist();
+}
+function markGone(sel, by) { document.querySelectorAll(sel).forEach((r) => { r.classList.add('gone'); if (by && !r.querySelector('.md-by')) r.appendChild(el('small', 'md-by', by)); applyFilter(r); }); }
+function applyFilter(r) {
+  const q = $('filter').value.trim().toLowerCase();
+  r.hidden = (q && !r.dataset.login.includes(q) && !r.dataset.text.includes(q)) || ($('fFirst').checked && !r.classList.contains('first')) || ($('fLinks').checked && !r.classList.contains('link')) || ($('fHide').checked && r.classList.contains('gone'));
+}
+const refilter = () => { document.querySelectorAll('.md-msg').forEach(applyFilter); $('feed').scrollTop = $('feed').scrollHeight; };
+['filter', 'fFirst', 'fLinks', 'fHide'].forEach((id) => $(id).addEventListener('input', refilter));
+$('feed').addEventListener('scroll', () => { const f = $('feed'); atBottom = f.scrollHeight - f.scrollTop - f.clientHeight < 40; if (atBottom) { unseen = 0; $('more').hidden = true; } });
+$('more').onclick = () => { $('feed').scrollTop = $('feed').scrollHeight; };
+
+/* ---------- Fiche du viewer ---------- */
+async function openCard(login) {
+  const u = users.get(login); if (!u) return;
+  cardUser = login; $('card').hidden = false;
+  $('cName').textContent = u.name; $('cInfo').textContent = 'Chargement…'; $('cAvatar').removeAttribute('src'); $('cBan').hidden = true; $('cUnban').hidden = true; $('cReason').value = '';
+  $('cTwitch').href = `https://www.twitch.tv/popout/${ch.login}/viewercard/${login}`;
+  renderHist();
+  try {
+    const [info, fol, banned] = await Promise.all([tw('GET', 'users?id=' + u.id), tw('GET', `channels/followers?broadcaster_id=${ch.id}&user_id=${u.id}`).catch(() => ({})), tw('GET', `moderation/banned?broadcaster_id=${ch.id}&user_id=${u.id}`).catch(() => ({}))]);
+    if (cardUser !== login) return;
+    const p = (info.data || [])[0] || {};
+    if (p.profile_image_url) $('cAvatar').src = p.profile_image_url;
+    const f = (fol.data || [])[0];
+    const days = (d) => Math.floor((Date.now() - Date.parse(d)) / 86400000);
+    $('cInfo').textContent = [p.created_at && `compte créé il y a ${days(p.created_at)} j`, f ? `suit depuis ${days(f.followed_at)} j` : 'ne suit pas la chaîne'].filter(Boolean).join(' · ');
+    const b = (banned.data || [])[0];
+    if (b) { $('cBan').hidden = false; $('cBan').textContent = (b.expires_at ? `En timeout jusqu’à ${hhmm(b.expires_at)}` : 'Banni') + (b.reason ? ` : ${b.reason}` : '') + (b.moderator_name ? ` (par ${b.moderator_name})` : ''); $('cUnban').hidden = false; }
+  } catch (e) { $('cInfo').textContent = e.message; }
+}
+function renderHist() {
+  const u = users.get(cardUser); if (!u) return;
+  $('cCount').textContent = `(${u.msgs.length})`;
+  $('cHist').replaceChildren(...u.msgs.slice().reverse().map((m) => { const r = el('div'); r.append(el('time', null, hhmm(m.ts)), ' ', m.text); return r; }));
+}
+const cu = () => users.get(cardUser);
+$('cardX').onclick = () => { $('card').hidden = true; cardUser = null; };
+$('card').onclick = (e) => { if (e.target === $('card')) $('cardX').onclick(); };
+addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('card').hidden) $('cardX').onclick(); });
+document.querySelectorAll('[data-to]').forEach((b) => { b.onclick = () => timeout(cu().id, +b.dataset.to, $('cReason').value.trim()).then((ok) => ok && openCard(cardUser)); });
+$('cPurge').onclick = () => timeout(cu().id, 1, $('cReason').value.trim() || 'purge');
+$('cWarn').onclick = () => { const r = $('cReason').value.trim(); if (!r) { $('cReason').focus(); return toast('Écris la raison de l’avertissement'); } warn(cu().id, r); };
+$('cBanBtn').onclick = () => { if (confirm(`Bannir ${cu().name} définitivement ?`)) ban(cu().id, $('cReason').value.trim()).then((ok) => ok && openCard(cardUser)); };
+$('cUnban').onclick = () => unban(cu().id).then((ok) => ok && openCard(cardUser));
+
+/* ---------- AutoMod ---------- */
+function held(ev) {
+  const box = el('div', 'md-held'); box.dataset.id = ev.message_id;
+  const why = ev.reason === 'blocked_term' ? 'mot bloqué' : ev.automod ? `${ev.automod.category || 'AutoMod'} (niveau ${ev.automod.level})` : 'AutoMod';
+  const who = el('button', 'md-name', ev.user_name); who.type = 'button'; who.onclick = () => { if (users.has(ev.user_login)) openCard(ev.user_login); };
+  const head = el('div'); head.append(who, el('small', null, ` · ${why} · ${hhmm(ev.held_at || Date.now())}`));
+  const row = el('div', 'pn-row');
+  const go = (action) => act(action === 'ALLOW' ? 'Message autorisé' : 'Message refusé', () => tw('POST', 'moderation/automod/message', { user_id: me.id, msg_id: ev.message_id, action })).then((ok) => ok && removeHeld(ev.message_id));
+  const a = el('button', 'btn small', '✅ Autoriser'); a.onclick = () => go('ALLOW');
+  const d = el('button', 'btn ghost small', '✕ Refuser'); d.onclick = () => go('DENY');
+  row.append(a, d);
+  box.append(head, el('p', null, (ev.message && ev.message.text) || ''), row);
+  $('automod').prepend(box); count();
+  if ($('amSound').checked && SB.chime) SB.chime();
+}
+function removeHeld(id) { const b = $('automod').querySelector(`[data-id="${CSS.escape(id)}"]`); if (b) b.remove(); count(); }
+function count() { heldCount = $('automod').children.length; $('nAutomod').textContent = heldCount || ''; if (!heldCount) $('automod').replaceChildren(); }
+
+/* ---------- Journal (actions de toute l'équipe) ---------- */
+function journal(ev) {
+  const a = ev.action, by = ev.moderator_user_name || '?', o = ev[a] || ev[a.replace('shared_chat_', '')] || {};
+  const who = o.user_name || o.user_login || '';
+  const why = o.reason ? ` : « ${o.reason} »` : '';
+  const T_ = {
+    ban: `🔨 a banni ${who}${why}`, unban: `✅ a débanni ${who}`, timeout: `⏱ a mis ${who} en timeout${o.expires_at ? ' jusqu’à ' + hhmm(o.expires_at) : ''}${why}`, untimeout: `✅ a retiré le timeout de ${who}`,
+    delete: `🗑 a supprimé un message de ${who}${o.message_body ? ` : « ${o.message_body} »` : ''}`, warn: `⚠️ a averti ${who}${why}`, clear: '🧹 a effacé le chat',
+    slow: `🐢 mode lent ${o.wait_time_seconds ? o.wait_time_seconds + ' s' : ''}`, slowoff: '🐢 mode lent désactivé', followers: `👥 mode followers ${o.follow_duration_minutes ? fmtDur(o.follow_duration_minutes * 60) : ''}`, followersoff: '👥 mode followers désactivé',
+    subscribers: '⭐ mode abonnés', subscribersoff: '⭐ mode abonnés désactivé', emoteonly: '😀 mode emotes', emoteonlyoff: '😀 mode emotes désactivé', uniquechat: '🔁 messages uniques', uniquechatoff: '🔁 messages uniques désactivé',
+    raid: `🚀 raid vers ${who}`, unraid: '🚀 raid annulé', mod: `🗡️ a nommé ${who} modo`, unmod: `a retiré ${who} des modos`, vip: `💎 a donné le VIP à ${who}`, unvip: `a retiré le VIP de ${who}`,
+    approve_unban_request: `✅ a accepté le déban de ${who}`, deny_unban_request: `✕ a refusé le déban de ${who}`, add_blocked_term: '🚫 a ajouté un mot bloqué', remove_blocked_term: 'a retiré un mot bloqué',
+  };
+  const line = el('div', 'md-j'); line.append(el('time', null, hhmm(Date.now())), ' ', el('b', null, by), ' ', T_[a] || a);
+  $('journal').prepend(line); while ($('journal').children.length > 200) $('journal').lastChild.remove();
+  if (a === 'delete' && o.message_id) markGone(`.md-msg[data-id="${CSS.escape(o.message_id)}"]`, `supprimé par ${by}`);
+  if ((a === 'ban' || a === 'timeout') && o.user_login) markGone(`.md-msg[data-login="${CSS.escape(o.user_login)}"]`, `${a === 'ban' ? 'banni' : 'timeout'} par ${by}`);
+  if (/^(slow|followers|subscribers|emoteonly|uniquechat)/.test(a)) loadModes();
+}
+
+/* ---------- Demandes de déban ---------- */
+function unbanRow(r) {
+  if ($('unban').querySelector(`[data-id="${CSS.escape(r.id)}"]`)) return;
+  const box = el('div', 'md-held'); box.dataset.id = r.id;
+  const head = el('div'); head.append(el('b', null, r.user_name), el('small', null, ` · ${hhmm(r.created_at)}`));
+  const res = el('input'); res.type = 'text'; res.placeholder = 'Réponse au viewer (facultative)'; res.maxLength = 500;
+  const go = (status) => act(status === 'approved' ? 'Déban accepté' : 'Déban refusé', () => tw('PATCH', `moderation/unban_requests?${B()}&unban_request_id=${r.id}&status=${status}${res.value.trim() ? '&resolution_text=' + encodeURIComponent(res.value.trim()) : ''}`)).then((ok) => { if (ok) { box.remove(); countUnban(); } });
+  const a = el('button', 'btn small', '✅ Accepter'); a.onclick = () => go('approved');
+  const d = el('button', 'btn ghost small', '✕ Refuser'); d.onclick = () => go('denied');
+  const row = el('div', 'pn-row'); row.append(a, d);
+  box.append(head, el('p', null, r.text || ''), res, row);
+  $('unban').prepend(box); countUnban();
+}
+function countUnban() { $('nUnban').textContent = $('unban').children.length || ''; }
+async function loadUnban() { try { ((await tw('GET', `moderation/unban_requests?${B()}&status=pending&first=50`)).data || []).forEach(unbanRow); } catch (e) { /* permission manquante : affiché dans l'avertissement */ } }
+
+/* ---------- Réglages du chat ---------- */
+let modes = {};
+const MODES = [
+  ['slow_mode', '🐢 Mode lent', 'slow_mode_wait_time', [[3, '3 s'], [5, '5 s'], [10, '10 s'], [20, '20 s'], [30, '30 s'], [60, '1 min'], [120, '2 min']]],
+  ['follower_mode', '👥 Followers seulement', 'follower_mode_duration', [[0, 'dès le follow'], [10, '10 min'], [30, '30 min'], [60, '1 h'], [1440, '1 jour'], [10080, '1 semaine'], [43200, '1 mois']]],
+  ['subscriber_mode', '⭐ Abonnés seulement'], ['emote_mode', '😀 Emotes seulement'], ['unique_chat_mode', '🔁 Messages uniques'],
+];
+async function loadModes() {
+  try {
+    const [s, sh] = await Promise.all([tw('GET', `chat/settings?${B()}`), tw('GET', `moderation/shield_mode?${B()}`).catch(() => ({}))]);
+    modes = Object.assign({}, (s.data || [])[0], { shield: !!((sh.data || [])[0] || {}).is_active });
+    renderModes();
+  } catch (e) { $('modes').textContent = 'Réglages indisponibles : ' + e.message; }
+}
+function renderModes() {
+  const list = MODES.map(([k, label, dk, opts]) => {
+    const row = el('div', 'md-mode');
+    const t = el('label', 'bt-toggle'); const cb = el('input'); cb.type = 'checkbox'; cb.checked = !!modes[k]; t.append(cb, el('b', null, label));
+    row.appendChild(t);
+    let sel = null;
+    if (opts) { sel = el('select'); opts.forEach(([v, l]) => { const o = el('option', null, l); o.value = v; sel.appendChild(o); }); sel.value = modes[dk] != null ? modes[dk] : opts[dk === 'slow_mode_wait_time' ? 2 : 0][0]; row.appendChild(sel); }
+    const save = () => { const body = { [k]: cb.checked }; if (sel && cb.checked) body[dk] = +sel.value; act(label.replace(/^\S+ /, ''), () => tw('PATCH', `chat/settings?${B()}`, body)).then((ok) => (ok ? Object.assign(modes, body) : (cb.checked = !cb.checked))); };
+    cb.onchange = save; if (sel) sel.onchange = () => { if (cb.checked) save(); };
+    return row;
+  });
+  const sh = el('div', 'md-mode shield');
+  const t = el('label', 'bt-toggle'); const cb = el('input'); cb.type = 'checkbox'; cb.checked = modes.shield; t.append(cb, el('b', null, '🛡️ Mode bouclier'));
+  cb.onchange = () => act(cb.checked ? 'Mode bouclier activé' : 'Mode bouclier désactivé', () => tw('PUT', `moderation/shield_mode?${B()}`, { is_active: cb.checked })).then((ok) => { if (!ok) cb.checked = !cb.checked; });
+  sh.append(t, el('small', 'bt-help', 'En cas de raid haineux : applique d’un coup les réglages de bouclier choisis sur Twitch.'));
+  $('modes').replaceChildren(...list, sh);
+}
+$('annGo').onclick = () => { const m = $('annText').value.trim(); if (!m) return; act('Annonce envoyée', () => tw('POST', `chat/announcements?${B()}`, { message: m, color: $('annColor').value })).then((ok) => { if (ok) $('annText').value = ''; }); };
+$('clearChat').onclick = () => { if (confirm('Effacer tous les messages du chat pour tout le monde ?')) act('Chat effacé', () => tw('DELETE', `moderation/chat?${B()}`)); };
+
+/* ---------- Gestion du live (streamer seulement) ---------- */
+let gameId = null, gameList = [];
+async function loadLive() {
+  const missing = LIVE_NEED.filter((s) => !T.scopes.includes(s));
+  $('liveNeed').hidden = !missing.length; $('liveForm').hidden = !!missing.length;
+  if (missing.length) {
+    $('liveNeed').replaceChildren(el('p', 'bt-help', 'Pour changer le titre, la catégorie ou lancer un raid d’ici, autorise ces permissions en plus.'));
+    const b = el('button', 'btn small', 'Autoriser'); b.onclick = () => { location.href = 'connexion.html?compte=1&scope=live&retour=moderation.html'; }; $('liveNeed').appendChild(b);
+    return;
+  }
+  const c = ((await tw('GET', 'channels?broadcaster_id=' + ch.id)).data || [])[0] || {};
+  $('title').value = c.title || ''; $('game').value = c.game_name || ''; gameId = c.game_id || null;
+}
+let gTimer;
+$('game').addEventListener('input', () => {
+  clearTimeout(gTimer);
+  const q = $('game').value.trim(); const hit = gameList.find((g) => g.name.toLowerCase() === q.toLowerCase()); if (hit) gameId = hit.id;
+  if (q.length < 2 || hit) return;
+  gTimer = setTimeout(async () => { try { gameList = (await tw('GET', 'search/categories?first=10&query=' + encodeURIComponent(q))).data || []; $('games').replaceChildren(...gameList.map((g) => { const o = el('option'); o.value = g.name; return o; })); } catch (e) { /* ignore */ } }, 300);
+});
+$('saveLive').onclick = () => {
+  const body = { title: $('title').value.trim() };
+  const g = gameList.find((x) => x.name.toLowerCase() === $('game').value.trim().toLowerCase());
+  if (g) body.game_id = g.id; else if (!$('game').value.trim()) body.game_id = '0';
+  act('Live mis à jour', () => tw('PATCH', 'channels?broadcaster_id=' + ch.id, body));
+};
+$('raidGo').onclick = async () => {
+  const login = $('raidTo').value.trim().replace(/^@/, '').toLowerCase(); if (!login) return;
+  const u = ((await tw('GET', 'users?login=' + encodeURIComponent(login)).catch(() => ({}))).data || [])[0];
+  if (!u) return toast('Chaîne introuvable');
+  if (confirm(`Lancer un raid vers ${u.display_name} ?`)) act('Raid lancé (Twitch le confirme dans 90 s)', () => tw('POST', `raids?from_broadcaster_id=${ch.id}&to_broadcaster_id=${u.id}`));
+};
+$('raidStop').onclick = () => act('Raid annulé', () => tw('DELETE', 'raids?broadcaster_id=' + ch.id));
+
+/* ---------- Onglets ---------- */
+$('tabs').onclick = (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  document.querySelectorAll('#tabs button').forEach((x) => x.classList.toggle('on', x === b));
+  document.querySelectorAll('.md-pane').forEach((p) => { p.hidden = p.id !== 'p-' + b.dataset.t; });
+  if (b.dataset.t === 'modes') loadModes();
+  if (b.dataset.t === 'livetab') loadLive().catch((err) => toast(err.message));
+};
+
+/* ---------- Chaîne choisie ---------- */
+async function stream() {
+  try {
+    const s = ((await tw('GET', 'streams?user_id=' + ch.id)).data || [])[0];
+    $('live').textContent = s ? `🔴 ${s.viewer_count.toLocaleString('fr-FR')} viewers · ${fmtDur(Math.floor((Date.now() - Date.parse(s.started_at)) / 1000))}` : 'hors ligne';
+  } catch (e) { $('live').textContent = ''; }
+}
+function select(c) {
+  if (chat) chat.stop(); if (es) es.stop();
+  ch = c; me.isBroadcasterOf = ch.id === me.id;
+  users.clear(); $('feed').replaceChildren(); $('automod').replaceChildren(); $('journal').replaceChildren(); $('unban').replaceChildren(); count(); countUnban();
+  $('tabLive').hidden = !me.isBroadcasterOf;
+  if (!me.isBroadcasterOf && !$('p-livetab').hidden) $('tabs').querySelector('[data-t="automod"]').click();
+  $('feed').appendChild(el('p', 'bt-help', `Chat de ${ch.name} : les nouveaux messages s’affichent ici.`));
+  try { localStorage.setItem('sb-mod-chan', ch.login); } catch (e) { /* ignore */ }
+  stream();
+  if (DEMO) return demoStart();
+  emotes = new SB.EmoteStore();
+  chat = new SB.TwitchChat(ch.login);
+  chat.on('room', (id) => emotes.load(id)).on('message', addMessage)
+    .on('clearmsg', (id) => markGone(`.md-msg[data-id="${CSS.escape(id)}"]`))
+    .on('clearchat', (d) => markGone(d.login ? `.md-msg[data-login="${CSS.escape(d.login)}"]` : '.md-msg'))
+    .on('status', (s) => { $('stChat').textContent = s === 'connected' ? '💬 chat connecté' : '💬 reconnexion…'; })
+    .connect();
+  es = new SB.EventSub(T.access, ch.login, ['automod', 'automodUpdate', 'moderate', 'unbanRequest']);
+  es.on('automod', held).on('automodUpdate', (e) => removeHeld(e.message_id)).on('moderate', journal)
+    .on('unbanRequest', (e) => unbanRow({ id: e.id, user_name: e.user_name, text: e.text, created_at: e.created_at }))
+    .on('status', (s) => { $('stEs').textContent = '🛡️ ' + (s === 'connecté' ? 'AutoMod et journal en direct' : s); })
+    .start();
+  loadUnban();
+}
+$('chan').onchange = () => select(JSON.parse($('chan').value));
+setInterval(() => { if (ch) stream(); }, 60000);
+
+/* ---------- Démarrage ---------- */
+function need(text, label, href) {
+  $('need').hidden = false; $('need').replaceChildren(el('h2', null, '🛡️ Panneau de modération'), el('p', 'lead', text));
+  if (label) { const b = el('button', 'btn', label); b.onclick = () => { location.href = href; }; $('need').appendChild(b); }
+  $('need').appendChild(el('p', 'bt-help', 'Chaque modo se connecte avec son propre compte Twitch : les actions sont faites en son nom, comme sur Twitch. StreamBox ne garde aucun message du chat.'));
+}
+(async () => {
+  if (!DEMO && !cid) return need('La connexion Twitch n’est pas configurée sur ce site.');
+  if (!DEMO && SBA.enabled() && !SBA.loggedIn()) return need('Connecte-toi avec ton compte Twitch de modo (ou de streamer) pour modérer les chaînes où tu es modo.', 'Se connecter avec Twitch', 'connexion.html?compte=1&scope=mod&retour=moderation.html');
+  try { await loadToken(); } catch (e) {
+    if (e.login) return need('Connecte-toi avec ton compte Twitch de modo.', 'Se connecter avec Twitch', 'connexion.html?scope=mod&retour=moderation.html');
+    return need('Erreur : ' + e.message, 'Se reconnecter', 'connexion.html?compte=1&scope=mod&retour=moderation.html');
+  }
+  me = { id: T.user_id, login: T.login };
+  const missing = NEED.filter((s) => !T.scopes.includes(s));
+  if (missing.includes('user:read:moderated_channels')) return need('Le panneau a besoin de permissions de modération sur ton compte Twitch.', 'Autoriser la modération', 'connexion.html?compte=1&scope=mod&retour=moderation.html');
+  if (missing.length) { $('scopeWarn').hidden = false; $('scopeWarn').textContent = 'Certaines permissions manquent (' + missing.join(', ') + ') : reconnecte-toi pour tout activer.'; }
+  let list = [];
+  try { list = ((await tw('GET', `moderation/channels?user_id=${me.id}&first=100`)).data || []).map((c) => ({ id: c.broadcaster_id, login: c.broadcaster_login, name: c.broadcaster_name })); } catch (e) { toast(e.message); }
+  const chans = [{ id: me.id, login: me.login, name: me.login + ' (ma chaîne)' }, ...list.filter((c) => c.id !== me.id).sort((a, b) => a.login.localeCompare(b.login))];
+  $('chan').replaceChildren(...chans.map((c) => { const o = el('option', null, c.name); o.value = JSON.stringify(c); return o; }));
+  let last = null; try { last = localStorage.getItem('sb-mod-chan'); } catch (e) { /* ignore */ }
+  const pick = (!DEMO && chans.find((c) => c.login === last)) || chans[list.length && !DEMO ? 1 : 0]; // par défaut : la première chaîne modérée
+  $('chan').value = JSON.stringify(pick);
+  $('app').hidden = false;
+  select(pick);
+})();
+
+/* ---------- Mode démo (aperçu sans compte) ---------- */
+function demoApi(method, path) {
+  if (path.startsWith('chat/settings') && method === 'GET') return { data: [{ slow_mode: false, slow_mode_wait_time: null, follower_mode: true, follower_mode_duration: 10, subscriber_mode: false, emote_mode: false, unique_chat_mode: false }] };
+  if (path.startsWith('moderation/channels')) return { data: [{ broadcaster_id: '2', broadcaster_login: 'amie_streameuse', broadcaster_name: 'Amie_Streameuse' }] };
+  if (path.startsWith('streams')) return { data: [{ viewer_count: 312, started_at: new Date(Date.now() - 5123000).toISOString() }] };
+  if (path.startsWith('users?id')) return { data: [{ created_at: new Date(Date.now() - 12 * 86400000).toISOString() }] };
+  if (path.startsWith('channels/followers')) return { data: [] };
+  if (path.startsWith('channels?')) return { data: [{ title: 'Soirée cubes', game_name: 'Minecraft', game_id: '27471' }] };
+  if (path.startsWith('search/categories')) return { data: [{ id: '27471', name: 'Minecraft' }, { id: '509658', name: 'Just Chatting' }] };
+  return { data: [] };
+}
+function demoStart() {
+  emotes = null;
+  $('stChat').textContent = '💬 démo'; $('stEs').textContent = '🛡️ démo';
+  const people = [{ login: 'Pixelmaud', sub: true }, { login: 'Kevin_le_roux' }, { login: 'Lou', vip: true }, { login: 'NouveauVenu' }, { login: 'ModoSympa', mod: true }];
+  const lines = ['Salut tout le monde !', 'gg le boss', 'achète des viewers sur www.spam-viewers.ru', 'c’est quoi la musique ?', 'LUL LUL LUL', 'premier live que je regarde, trop bien'];
+  let i = 0;
+  const tick = () => { const u = people[i % people.length]; const m = SB.fake({ user: u, text: lines[i % lines.length] }); m.userId = String(10 + (i % people.length)); m.first = u.login === 'NouveauVenu' && i < 6; addMessage(m); i++; };
+  for (let k = 0; k < 8; k++) tick();
+  setInterval(tick, 2500);
+  held({ message_id: 'h1', user_login: 'kevin_le_roux', user_name: 'Kevin_le_roux', reason: 'automod', automod: { category: 'insultes', level: 3 }, message: { text: 'message retenu par AutoMod' }, held_at: new Date().toISOString() });
+  journal({ action: 'timeout', moderator_user_name: 'ModoSympa', timeout: { user_name: 'Spammeur42', user_login: 'spammeur42', reason: 'pub', expires_at: new Date(Date.now() + 600000).toISOString() } });
+  unbanRow({ id: 'u1', user_name: 'Repenti', text: 'Désolé pour hier, je ne recommencerai pas.', created_at: new Date().toISOString() });
+}
+</script>
+</body>
+</html>

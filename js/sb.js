@@ -160,6 +160,7 @@
       emotes: parseEmotePositions(t.emotes),
       bits: parseInt(t.bits, 10) || 0,
       ts: parseInt(t['tmi-sent-ts'], 10) || Date.now(),
+      first: t['first-msg'] === '1', // tout premier message sur cette chaîne
     });
   }
 
@@ -202,6 +203,7 @@
       ws.onmessage = (e) => String(e.data).split('\r\n').filter(Boolean).forEach((l) => this._handle(parseLine(l)));
       ws.onclose = () => {
         this.emit('status', 'disconnected');
+        if (this.stopped) return;
         const delay = Math.min(30000, 1000 * 2 ** this.retry++);
         setTimeout(() => this.connect(), delay);
       };
@@ -226,6 +228,7 @@
         case 'RECONNECT': this.ws.close(); break;
       }
     }
+    stop() { this.stopped = true; if (this.ws) this.ws.close(); }
     /* Injecte un faux message (mode démo) */
     inject(msg) { this.emit('message', msg); if (msg.bits) this.emit('cheer', msg); }
   };

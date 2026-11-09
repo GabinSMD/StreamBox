@@ -11,7 +11,13 @@
     points: { type: 'channel.channel_points_custom_reward_redemption.add', version: '1', cond: (b) => ({ broadcaster_user_id: b }) },
     online: { type: 'stream.online', version: '1', cond: (b) => ({ broadcaster_user_id: b }) },
     offline: { type: 'stream.offline', version: '1', cond: (b) => ({ broadcaster_user_id: b }) },
+    // Panneau de modération : l'événement Twitch est transmis tel quel
+    automod: { type: 'automod.message.hold', version: '2', cond: (b, u) => ({ broadcaster_user_id: b, moderator_user_id: u }), raw: true },
+    automodUpdate: { type: 'automod.message.update', version: '2', cond: (b, u) => ({ broadcaster_user_id: b, moderator_user_id: u }), raw: true },
+    moderate: { type: 'channel.moderate', version: '2', cond: (b, u) => ({ broadcaster_user_id: b, moderator_user_id: u }), raw: true },
+    unbanRequest: { type: 'channel.unban_request.create', version: '1', cond: (b, u) => ({ broadcaster_user_id: b, moderator_user_id: u }), raw: true },
   };
+  const RAW = Object.fromEntries(Object.entries(TYPES).filter(([, t]) => t.raw).map(([k, t]) => [t.type, k]));
 
   SB.EventSub = class {
     constructor(token, channel, wanted) {
@@ -55,11 +61,12 @@
           if (st === 'channel.follow') this.emit('follow', { login: ev.user_login, name: ev.user_name });
           else if (st === 'stream.online') this.emit('online', { start: Date.parse(ev.started_at) || Date.now() });
           else if (st === 'stream.offline') this.emit('offline', {});
+          else if (RAW[st]) this.emit(RAW[st], ev);
           else if (st === TYPES.points.type) this.emit('points', { login: ev.user_login, name: ev.user_name, reward: ev.reward.title, cost: ev.reward.cost, input: ev.user_input || '' });
         }
       };
       ws.onclose = () => {
-        if (this.ws !== ws) return; // ancienne connexion remplacée
+        if (this.ws !== ws || this.stopped) return; // ancienne connexion remplacée, ou arrêt voulu
         this.emit('status', 'déconnecté');
         setTimeout(() => this.connect('wss://eventsub.wss.twitch.tv/ws'), Math.min(30000, 2000 * 2 ** this.retry++));
       };
@@ -78,6 +85,7 @@
       }
     }
 
+    stop() { this.stopped = true; if (this.ws) this.ws.close(); }
     /* Injecte un faux événement (mode démo) */
     inject(kind, data) { this.emit(kind, data); }
   };
