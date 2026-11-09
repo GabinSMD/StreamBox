@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>StreamBox · Sous-titres</title>
+<link rel="stylesheet" href="../css/overlay.css">
+<script src="../js/i18n.js"></script>
+</head>
+<body>
+<div class="sub" id="box" data-i18n-skip></div>
+<script src="../js/config.js"></script>
+<script src="../js/sb.js"></script>
+<script>
+/* Sous-titres en direct : les phrases arrivent de la page « Sous-titres » (ouverte dans Chrome ou Edge) par le relais.
+ * Affiche le texte original et/ou ses traductions. */
+const c = SB.params({ langs: 'en', original: true, lines: 2, fade: 6, position: 'bas', style: 'bande', size: 34, font: 'Inter', accent: '#9b5cff', demo: false });
+SB.loadFont(c.font); SB.setAccent(c.accent);
+document.documentElement.style.setProperty('--size', c.size + 'px');
+document.body.classList.add('sub-' + c.position, 'sub-' + c.style);
+const box = document.getElementById('box');
+const want = c.langs.split(/[\s,]+/).map((l) => l.trim().toLowerCase()).filter((l) => /^[a-z]{2}$/.test(l));
+const ovId = new URLSearchParams(location.search).get('o');
+const relay = ((window.SB_CONFIG && SB_CONFIG.relayUrl) || '').replace(/\/$/, '');
+const items = new Map(); // id → { el, timer }
+
+function render(id, d) {
+  let it = items.get(id);
+  if (!it) {
+    const e = SB.el('div', 'sub-item');
+    box.appendChild(e); it = { el: e, tr: {} }; items.set(id, it);
+    while (box.children.length > Math.max(1, c.lines)) { const first = box.firstChild; for (const [k, v] of items) if (v.el === first) items.delete(k); first.remove(); }
+  }
+  if (d.text != null) it.text = d.text;
+  if (d.final != null) it.final = d.final;
+  Object.assign(it.tr, d.tr || {});
+  const rows = [];
+  if (c.original && it.text) rows.push(SB.el('div', 'sub-o' + (it.final ? '' : ' interim'), it.text));
+  want.forEach((l) => { if (it.tr[l]) { const r = SB.el('div', 'sub-t'); r.append(SB.el('b', 'sub-lang', l.toUpperCase()), ' ' + it.tr[l]); rows.push(r); } });
+  if (!rows.length && it.text && !c.original) return; // en attente de la traduction
+  it.el.replaceChildren(...rows);
+  it.el.classList.remove('out');
+  clearTimeout(it.timer);
+  if (c.fade > 0 && it.final) it.timer = setTimeout(() => { it.el.classList.add('out'); setTimeout(() => { it.el.remove(); items.delete(id); }, 500); }, c.fade * 1000);
+}
+
+function listen() {
+  let retry = 0;
+  const open = () => {
+    const ws = new WebSocket(relay.replace(/^http/, 'ws') + '/o/' + ovId + '/ws');
+    ws.onopen = () => { retry = 0; };
+    ws.onmessage = (e) => { let m; try { m = JSON.parse(e.data); } catch (err) { return; } if (m.type === 'caption') render(m.id, m); else if (m.type === 'caption-tr') render(m.id, { tr: m.tr }); };
+    ws.onclose = () => setTimeout(open, Math.min(30000, 2000 * 2 ** retry++));
+  };
+  open();
+}
+if (ovId && relay && !c.demo) listen();
+else {
+  const demo = [['Bienvenue tout le monde, ce soir on termine le jeu !', { en: 'Welcome everyone, tonight we finish the game!', es: '¡Bienvenidos a todos, esta noche terminamos el juego!' }], ['Merci pour le raid, installez-vous', { en: 'Thanks for the raid, make yourselves at home', es: 'Gracias por el raid, poneos cómodos' }]];
+  let i = 0;
+  const step = () => { const [t, tr] = demo[i % demo.length], id = 'd' + i++; render(id, { text: t.slice(0, 18) + '…', final: false }); setTimeout(() => render(id, { text: t, final: true, tr }), 900); };
+  step(); setInterval(step, 4000);
+}
+</script>
+</body>
+</html>

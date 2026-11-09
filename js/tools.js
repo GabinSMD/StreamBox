@@ -244,6 +244,21 @@
       ],
     },
     {
+      id: 'soustitres', icon: '💬', name: 'Sous-titres (overlay)', overlay: 'overlays/soustitres.html', size: [1920, 300],
+      tagline: 'Ta voix transcrite et traduite à l’écran, en direct.',
+      replaces: ['StreamTranslate', 'Web Captioner'],
+      note: 'Nécessite un compte StreamBox : enregistre cet overlay dans ton compte et colle son lien court dans OBS. La voix est captée par la page Sous-titres, à laisser ouverte dans Chrome ou Edge.',
+      fields: [
+        { key: 'langs', label: 'Traductions affichées (codes séparés par des virgules : en, es, de…)', type: 'text', default: 'en' },
+        { key: 'original', label: 'Afficher aussi le texte original', type: 'checkbox', default: true },
+        { key: 'lines', label: 'Phrases affichées en même temps', type: 'number', default: 2, min: 1, max: 6 },
+        { key: 'fade', label: 'Faire disparaître une phrase après (s, 0 = jamais)', type: 'number', default: 6, min: 0, max: 60 },
+        { key: 'position', label: 'Position', type: 'select', default: 'bas', options: [['bas', 'En bas'], ['haut', 'En haut']] },
+        { key: 'style', label: 'Style', type: 'select', default: 'bande', options: [['bande', 'Bande sombre'], ['texte', 'Texte avec contour']] },
+        size(34), font, accent,
+      ],
+    },
+    {
       id: 'generique', icon: '🎬', name: 'Générique de fin', overlay: 'overlays/generique.html', size: [1920, 1080],
       tagline: 'Fait défiler les abos, abos offerts, bits, dons, raids, nouveaux follows et chatteurs du live, comme au cinéma.',
       replaces: ['Crédits de fin de Streamer.bot', 'StreamElements Credits'],
@@ -468,6 +483,8 @@
       links: [['Gérer les jeux', 'jeux.html'], ['Overlay OBS', 'outil.html?id=jeux']] },
     { id: 'moderation', icon: '🛡️', name: 'Panneau de modération', href: 'moderation.html', tagline: 'Pour toi et tes modos : chat avec sanctions en un clic, fiche du viewer, file AutoMod, journal de l’équipe, demandes de déban, modes du chat, annonces, titre et raid. Utilisable comme dock OBS.', replaces: ['Mod View de Twitch', 'Chatterino (modération)'] },
     { id: 'bot', icon: '🤖', name: 'Bot de chat', href: 'bot.html', tagline: 'Commandes, messages automatiques, modération et remerciements. Il tourne 24 h/24 sur le relais, même OBS fermé.', replaces: ['Nightbot', 'Moobot', 'Fossabot', 'Cloudbot'] },
+    { id: 'sous-titres', icon: '💬', name: 'Sous-titres traduits en direct', href: 'sous-titres.html', tagline: 'Ta voix transcrite à l’écran et traduite en direct (anglais, espagnol, allemand…), pour tes viewers du monde entier. Gratuit, sans logiciel.', replaces: ['StreamTranslate', 'Web Captioner'],
+      links: [['Démarrer les sous-titres', 'sous-titres.html'], ['Overlay OBS', 'outil.html?id=soustitres']] },
     { id: 'automatisations', icon: '⚡', name: 'Automatisations', href: 'automatisations.html', tagline: 'Quand il se passe X, fais Y : un raid change de scène, un abo active un filtre, une récompense affiche une source, avec des sons, des messages et des pauses. Tourne dans OBS.', replaces: ['Streamer.bot', 'SAMMI', 'BetterStreams', 'Triggerfyre'] },
     { id: 'stats', icon: '📊', name: 'Statistiques des lives', href: 'stats.html', tagline: 'Chaque live enregistré tout seul : viewers minute par minute, chat, follows, abos, bits, raids, dons, catégories. Comparaison avec la période précédente et export CSV.', replaces: ['TwitchTracker', 'StreamsCharts', 'Statistiques du tableau de bord Twitch'] },
     { id: 'panneau', icon: '🎛️', name: 'Panneau de contrôle', href: 'panneau.html', tagline: 'Des boutons pour piloter sondages, giveaways, subathon, roue, objectifs et scènes OBS, sans taper de commandes. Utilisable comme dock OBS.', replaces: ['Kloot', 'Poltergeist', 'Xenon'] },
@@ -514,8 +531,8 @@
     alertes: 'alertes', objectifs: 'alertes', discord: 'alertes', tts: 'alertes', qrdons: 'alertes', sons: 'communaute', compteurs: 'communaute', generique: 'evenements',
     'subathon-live': 'evenements', minuteur: 'evenements', rewind: 'evenements',
     musique: 'musique', sr: 'musique', extension: 'musique',
-    panneau: 'outils', automatisations: 'outils', stats: 'outils', integrations: 'outils', resizer: 'outils', calc: 'outils', annuaire: 'outils' };
-  const MERGED = { subathon: 'subathon-live', lecteur: 'sr', jeux: 'minijeux' };
+    panneau: 'outils', automatisations: 'outils', soustitres: 'communaute', 'sous-titres': 'communaute', stats: 'outils', integrations: 'outils', resizer: 'outils', calc: 'outils', annuaire: 'outils' };
+  const MERGED = { subathon: 'subathon-live', lecteur: 'sr', jeux: 'minijeux', soustitres: 'sous-titres' };
   [...window.SB_TOOLS, ...window.SB_PAGES].forEach((t) => { t.cat = CAT[t.id] || 'outils'; if (MERGED[t.id]) t.mergedInto = MERGED[t.id]; });
 
   window.SB_TOOLS.forEach((t) => {

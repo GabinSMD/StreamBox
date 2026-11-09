@@ -52,6 +52,9 @@
  *   POST    /o/:id/tts { text }           voix française générée par Workers AI (binding AI), 20 lectures par minute maximum
  * Statistiques des lives (relevé chaque minute pendant le live, événements Twitch) :
  *   GET/PUT /me/stats { enabled } · GET/DELETE /me/stats/:debut (un live, relevés minute par minute)
+ * Sous-titres en direct (voix reconnue par le navigateur du streamer, traduite) :
+ *   POST /me/captions/ticket → ticket d'une minute · GET /captions/:userId?t=ticket (WebSocket de la page Sous-titres)
+ *   → chaque phrase est relayée aux overlays « soustitres » (WebSocket /o/:id/ws), traduite par Workers AI si demandé
  * Mini-jeux du chat (points virtuels, duels, prédictions, quiz) :
  *   GET/PUT /me/jeux · POST /me/jeux/action { args } (commande lancée au nom du streamer) · GET /o/:id/jeux (overlay)
  *   Secrets facultatifs : YOUTUBE_API_KEY (recherche par titre et durée), SPOTIFY_CLIENT_ID.
@@ -134,6 +137,11 @@ export default {
           if (!t.title) return json({ error: 'titre manquant' }, 400);
           return room('chan:' + login).fetch('https://room/tracks', { method: 'POST', body: JSON.stringify(t) }).then(withCors);
         }
+      }
+      /* ---- Sous-titres : WebSocket de la page Sous-titres (ticket à usage unique) ---- */
+      if (p[0] === 'captions' && /^\d{1,20}$/.test(p[1] || '')) {
+        if (req.headers.get('Upgrade') !== 'websocket') return json({ error: 'WebSocket attendu' }, 426);
+        return env.ACCOUNT.get(env.ACCOUNT.idFromName('user:' + p[1])).fetch('https://acc/cap-ws?t=' + encodeURIComponent(url.searchParams.get('t') || ''), req);
       }
       /* ---- Chat multiplateforme (Kick, YouTube) ---- */
       if (req.method === 'GET' && p[0] === 'kick' && MC.KICK_SLUG.test(p[1] || '')) return cached('kick:' + p[1].toLowerCase(), 3600, () => MC.kickChannel(p[1]));
@@ -277,7 +285,7 @@ const NEEDS = {
   sondage: ['obspass'], minuteur: ['obspass'], roue: ['obspass'], giveaway: ['obspass', 'webhook'],
   rewind: ['token', 'obspass'],
   musique: ['token', 'spotifycid', 'lastfm', 'lfmkey'], // Spotify : jeton à jour fourni par /o/:id/spotify-token
-  lecteur: [], jeux: [], generique: [], automatisations: ['token', 'sejwt', 'sltoken', 'kofi', 'obspass'], qrdons: [], compteurs: ['obspass'], sons: ['token', 'obspass'],
+  lecteur: [], jeux: [], generique: [], soustitres: [], automatisations: ['token', 'sejwt', 'sltoken', 'kofi', 'obspass'], qrdons: [], compteurs: ['obspass'], sons: ['token', 'obspass'],
   tts: ['token', 'sejwt', 'sltoken', 'kofi', 'obspass'],
   discord: ['token', 'webhook'],
 };
@@ -418,6 +426,7 @@ async function accountRoutes(req, env, url, p) {
     if (p.length === 2 && req.method === 'PUT') return fwd('/sr-save', 'POST', body);
     if (p[2] === 'action' && req.method === 'POST') return fwd('/sr-action', 'POST', body);
   }
+  if (p[1] === 'captions' && p[2] === 'ticket' && req.method === 'POST') return fwd('/cap-ticket', 'POST', {});
   if (p[1] === 'stats') {
     if (p.length === 2 && req.method === 'GET') return fwd('/stats-get', 'POST', {});
     if (p.length === 2 && req.method === 'PUT') return fwd('/stats-save', 'POST', body);
@@ -530,6 +539,17 @@ export class Account {
     if (path === '/bot-token') { // compte bot du site
       const s = await secrets();
       return ok({ user_id: profile.user_id, login: profile.login, access: await this.twitchAccess(s, E) });
+    }
+    if (path === '/cap-ticket') { // ticket d'une minute pour ouvrir le WebSocket des sous-titres (pas de session dans l'URL)
+      const t = rand(32); await st.put('capticket', { t, exp: Date.now() + 60000 });
+      return ok({ ticket: t, userId: profile.user_id });
+    }
+    if (path === '/cap-ws') {
+      const k = await st.get('capticket'), t = url.searchParams.get('t');
+      if (!k || !t || k.t !== t || k.exp < Date.now()) return err('ticket invalide ou expiré', 403);
+      await st.delete('capticket');
+      const pair = new WebSocketPair(); this.ctx.acceptWebSocket(pair[1], ['cap']);
+      return new Response(null, { status: 101, webSocket: pair[0] });
     }
     if (path === '/lang') { if (!LANGS.includes(body.lang)) return err('langue inconnue'); profile.lang = body.lang; await st.put('profile', profile); return ok({ lang: profile.lang }); }
     if (path === '/my-token') { // panneau de modération : le modo agit avec SON compte Twitch, depuis son navigateur
@@ -647,7 +667,7 @@ export class Account {
     const ov = await overlays(); const o = ov[body.id || url.searchParams.get('ov')];
     if (path === '/ws') {
       if (!o) return err('?', 404);
-      const pair = new WebSocketPair(); this.ctx.acceptWebSocket(pair[1], ['ov:' + o.id]);
+      const pair = new WebSocketPair(); this.ctx.acceptWebSocket(pair[1], ['ov:' + o.id, 'tool:' + o.tool]);
       return new Response(null, { status: 101, webSocket: pair[0] });
     }
     if (!o) return err('overlay introuvable', 404);
@@ -1330,5 +1350,30 @@ export class Account {
   }
 
   broadcast(id, type = 'update') { this.ctx.getWebSockets('ov:' + id).forEach((ws) => { try { ws.send(JSON.stringify({ type })); } catch (e) { /* parti */ } }); }
+  /* Sous-titres : chaque message de la page Sous-titres est relayé aux overlays « soustitres » */
+  async webSocketMessage(ws, raw) {
+    if (!this.ctx.getTags(ws).includes('cap')) return;
+    let m; try { m = JSON.parse(raw); } catch (e) { return; }
+    if (m.type === 'ping') return ws.send('{"type":"pong"}');
+    if (m.type !== 'caption') return;
+    const OK = ['fr', 'en', 'es', 'de', 'it', 'pt', 'nl', 'pl', 'ja', 'ko'], LANGS = { test: (l) => OK.includes(l) }; // langues proposées par la page Sous-titres
+    const out = { type: 'caption', id: clean(m.id, 20), text: clean(m.text, 400), final: !!m.final, lang: LANGS.test(m.lang) ? m.lang : 'fr', tr: {} };
+    for (const [l, v] of Object.entries(m.tr || {}).slice(0, 6)) if (LANGS.test(l)) out.tr[l] = clean(v, 400);
+    if (!out.text && !out.final) return;
+    const send = (o) => { const j = JSON.stringify(o); this.ctx.getWebSockets('tool:soustitres').forEach((s) => { try { s.send(j); } catch (e) { /* parti */ } }); };
+    send(out);
+    // Traduction par le relais (si le navigateur ne sait pas traduire) : phrases finies seulement, 60 par minute au plus
+    const want = (Array.isArray(m.ai) ? m.ai : []).filter((l) => LANGS.test(l) && l !== out.lang && !out.tr[l]).slice(0, 4);
+    if (!out.final || !out.text || !want.length || !this.env.AI) return;
+    const now = Date.now(); this._tr = (this._tr || []).filter((t) => now - t < 60000);
+    if (this._tr.length >= 60) return ws.send(JSON.stringify({ type: 'error', error: 'trop de traductions, ralentis un peu' }));
+    this._tr.push(now);
+    const tr = {};
+    for (const l of want) {
+      try { const r = await this.env.AI.run('@cf/meta/m2m100-1.2b', { text: out.text, source_lang: out.lang, target_lang: l }); if (r && r.translated_text) tr[l] = clean(r.translated_text, 400); }
+      catch (e) { ws.send(JSON.stringify({ type: 'error', error: 'traduction indisponible : ' + e.message })); }
+    }
+    if (Object.keys(tr).length) { send({ type: 'caption-tr', id: out.id, tr }); ws.send(JSON.stringify({ type: 'caption-tr', id: out.id, tr })); }
+  }
   broadcastAll() { this.ctx.getWebSockets().forEach((ws) => { try { ws.send(JSON.stringify({ type: 'update' })); } catch (e) { /* parti */ } }); }
 }
