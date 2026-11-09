@@ -53,7 +53,7 @@ function render() {
   SB_DIRECTORY.filter((e) => (cat === 'Tout' || e.cat === cat || (cat === 'Alternative intégrée' && e.alt)) &&
     (!q || (e.name + ' ' + e.desc + ' ' + e.cat).toLowerCase().includes(q))).forEach((e) => {
     const d = document.createElement('div'); d.className = 'entry';
-    const h = document.createElement('h3');
+    const h = document.createElement('h2');
     const a = document.createElement('a'); a.href = e.url; a.target = '_blank'; a.rel = 'noopener'; a.textContent = e.name + ' ↗';
     h.appendChild(a);
     e.flags.forEach((fl) => { const s = document.createElement('span'); s.className = 'flag'; s.textContent = fl; h.appendChild(s); });
@@ -64,7 +64,7 @@ function render() {
     if (t) {
       const l = document.createElement('a'); l.className = 'alt';
       l.href = t.href || 'outil.html?id=' + t.id;
-      l.textContent = '✓ Alternative intégrée : ' + t.icon + ' ' + t.name + ' →';
+      l.textContent = '✓ Alternative intégrée : ' + t.icon + ' ' + t.name;
       d.appendChild(l);
     }
     dir.appendChild(d);

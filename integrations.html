@@ -53,7 +53,7 @@ const all = [...SB_TOOLS, ...SB_PAGES];
 const list = document.getElementById('list');
 I.forEach((it) => {
   const d = document.createElement('div'); d.className = 'tool'; d.style.cursor = 'default';
-  const h = document.createElement('h3'); h.textContent = it.icon + ' ' + it.name;
+  const h = document.createElement('h2'); h.textContent = it.icon + ' ' + it.name;
   const ok = it.ready();
   const st = document.createElement('span'); st.className = 'flag'; st.style.marginLeft = '8px';
   st.textContent = ok ? 'prêt' : 'à configurer sur ce site'; st.style.color = ok ? 'var(--ok)' : 'var(--warn)';
