@@ -27,7 +27,7 @@
       if (!r.ok) throw new Error(d.error || 'erreur ' + r.status);
       return d;
     },
-    async deleteAccount() { await this.api('DELETE', '/me'); this.clear(); try { localStorage.removeItem('sb-wants-bot'); localStorage.removeItem('sb-twitch-token'); } catch (e) { /* ignore */ } },
+    async deleteAccount() { await this.api('DELETE', '/me'); this.clear(); try { localStorage.removeItem('sb-wants-bot'); localStorage.removeItem('sb-wants'); localStorage.removeItem('sb-twitch-token'); } catch (e) { /* ignore */ } },
     overlayLink(tool, id) { return new URL(tool.overlay + '?o=' + id, location.href).toString(); },
   };
 

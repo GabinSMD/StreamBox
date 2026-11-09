@@ -26,6 +26,8 @@
  *   POST   /me/overlays/:id/rotate      nouveau lien (l'ancien ne marche plus)
  *   DELETE /me/overlays/:id
  *   DELETE /me                          supprime le compte (réglages, jetons, liens, abonnements Twitch, accès révoqué)
+ *   GET    /me/twitch-token             jeton Twitch du compte connecté, pour le panneau de modération (gardé en mémoire
+ *                                       par la page, jamais dans une URL ni dans le stockage du navigateur)
  *   GET    /o/:id                       réglages + jetons utiles à cet outil seulement (lu par l'overlay)
  *   GET    /o/:id/ws                    WebSocket : « update » quand le streamer modifie l'overlay
  *
@@ -363,7 +365,7 @@ async function accountRoutes(req, env, url, p) {
   if (sst !== 200 || !sess.user_id) return json({ error: 'session expirée : reconnecte-toi' }, 401);
   const user = 'user:' + sess.user_id;
   const envHdr = { 'X-Env': JSON.stringify({ cid: env.TWITCH_CLIENT_ID, secret: env.TWITCH_CLIENT_SECRET, key: env.ENCRYPTION_KEY || '' }), 'X-Origin': url.origin };
-  const fwd = (path, method, body) => stub(user).fetch('https://acc' + path, { method, headers: envHdr, body: body == null ? undefined : JSON.stringify(body) }).then((r) => withCors(new Response(r.body, { status: r.status, headers: { 'Content-Type': 'application/json' } })));
+  const fwd = (path, method, body) => stub(user).fetch('https://acc' + path, { method, headers: envHdr, body: body == null ? undefined : JSON.stringify(body) }).then((r) => withCors(new Response(r.body, { status: r.status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } })));
   const body = req.method === 'GET' || req.method === 'DELETE' ? null : await req.json().catch(() => ({}));
 
   if (p.length === 1 && req.method === 'GET') return fwd('/me', 'POST', {});
@@ -373,6 +375,7 @@ async function accountRoutes(req, env, url, p) {
     return r;
   }
   if (p[1] === 'secrets' && req.method === 'PUT') return fwd('/secrets', 'POST', body);
+  if (p[1] === 'twitch-token' && p.length === 2 && req.method === 'GET') return fwd('/my-token', 'POST', {});
   if (p[1] === 'sr') {
     if (p.length === 2 && req.method === 'GET') return fwd('/sr-get', 'POST', {});
     if (p.length === 2 && req.method === 'PUT') return fwd('/sr-save', 'POST', body);
@@ -484,6 +487,13 @@ export class Account {
     if (path === '/bot-token') { // compte bot du site
       const s = await secrets();
       return ok({ user_id: profile.user_id, login: profile.login, access: await this.twitchAccess(s, E) });
+    }
+    if (path === '/my-token') { // panneau de modération : le modo agit avec SON compte Twitch, depuis son navigateur
+      const s = await secrets();
+      const access = await this.twitchAccess(s, E);
+      if (!access) return err('connexion Twitch expirée : reconnecte-toi avec Twitch', 403);
+      const v = await (await fetch('https://id.twitch.tv/oauth2/validate', { headers: { Authorization: 'OAuth ' + access } })).json().catch(() => ({}));
+      return new Response(JSON.stringify({ access, login: profile.login, user_id: profile.user_id, scopes: v.scopes || profile.scopes || [], expires_in: v.expires_in || 0 }), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
     }
     if (path === '/don') return ok(await this.subDon(body.don || {}, profile, await secrets(), E));
     if (path === '/ov-tts') {

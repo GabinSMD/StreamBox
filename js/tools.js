@@ -384,6 +384,7 @@
       links: [['Gérer la file', 'sr.html'], ['Overlay Lecteur (YouTube)', 'outil.html?id=lecteur']] },
     { id: 'minijeux', icon: '🎲', name: 'Mini-jeux du chat', href: 'jeux.html', tagline: 'Points virtuels gagnés en discutant, duels, prédictions, quiz et classement. Tout se joue dans le chat, avec un overlay OBS. Aucune valeur réelle.', replaces: ['StreamElements Loyalty', 'Streamlabs Loyalty', 'DeepBot'],
       links: [['Gérer les jeux', 'jeux.html'], ['Overlay OBS', 'outil.html?id=jeux']] },
+    { id: 'moderation', icon: '🛡️', name: 'Panneau de modération', href: 'moderation.html', tagline: 'Pour toi et tes modos : chat avec sanctions en un clic, fiche du viewer, file AutoMod, journal de l’équipe, demandes de déban, modes du chat, annonces, titre et raid. Utilisable comme dock OBS.', replaces: ['Mod View de Twitch', 'Chatterino (modération)'] },
     { id: 'bot', icon: '🤖', name: 'Bot de chat', href: 'bot.html', tagline: 'Commandes, messages automatiques, modération et remerciements. Il tourne 24 h/24 sur le relais, même OBS fermé.', replaces: ['Nightbot', 'Moobot', 'Fossabot', 'Cloudbot'] },
     { id: 'panneau', icon: '🎛️', name: 'Panneau de contrôle', href: 'panneau.html', tagline: 'Des boutons pour piloter sondages, giveaways, subathon, roue, objectifs et scènes OBS, sans taper de commandes. Utilisable comme dock OBS.', replaces: ['Kloot', 'Poltergeist', 'Xenon'] },
     { id: 'integrations', icon: '🔌', name: 'Intégrations', href: 'integrations.html', tagline: 'Twitch, OBS, Discord, Spotify, Deezer, YouTube Music, Ko-fi, StreamElements, Streamlabs : ce que chaque service apporte et comment le brancher.', replaces: [] },
@@ -423,7 +424,7 @@
     { id: 'musique', icon: '🎵', name: 'Musique', desc: 'Le morceau en cours, les demandes du chat, et les musiques dans tes redifs.' },
     { id: 'outils', icon: '🛠️', name: 'Outils pratiques', desc: 'Piloter tes overlays, préparer tes emotes, estimer tes revenus, trouver d’autres outils.' },
   ];
-  const CAT = { chat: 'communaute', bot: 'communaute', sondage: 'communaute', giveaway: 'communaute', roue: 'communaute', emotes: 'communaute', jeux: 'communaute', minijeux: 'communaute',
+  const CAT = { chat: 'communaute', bot: 'communaute', sondage: 'communaute', giveaway: 'communaute', roue: 'communaute', emotes: 'communaute', moderation: 'communaute', jeux: 'communaute', minijeux: 'communaute',
     alertes: 'alertes', objectifs: 'alertes', discord: 'alertes', tts: 'alertes',
     'subathon-live': 'evenements', minuteur: 'evenements', rewind: 'evenements',
     musique: 'musique', sr: 'musique', extension: 'musique',

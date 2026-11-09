@@ -67,12 +67,21 @@ if (q.get('code') && q.get('state')) {
   // Bot de chat : permissions en plus, demandées seulement quand le streamer active le bot
   const BOT = 'user:read:chat user:write:chat user:bot channel:bot moderator:manage:chat_messages moderator:manage:banned_users moderator:manage:shoutouts bits:read';
   const BOT_ACCOUNT = 'user:read:chat user:write:chat user:bot moderator:manage:chat_messages moderator:manage:banned_users moderator:manage:shoutouts';
-  let wantsBot = q.get('scope') === 'bot';
-  try { if (wantsBot) localStorage.setItem('sb-wants-bot', '1'); else wantsBot = localStorage.getItem('sb-wants-bot') === '1'; } catch (e) { /* ignore */ }
+  // Modération : pour les modos (et le streamer) qui utilisent le panneau de modération
+  const MOD = 'user:read:moderated_channels moderator:manage:banned_users moderator:manage:chat_messages moderator:manage:chat_settings moderator:manage:automod moderator:manage:shield_mode moderator:manage:announcements moderator:manage:warnings moderator:manage:unban_requests moderator:manage:blocked_terms moderator:read:moderators moderator:read:vips moderator:read:chatters';
+  // Gestion du live (streamer seulement) : titre, jeu, raid
+  const LIVE = 'channel:manage:broadcast channel:manage:raids';
+  const EXTRA = { bot: BOT, mod: MOD, live: MOD + ' ' + LIVE };
+  // Les permissions en plus déjà accordées sont redemandées à chaque connexion, pour ne pas les perdre
+  let wants = [];
+  try { wants = JSON.parse(localStorage.getItem('sb-wants') || '[]'); if (localStorage.getItem('sb-wants-bot') === '1') wants.push('bot'); } catch (e) { /* ignore */ }
+  if (EXTRA[q.get('scope')]) wants.push(q.get('scope'));
+  wants = [...new Set(wants.filter((w) => EXTRA[w]))];
+  try { localStorage.setItem('sb-wants', JSON.stringify(wants)); localStorage.removeItem('sb-wants-bot'); } catch (e) { /* ignore */ }
   const botAccount = q.get('mode') === 'botaccount';
   const viewer = q.get('viewer') === '1'; // viewer qui veut voter : aucune permission
   try { if (botAccount || viewer) sessionStorage.setItem('sb-oauth-mode', botAccount ? 'botaccount' : 'viewer'); } catch (e) { /* ignore */ }
-  const scope = botAccount ? BOT_ACCOUNT : viewer ? '' : wantsBot ? base + ' ' + BOT : base;
+  const scope = botAccount ? BOT_ACCOUNT : viewer ? '' : [...new Set([base, ...wants.map((w) => EXTRA[w])].join(' ').split(' '))].join(' ');
   u.searchParams.set('scope', scope);
   if (botAccount || q.get('scope') === 'bot') u.searchParams.set('force_verify', 'true'); // permet de choisir le bon compte Twitch
   u.searchParams.set('state', nonce + '|' + encodeURIComponent(safeReturn(q.get('retour'))));

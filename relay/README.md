@@ -53,6 +53,10 @@ Les streamers qui le choisissent tapent `/mod StreamBoxBot` dans leur chat pour 
 
 L'overlay « Lecture à voix haute » peut utiliser une voix générée par **Workers AI** (modèle MeloTTS, français). Elle est déjà déclarée dans `wrangler.toml` (`[ai] binding = "AI"`) : il suffit de redéployer. L'offre gratuite de Workers AI a un quota quotidien, et le relais limite à 20 lectures par minute et par compte.
 
+### Panneau de modération
+
+Rien à configurer sur le relais : chaque modo se connecte avec son compte Twitch (permissions de modération demandées à ce moment-là). La page récupère le jeton du modo par `GET /me/twitch-token`, le garde en mémoire et agit directement auprès de Twitch, en son nom.
+
 ### Mini-jeux du chat
 
 Rien à configurer en plus du bot (EVENTSUB_SECRET) : les points, duels, prédictions et quiz sont gardés dans le Durable Object du compte. Les points sont virtuels et n'ont aucune valeur.
