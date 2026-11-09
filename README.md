@@ -23,6 +23,7 @@ Une boîte à outils gratuite pour streamers. Elle regroupe dans un seul site ce
 | 🎵 Musique en cours : Spotify direct, Deezer, YouTube Music et Apple Music via Last.fm | Overlay OBS | Tuna, Amuse |
 | 📣 Annonces Discord : début du live, récap de fin, gagnant du giveaway, `!discord` | Source OBS invisible | Bots d’annonce |
 | 🧩 Extension « Musiques des redifs » (VOD Twitch et rediffusions YouTube) | Extension navigateur | |
+| 🔊 Lecture à voix haute : `!tts`, cheers, dons, points de chaîne ; voix du navigateur ou voix française du relais | Overlay OBS | TTS StreamElements / Streamlabs |
 | 🎶 Demandes de musique (`!sr`) : YouTube (overlay Lecteur) ou Spotify (file Premium), limites, modération, page publique | Page web + relais + overlay | Song Requests de Nightbot / StreamElements |
 | ⏱️ Subathon en direct : timer sur le relais, page publique pour les viewers (paliers, idées, votes) | Page web + relais | marathon-timer.com |
 | 🤖 Bot de chat : commandes, messages automatiques, modération, remerciements (24 h/24 sur le relais) | Page web + relais | Nightbot, Moobot, Fossabot |

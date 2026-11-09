@@ -269,3 +269,10 @@ img.emote { height: 1.6em; vertical-align: middle; margin: -0.3em 0.1em; }
 .lt-video .lt { flex-direction: column; align-items: stretch; }
 .lt-video .lt-player { width: 100%; flex: 1; aspect-ratio: auto; }
 .lt-idle .lt-player { opacity: .4; }
+
+/* ---------- LECTURE À VOIX HAUTE ---------- */
+.tts { position: absolute; left: 12px; right: 12px; bottom: 12px; background: rgba(var(--panel-rgb, 16, 12, 26), var(--panel-a, .92)); border-radius: var(--radius, 18px); padding: 14px 18px; border-left: 5px solid var(--accent); box-shadow: 0 10px 30px rgba(0,0,0,.4); opacity: 0; transform: translateY(20px); transition: opacity .4s, transform .4s; }
+.tts-on .tts { opacity: 1; transform: none; }
+.tts-by { font-size: .7em; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); }
+.tts-by::before { content: '🔊 '; }
+.tts-text { font-weight: 700; margin-top: 4px; overflow-wrap: anywhere; }

@@ -226,6 +226,36 @@
       ],
     },
     {
+      id: 'tts', icon: '🔊', name: 'Lecture à voix haute (TTS)', overlay: 'overlays/tts.html', size: [700, 200],
+      tagline: 'Lit à voix haute les !tts de ton chat, les messages des cheers, des dons et d’une récompense de points de chaîne.',
+      replaces: ['TTS de StreamElements / Streamlabs', 'Speechify bots'],
+      commands: [['!tts message', 'Fait lire le message (selon le niveau choisi)'], ['!skiptts', 'Coupe la lecture en cours (modos)']],
+      note: 'Voix du navigateur : gratuite, sans compte, mais elle dépend des voix installées (OBS n’en propose parfois aucune). Voix du relais : vraie voix française générée par Cloudflare, avec un compte StreamBox (lien court). Coche « Contrôler l’audio via OBS » dans la source. Les liens, les emotes et les mots interdits sont retirés.',
+      fields: [
+        channel,
+        { key: 'engine', label: 'Voix', type: 'select', default: 'navigateur', options: [['navigateur', 'Voix du navigateur (gratuite, sans compte)'], ['relais', 'Voix française du relais (compte StreamBox)']] },
+        { key: 'level', label: 'Qui peut utiliser !tts', type: 'select', default: 'sub', options: [['everyone', 'Tout le monde'], ['sub', 'Abonnés'], ['vip', 'VIP'], ['mod', 'Modos']] },
+        { key: 'bits', label: 'Lire les cheers à partir de (bits, 0 = non)', type: 'number', default: 100, min: 0 },
+        { key: 'dons', label: 'Lire les messages des dons', type: 'checkbox', default: true },
+        twitch('channel:read:redemptions', 'Connexion Twitch (récompense de points de chaîne)'),
+        { key: 'reward', label: 'Récompense de points de chaîne à lire (nom exact, vide = aucune)', type: 'text', default: '', placeholder: 'Message lu à voix haute' },
+        { key: 'mindon', label: 'Don minimum pour être lu', type: 'number', default: 1, min: 0, step: 0.5 },
+        { key: 'cooldown', label: 'Délai entre deux !tts d’un viewer (s)', type: 'number', default: 30, min: 0 },
+        { key: 'maxlen', label: 'Longueur maximum (caractères)', type: 'number', default: 200, min: 20, max: 300 },
+        { key: 'readname', label: 'Annoncer le pseudo (« X dit : … »)', type: 'checkbox', default: true },
+        { key: 'nolinks', label: 'Remplacer les liens par « un lien »', type: 'checkbox', default: true },
+        { key: 'blocklist', label: 'Mots interdits (le message n’est pas lu)', type: 'textarea', default: '' },
+        { key: 'voice', label: 'Voix du navigateur à préférer (nom ou langue)', type: 'text', default: 'fr', placeholder: 'fr, Hortense, Google français…' },
+        { key: 'rate', label: 'Vitesse (voix du navigateur)', type: 'range', default: 1, min: 0.5, max: 2, step: 0.1 },
+        { key: 'pitch', label: 'Hauteur (voix du navigateur)', type: 'range', default: 1, min: 0, max: 2, step: 0.1 },
+        { key: 'volume', label: 'Volume', type: 'range', default: 0.8, min: 0, max: 1, step: 0.05 },
+        { key: 'show', label: 'Afficher le message lu à l’écran', type: 'checkbox', default: true },
+        { key: 'cmd', label: 'Commande', type: 'text', default: '!tts' },
+        { key: 'skip', label: 'Commande pour couper (modos)', type: 'text', default: '!skiptts' },
+        size(22), font, accent,
+      ],
+    },
+    {
       id: 'discord', icon: '📣', name: 'Annonces Discord', overlay: 'overlays/discord.html', size: [520, 300],
       tagline: 'Annonce ton live sur Discord dès qu’il commence, poste un récap à la fin, et laisse tes modos écrire sur Discord depuis le chat.',
       replaces: ['bots d’annonce de live (MEE6, Streamcord…)'],
@@ -367,8 +397,8 @@
     { key: 'sltoken', label: 'Jeton Socket API Streamlabs', type: 'text', default: '', group: 'dons', help: 'Streamlabs → Paramètres → Clés API → Socket API Token.' },
     { key: 'sejwt', label: 'Jeton JWT StreamElements', type: 'text', default: '', group: 'dons', help: 'StreamElements → Mon compte → Chaînes → Afficher les secrets. ⚠️ Ce jeton donne accès à ton compte StreamElements : ne montre jamais le lien de l’overlay.' },
   ];
-  const WITH_DONS = ['alertes', 'subathon', 'objectifs'];
-  const PILOTABLE = ['sondage', 'giveaway', 'subathon', 'minuteur', 'alertes', 'objectifs', 'roue'];
+  const WITH_DONS = ['alertes', 'subathon', 'objectifs', 'tts'];
+  const PILOTABLE = ['sondage', 'giveaway', 'subathon', 'minuteur', 'alertes', 'objectifs', 'roue', 'tts'];
   /* Catégories de l'accueil. Les outils « merged » sont regroupés dans une autre carte (Subathon, Demandes de musique). */
   window.SB_CATEGORIES = [
     { id: 'communaute', icon: '💬', name: 'Chat et communauté', desc: 'Faire vivre ton chat : affichage, bot, sondages, giveaways, jeux.' },
@@ -378,7 +408,7 @@
     { id: 'outils', icon: '🛠️', name: 'Outils pratiques', desc: 'Piloter tes overlays, préparer tes emotes, estimer tes revenus, trouver d’autres outils.' },
   ];
   const CAT = { chat: 'communaute', bot: 'communaute', sondage: 'communaute', giveaway: 'communaute', roue: 'communaute', emotes: 'communaute',
-    alertes: 'alertes', objectifs: 'alertes', discord: 'alertes',
+    alertes: 'alertes', objectifs: 'alertes', discord: 'alertes', tts: 'alertes',
     'subathon-live': 'evenements', minuteur: 'evenements', rewind: 'evenements',
     musique: 'musique', sr: 'musique', extension: 'musique',
     panneau: 'outils', integrations: 'outils', resizer: 'outils', calc: 'outils', annuaire: 'outils' };

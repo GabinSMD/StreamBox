@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>StreamBox · Lecture à voix haute</title>
+<link rel="stylesheet" href="../css/overlay.css">
+</head>
+<body>
+<div class="tts" id="bubble"><div class="tts-by" id="by"></div><div class="tts-text" id="text"></div></div>
+<script src="../js/config.js"></script>
+<script src="../js/sb.js"></script>
+<script src="../js/eventsub.js"></script>
+<script src="../js/dons.js"></script>
+<script>
+/* Lit à voix haute les messages choisis : !tts, cheers, dons, récompense de points de chaîne.
+ * Le son passe par OBS : coche « Contrôler l'audio via OBS » dans les propriétés de la source. */
+const c = SB.params({
+  channel: '', token: '', engine: 'navigateur', voice: 'fr', rate: 1, pitch: 1, volume: 0.8,
+  cmd: '!tts', level: 'sub', cooldown: 30, maxlen: 200, bits: 100, dons: true, mindon: 1, reward: '',
+  readname: true, nolinks: true, blocklist: '', skip: '!skiptts', show: true,
+  size: 22, font: 'Inter', accent: '#9b5cff', demo: false,
+});
+SB.loadFont(c.font); SB.setAccent(c.accent);
+document.documentElement.style.setProperty('--size', c.size + 'px');
+const $ = (id) => document.getElementById(id);
+const LEVEL = { everyone: 0, sub: 1, vip: 2, mod: 3 };
+const ovId = new URLSearchParams(location.search).get('o');
+const relay = ((window.SB_CONFIG && SB_CONFIG.relayUrl) || '').replace(/\/$/, '');
+const emotes = new SB.EmoteStore();
+const queue = [], lastUse = new Map();
+let speaking = false, current = null, audio = null;
+
+/* ---------- Nettoyage du texte ---------- */
+const banned = c.blocklist.split(/[\n,]+/).map((w) => w.trim().toLowerCase()).filter(Boolean);
+function clean(msg) {
+  // retire les emotes (Twitch par position, 7TV/BTTV/FFZ par nom)
+  const chars = Array.from(msg.text || '');
+  (msg.emotes || []).slice().sort((a, b) => b.start - a.start).forEach((e) => chars.splice(e.start, e.end - e.start + 1));
+  let t = chars.join('').split(/\s+/).filter((w) => !emotes.get(w)).join(' ');
+  t = t.replace(/^!\S+\s*/, ''); // la commande elle-même
+  t = t.replace(/\b[a-z]+\d+\b/gi, (w) => (/^(cheer|biblethump|kappa|pogchamp|corgo|uni|showlove|party|seemsgood|pride|kreygasm|swiftrage|notlikethis|failfish|vohiyo|pjsalt|mrdestructoid|bday|ripcheer|shamrock)\d+$/i.test(w) ? '' : w)); // cheermotes
+  if (c.nolinks) t = t.replace(/(https?:\/\/)?([a-z0-9-]+\.)+[a-z]{2,}(\/\S*)?/gi, 'un lien');
+  t = t.replace(/(.)\1{3,}/g, '$1$1$1').replace(/\s+/g, ' ').trim(); // « aaaaaaa » → « aaa »
+  if (banned.some((w) => t.toLowerCase().includes(w))) return '';
+  return t.slice(0, c.maxlen);
+}
+
+/* ---------- File d'attente et lecture ---------- */
+function push(by, text, kind) {
+  if (!text) return;
+  queue.push({ by, text, kind });
+  if (!speaking) next();
+}
+function show(item) {
+  document.body.classList.toggle('tts-on', !!item && c.show);
+  if (!item) return;
+  $('by').textContent = item.kind ? `${item.by} · ${item.kind}` : item.by;
+  $('text').textContent = item.text;
+}
+function done() { speaking = false; current = null; audio = null; show(null); setTimeout(next, 600); }
+function stop() { // !skiptts : coupe la lecture en cours
+  if (c.engine === 'relais' && audio) { audio.pause(); done(); }
+  else if (window.speechSynthesis) { speechSynthesis.cancel(); }
+}
+function pickVoice() {
+  const voices = (window.speechSynthesis && speechSynthesis.getVoices()) || [];
+  const want = c.voice.toLowerCase();
+  return voices.find((v) => v.name.toLowerCase().includes(want)) || voices.find((v) => v.lang.toLowerCase().startsWith(want)) || voices.find((v) => v.lang.startsWith('fr')) || null;
+}
+async function next() {
+  const item = queue.shift();
+  if (!item) return;
+  speaking = true; current = item; show(item);
+  const phrase = (c.readname ? `${item.by} dit : ` : '') + item.text;
+  if (c.engine === 'relais' && ovId && relay && !c.demo) {
+    try {
+      const r = await fetch(`${relay}/o/${ovId}/tts`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: phrase }) });
+      const d = await r.json();
+      if (!d.audio) throw new Error(d.error || 'voix indisponible');
+      audio = new Audio(`data:${d.mime || 'audio/mpeg'};base64,${d.audio}`);
+      audio.volume = Math.max(0, Math.min(1, c.volume));
+      audio.onended = done; audio.onerror = done;
+      await audio.play();
+    } catch (e) { console.warn('voix du relais :', e.message); done(); }
+    return;
+  }
+  if (!window.speechSynthesis) return setTimeout(done, 3000);
+  const u = new SpeechSynthesisUtterance(phrase);
+  const v = pickVoice(); if (v) u.voice = v;
+  u.lang = v ? v.lang : 'fr-FR'; u.rate = c.rate; u.pitch = c.pitch; u.volume = c.volume;
+  u.onend = done; u.onerror = done;
+  speechSynthesis.speak(u);
+  setTimeout(() => { if (current === item && !speechSynthesis.speaking) done(); }, 1500); // aucune voix disponible : on n'attend pas
+}
+
+/* ---------- Déclencheurs ---------- */
+function level(m) { return m.isBroadcaster ? 4 : m.isMod ? 3 : m.isVip ? 2 : m.isSub ? 1 : 0; }
+function onMessage(m) {
+  const lv = level(m);
+  if (c.skip && SB.command(m, c.skip) !== null && lv >= 3) return stop();
+  const args = SB.command(m, c.cmd);
+  if (args === null || !args) return;
+  if (lv < LEVEL[c.level]) return;
+  const now = Date.now();
+  if (lv < 3 && now - (lastUse.get(m.login) || 0) < c.cooldown * 1000) return;
+  lastUse.set(m.login, now);
+  push(m.name, clean(m));
+}
+const chat = new SB.TwitchChat(c.channel);
+chat.on('room', (id) => emotes.load(id))
+  .on('message', onMessage)
+  .on('cheer', (m) => { if (c.bits && m.bits >= c.bits) push(m.name, clean(m), `${m.bits} bits`); })
+  .connect();
+if (c.reward) SB.twitchEvents(c, ['points']).on('points', (e) => { if (e.input && e.reward.trim().toLowerCase() === c.reward.trim().toLowerCase()) push(e.name, clean({ text: e.input }), e.reward); });
+if (c.dons) SB.donations(c).on('don', (d) => { if (d.message && d.amount >= c.mindon) push(d.name, clean({ text: d.message }), SB.formatMoney(d.amount, d.currency)); });
+SB.remote('tts', c.skip, () => stop());
+
+if (c.demo) {
+  const lines = [['Pixelmaud', '!tts Coucou le stream, trop bien ce soir !', ''], ['Kevin_le_roux', 'Allez on y croit pour le boss', '500 bits'], ['Lou', 'Pour le café, bon courage !', '5,00 €']];
+  let i = 0;
+  const go = () => { const [by, t, k] = lines[i++ % lines.length]; push(by, clean({ text: t }), k); };
+  go(); setInterval(() => { if (!speaking) go(); }, 4500);
+}
+SB.hintIfNoChannel(c);
+</script>
+</body>
+</html>
