@@ -43,6 +43,7 @@
  *   GET/PUT /me/sr · POST /me/sr/action { action, n, dir } · GET /public/:login/sr (file publique)
  *   GET/POST /o/:id/sr                   overlay Lecteur (YouTube) : état de la file, morceau fini / en erreur
  *   GET     /o/:id/spotify-token         jeton Spotify à jour pour l'overlay Musique (le relais garde le refresh token)
+ *   POST    /o/:id/tts { text }           voix française générée par Workers AI (binding AI), 20 lectures par minute maximum
  *   Secrets facultatifs : YOUTUBE_API_KEY (recherche par titre et durée), SPOTIFY_CLIENT_ID.
  * Dons automatiques du subathon : Ko-fi et webhooks (instantané), StreamElements (vérifié chaque minute),
  *   Streamlabs (transmis par l'overlay OBS). Chaque don n'est compté qu'une fois.
@@ -245,6 +246,7 @@ const NEEDS = {
   rewind: ['token', 'obspass'],
   musique: ['token', 'spotifycid', 'lastfm', 'lfmkey'], // Spotify : jeton à jour fourni par /o/:id/spotify-token
   lecteur: [],
+  tts: ['token', 'sejwt', 'sltoken', 'kofi', 'obspass'],
   discord: ['token', 'webhook'],
 };
 const SECRET_KEYS = ['spotify', 'spotifycid', 'lastfm', 'lfmkey', 'sejwt', 'sltoken', 'kofi', 'webhook', 'obspass'];
@@ -321,6 +323,11 @@ async function accountRoutes(req, env, url, p) {
     if (p[2] === 'ws') {
       if (req.headers.get('Upgrade') !== 'websocket') return json({ error: 'WebSocket attendu' }, 426);
       return stub('user:' + idx.user_id).fetch('https://acc/ws?ov=' + p[1], req);
+    }
+    if (p[2] === 'tts' && req.method === 'POST') { // overlay Lecture à voix haute : voix du relais
+      const d = await req.json().catch(() => ({}));
+      const r = await stub('user:' + idx.user_id).fetch('https://acc/ov-tts', { method: 'POST', body: JSON.stringify({ ov: p[1], text: d.text }) });
+      return withCors(new Response(r.body, { status: r.status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } }));
     }
     if (p[2] === 'sr' || p[2] === 'spotify-token') { // overlay Lecteur (file YouTube) / overlay Musique (Spotify)
       const d = req.method === 'POST' ? await req.json().catch(() => ({})) : {};
@@ -467,6 +474,23 @@ export class Account {
       return ok({ user_id: profile.user_id, login: profile.login, access: await this.twitchAccess(s, E) });
     }
     if (path === '/don') return ok(await this.subDon(body.don || {}, profile, await secrets(), E));
+    if (path === '/ov-tts') {
+      const o = ((await st.get('overlays')) || {})[body.ov];
+      if (!o || o.tool !== 'tts') return err('overlay non autorisé', 403);
+      if (!this.env.AI) return err('voix du relais non activée (binding AI de Workers AI)', 501);
+      const text = clean(body.text, 300).trim();
+      if (!text) return err('texte vide');
+      const now = Date.now(); // limite : 20 lectures par minute et par compte (quota Workers AI)
+      this._tts = (this._tts || []).filter((t) => now - t < 60000);
+      if (this._tts.length >= 20) return err('trop de lectures, réessaie dans un instant', 429);
+      this._tts.push(now);
+      try {
+        const r = await this.env.AI.run('@cf/myshell-ai/melotts', { prompt: text, lang: 'fr' });
+        const audio = typeof r === 'string' ? r : r && r.audio;
+        if (!audio) throw new Error('réponse vide');
+        return ok({ audio, mime: 'audio/mpeg' });
+      } catch (e) { return err('voix indisponible : ' + e.message, 502); }
+    }
     if (path === '/overlay-don') {
       const o = ((await st.get('overlays')) || {})[body.ov];
       if (!o || !['subathon', 'alertes', 'objectifs'].includes(o.tool)) return err('overlay non autorisé', 403);
