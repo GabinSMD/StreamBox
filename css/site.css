@@ -141,3 +141,14 @@ table.cmds td:first-child { white-space: nowrap; }
 .how .num { color: #fff; }
 .top nav a { white-space: nowrap; }
 @media (max-width: 560px) { .top nav a.opt-link { display: none; } .top nav { gap: 14px; } }
+
+textarea { width: 100%; background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 10px; padding: 9px 11px; font: 13px/1.5 'Roboto Mono', ui-monospace, monospace; resize: vertical; }
+textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.rangerow { display: flex; align-items: center; gap: 12px; }
+.rangerow input[type=range] { flex: 1; accent-color: var(--accent); }
+.rangeval { min-width: 2.5em; text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); font-size: 14px; }
+details.more.style { border-top: 1px solid var(--line); padding-top: 12px; }
+details.more.style summary { color: var(--text); }
+.importbar { display: flex; gap: 8px; margin: 4px 0 12px; }
+.btn.small { padding: 6px 12px; font-size: 13.5px; }
+@media (min-width: 861px) { .cfg > section:last-child { position: sticky; top: 76px; max-height: calc(100vh - 92px); overflow-y: auto; } }

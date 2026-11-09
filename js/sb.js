@@ -331,6 +331,25 @@
     return r.ok ? r.json() : null; // { login, user_id, expires_in }
   };
 
+  /* ---------- Apparence personnalisée (commune à tous les overlays) ----------
+   * textcolor, panel (couleur des fonds), opacity (0 à 1), radius (px), shadow=0, outline=1, css (CSS libre) */
+  SB.applyStyle = function () {
+    const q = new URLSearchParams(location.search);
+    const root = document.documentElement.style;
+    const hex = (h) => { const m = String(h).replace('#', '').match(/^([0-9a-f]{6})$/i); if (!m) return null; const n = parseInt(m[1], 16); return `${n >> 16 & 255}, ${n >> 8 & 255}, ${n & 255}`; };
+    if (q.get('textcolor')) root.setProperty('--text', q.get('textcolor'));
+    if (q.get('panel') && hex(q.get('panel'))) root.setProperty('--panel-rgb', hex(q.get('panel')));
+    if (q.has('opacity') && !isNaN(parseFloat(q.get('opacity')))) root.setProperty('--panel-a', Math.max(0, Math.min(1, parseFloat(q.get('opacity')))));
+    if (q.has('radius') && !isNaN(parseFloat(q.get('radius')))) root.setProperty('--radius', parseFloat(q.get('radius')) + 'px');
+    const onBody = (fn) => (document.body ? fn() : addEventListener('DOMContentLoaded', fn));
+    onBody(() => {
+      if (q.get('shadow') === '0') document.body.classList.add('sb-noshadow');
+      if (q.get('outline') === '1') document.body.classList.add('sb-outline');
+    });
+    if (q.get('css')) { const st = document.createElement('style'); st.textContent = q.get('css'); document.head.appendChild(st); }
+  };
+  SB.applyStyle();
+
   /* ---------- Mode démo ---------- */
   const DEMO_EMOTES = { Kappa: '25', LUL: '425618', HeyGuys: '30259', Kreygasm: '41', SeemsGood: '64138', BibleThump: '86', VoHiYo: '81274', CoolCat: '58127' };
   const DEMO_USERS = [
