@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Connexion Spotify · StreamBox</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap">
+<link rel="stylesheet" href="css/site.css">
+</head>
+<body>
+<main class="wrap"><div class="box" style="margin:48px auto;max-width:560px"><h1 id="h">Connexion à Spotify…</h1><p class="lead" id="p"></p></div></main>
+<script src="js/config.js"></script>
+<script src="js/site.js"></script>
+<script>
+/* Connexion Spotify « PKCE » : aucun secret, tout reste dans le navigateur.
+ * Permission demandée : lire le morceau en cours (rien d'autre). */
+const q = new URLSearchParams(location.search);
+const say = (h, p) => { document.getElementById('h').textContent = h; document.getElementById('p').textContent = p || ''; };
+const safeReturn = (r) => (r && /^[\w\-./?=&%]+$/.test(r) && !r.includes('//') ? r : 'outil.html?id=musique');
+const redirect = location.origin + location.pathname;
+const b64url = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const ss = { get: (k) => { try { return sessionStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { sessionStorage.setItem(k, v); } catch (e) { /* ignore */ } } };
+
+(async () => {
+  if (q.get('error')) return say('Connexion annulée', q.get('error'));
+  if (q.get('code')) {
+    const cid = ss.get('sb-sp-cid'), verifier = ss.get('sb-sp-verifier');
+    if (!cid || !verifier || q.get('state') !== ss.get('sb-sp-state')) return say('Connexion refusée', 'La réponse de Spotify ne correspond pas à la demande. Réessaie.');
+    const r = await fetch('https://accounts.spotify.com/api/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ grant_type: 'authorization_code', code: q.get('code'), redirect_uri: redirect, client_id: cid, code_verifier: verifier }) });
+    const d = await r.json().catch(() => ({}));
+    if (!d.refresh_token) return say('Connexion impossible', d.error_description || d.error || 'Réponse inattendue de Spotify.');
+    try { localStorage.setItem('sb-spotify', JSON.stringify({ refresh: d.refresh_token, cid })); } catch (e) { /* ignore */ }
+    say('Connecté à Spotify !', 'Retour à l’outil…');
+    return location.replace(safeReturn(ss.get('sb-sp-return')));
+  }
+  const cid = (q.get('cid') || SB_CONFIG.spotifyClientId || '').trim();
+  if (!cid) return say('Spotify n’est pas configuré', 'Indique ton propre Client ID Spotify dans l’outil Musique, ou renseigne spotifyClientId dans js/config.js.');
+  const verifier = b64url(crypto.getRandomValues(new Uint8Array(48)));
+  const challenge = b64url(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier)));
+  const state = b64url(crypto.getRandomValues(new Uint8Array(12)));
+  ss.set('sb-sp-verifier', verifier); ss.set('sb-sp-cid', cid); ss.set('sb-sp-state', state); ss.set('sb-sp-return', safeReturn(q.get('retour')));
+  const u = new URL('https://accounts.spotify.com/authorize');
+  Object.entries({ client_id: cid, response_type: 'code', redirect_uri: redirect, code_challenge_method: 'S256', code_challenge: challenge, state, scope: 'user-read-currently-playing user-read-playback-state' })
+    .forEach(([k, v]) => u.searchParams.set(k, v));
+  location.replace(u.toString());
+})();
+</script>
+</body>
+</html>

@@ -7,7 +7,7 @@ Une boîte à outils gratuite pour streamers. Elle regroupe dans un seul site ce
 | Outil | Type | Remplace (d’après [awesome-twitch](https://github.com/sammwyy/awesome-twitch)) |
 |---|---|---|
 | 💬 Chat en overlay (5 thèmes, emotes 7TV/BTTV/FFZ) | Overlay OBS | ChatIS, showmy.chat, StreamElements Chatbox… |
-| 🔔 Alertes : subs, resubs, subs offerts, raids, bits, follows, points de chaîne | Overlay OBS | Alertes StreamElements / Streamlabs |
+| 🔔 Alertes : subs, resubs, subs offerts, raids, bits, follows, points de chaîne, dons | Overlay OBS | Alertes StreamElements / Streamlabs |
 | 🎯 Objectifs (abonnés, followers, bits, dons, perso) avec paliers | Overlay OBS | Objectifs StreamElements / Streamlabs |
 | 🎡 Roue de la fortune (commande, tous les X abos, bits ; relie le subathon) | Overlay OBS | Wheel of Item, PickerSpin |
 | 📊 Sondage piloté par le chat | Overlay OBS | chat.vote |
@@ -16,6 +16,9 @@ Une boîte à outils gratuite pour streamers. Elle regroupe dans un seul site ce
 | ⏳ Écran « Ça commence bientôt » avec compte à rebours | Overlay OBS | Packs d’écrans d’attente |
 | ⏱️ Timer de subathon (abos, subs offerts, bits, dons, raids, happy hour, durée max, sauvegarde) | Overlay OBS | marathon-timer.com |
 | ⏪ Rewind : condensé vidéo des temps forts, repérés grâce aux réactions du chat et à la voix du streamer | Overlay OBS + obs-websocket | ClipMe, Voding (repérage) |
+| 🎵 Musique en cours : Spotify direct, Deezer, YouTube Music et Apple Music via Last.fm | Overlay OBS | Tuna, Amuse |
+| 📣 Annonces Discord : début du live, récap de fin, gagnant du giveaway, `!discord` | Source OBS invisible | Bots d’annonce |
+| 🧩 Extension « Musiques des redifs » (VOD Twitch et rediffusions YouTube) | Extension navigateur | |
 | 🎛️ Panneau de contrôle : boutons pour tous les overlays et les scènes OBS | Page web / dock OBS | Kloot, Poltergeist, Xenon |
 | 🖼️ Redimensionneur d’emotes et de badges | Page web | EmoteResizer, Twitch Emote Resizer |
 | 💰 Calculateur de revenus | Page web | Calculateurs divers |
@@ -41,6 +44,20 @@ La source Rewind reste dans OBS pendant tout le live et calcule chaque seconde u
 - **Voix** : niveau du micro (lu dans OBS via obs-websocket) sur 1,5 s, comparé au niveau habituel de parole (médiane sur 2 min). Un cri ou un fou rire dépasse nettement ce niveau.
 
 Au-delà du seuil, StreamBox attend quelques secondes (pour inclure la réaction), puis sauvegarde le **Replay Buffer** d’OBS. Au stream suivant, il rejoue les meilleurs moments dans l’ordre, via une source Média, avec un bandeau (raison, heure, réactions du chat, intensité). En option, il peut créer des clips Twitch à la place, et compléter avec les meilleurs clips de la communauté.
+
+## Intégrations
+
+| Service | Ce qu’il apporte | Serveur ? |
+|---|---|---|
+| Twitch | Chat (sans compte), follows, points de chaîne, abonnés, clips, début et fin du live | Non |
+| OBS (obs-websocket) | Micro et Replay Buffer (Rewind), panneau de contrôle, scènes | Non |
+| Discord | Webhook : annonces, récap, gagnants, messages des modos | Non |
+| Spotify | Morceau en cours (connexion PKCE, sans secret) | Non |
+| Deezer, YouTube Music, Apple Music | Via Last.fm (scrobbling natif ou extension Web Scrobbler) | Non |
+| StreamElements, Streamlabs | Dons en direct | Non |
+| Ko-fi, et tout service à webhook | Dons en direct via le relais | Relais Cloudflare gratuit (`relay/`) |
+
+Toutes les clés publiques (Client ID Twitch et Spotify, clé API Last.fm, adresse du relais) se règlent dans `js/config.js`.
 
 ## Panneau de contrôle
 
@@ -75,7 +92,10 @@ overlays/*.html       Les overlays OBS
 js/sb.js              Noyau : client chat Twitch, emotes, apparence, mode démo
 js/highlights.js      Détecteur de temps forts (chat + voix)
 js/obs.js             Client obs-websocket v5
-js/eventsub.js        Client EventSub WebSocket (follows, points de chaîne)
+js/eventsub.js        Client EventSub WebSocket (follows, points de chaîne, début/fin du live)
+js/dons.js            Dons : StreamElements, Streamlabs, relais Ko-fi
+relay/                Relais Cloudflare Worker (Ko-fi, webhooks, musiques des redifs)
+extension/            Extension navigateur « Musiques des redifs »
 panneau.html          Panneau de contrôle
 js/tools.js           Registre des outils et de leurs réglages (ajouter un outil = ajouter une entrée)
 js/annuaire-data.js   Données de l'annuaire
@@ -88,9 +108,10 @@ Prochaines étapes :
 - [x] Alertes de follows et de points de chaîne
 - [x] Objectifs, et follows et points de chaîne dans le subathon
 - [x] Roue de la fortune
-- [ ] Dons Tipeee / StreamElements / Ko-fi automatiques
+- [x] Dons automatiques : StreamElements, Streamlabs, Ko-fi (et tout webhook via le relais)
+- [x] Discord, musique (Spotify, Deezer, YouTube Music), extension des redifs
 - [ ] Bot de chat : commandes personnalisées, minuteurs, modération
 - [x] Panneau de contrôle (dock OBS)
 - [ ] Multi-plateforme : chat Kick et YouTube fusionnés
-- [ ] Musique en cours de lecture (Spotify) et TTS
+- [ ] Lecture des messages à voix haute (TTS) et demandes de musiques par le chat
 - [ ] Compte utilisateur pour sauvegarder ses overlays

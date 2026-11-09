@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="fr">
+<head><meta charset="utf-8"><title>Options · Musiques des redifs</title>
+<style>
+  body { font: 14px/1.5 system-ui, sans-serif; margin: 16px; min-width: 340px; color: #1a1625; }
+  label { display: block; font-weight: 600; margin-bottom: 4px; }
+  input { width: 100%; box-sizing: border-box; padding: 8px; border: 1px solid #ccc; border-radius: 8px; font: inherit; }
+  button { margin-top: 10px; padding: 8px 14px; border: 0; border-radius: 8px; background: #7c3aed; color: #fff; font-weight: 600; cursor: pointer; }
+  small { color: #666; display: block; margin-top: 6px; }
+</style></head>
+<body>
+  <label for="relay">Adresse du relais StreamBox</label>
+  <input id="relay" placeholder="https://streambox-relay.exemple.workers.dev">
+  <small>Laisse vide pour utiliser le relais par défaut. Le streamer peut t’indiquer le sien.</small>
+  <button id="save">Enregistrer</button> <span id="ok"></span>
+  <script src="config.js"></script>
+  <script src="options.js"></script>
+</body>
+</html>

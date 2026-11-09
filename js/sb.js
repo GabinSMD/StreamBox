@@ -410,6 +410,15 @@
     else { const sc = document.createElement('script'); sc.src = new URL('../js/obs.js', location.href).href; sc.onload = go; document.head.appendChild(sc); }
   };
 
+  /* ---------- Discord (webhook, sans serveur) ---------- */
+  SB.isDiscordWebhook = (u) => /^https:\/\/(?:\w+\.)?discord(?:app)?\.com\/api\/webhooks\/\d+\/[\w-]+$/.test(u || '');
+  SB.discordPost = async function (webhook, payload) {
+    if (!SB.isDiscordWebhook(webhook)) throw new Error('adresse de webhook Discord invalide');
+    const r = await fetch(webhook + '?wait=true', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ username: 'StreamBox', allowed_mentions: { parse: [] } }, payload)) });
+    if (!r.ok) throw new Error('Discord a refusé le message (' + r.status + ')');
+    return r.json().catch(() => ({}));
+  };
+
   SB.hintIfNoChannel = function (cfg) {
     if (cfg.channel || cfg.demo) return;
     const d = SB.el('div', 'sb-hint', 'StreamBox : ajoute ?channel=ta_chaine à l’URL (ou configure l’outil sur le site).');
