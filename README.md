@@ -7,13 +7,16 @@ Une boîte à outils gratuite pour streamers. Elle regroupe dans un seul site ce
 | Outil | Type | Remplace (d’après [awesome-twitch](https://github.com/sammwyy/awesome-twitch)) |
 |---|---|---|
 | 💬 Chat en overlay (5 thèmes, emotes 7TV/BTTV/FFZ) | Overlay OBS | ChatIS, showmy.chat, StreamElements Chatbox… |
-| 🔔 Alertes : subs, resubs, subs offerts, raids, bits | Overlay OBS | Alertes StreamElements / Streamlabs |
+| 🔔 Alertes : subs, resubs, subs offerts, raids, bits, follows, points de chaîne | Overlay OBS | Alertes StreamElements / Streamlabs |
+| 🎯 Objectifs (abonnés, followers, bits, dons, perso) avec paliers | Overlay OBS | Objectifs StreamElements / Streamlabs |
+| 🎡 Roue de la fortune (commande, tous les X abos, bits ; relie le subathon) | Overlay OBS | Wheel of Item, PickerSpin |
 | 📊 Sondage piloté par le chat | Overlay OBS | chat.vote |
 | 🎁 Giveaway avec tirage animé (aléatoire Web Crypto) | Overlay OBS | PickerSpin, Wheel of Item |
 | 😂 `!showemote` et pluie d’emotes | Overlay OBS | Show Emote |
 | ⏳ Écran « Ça commence bientôt » avec compte à rebours | Overlay OBS | Packs d’écrans d’attente |
 | ⏱️ Timer de subathon (abos, subs offerts, bits, dons, raids, happy hour, durée max, sauvegarde) | Overlay OBS | marathon-timer.com |
 | ⏪ Rewind : condensé vidéo des temps forts, repérés grâce aux réactions du chat et à la voix du streamer | Overlay OBS + obs-websocket | ClipMe, Voding (repérage) |
+| 🎛️ Panneau de contrôle : boutons pour tous les overlays et les scènes OBS | Page web / dock OBS | Kloot, Poltergeist, Xenon |
 | 🖼️ Redimensionneur d’emotes et de badges | Page web | EmoteResizer, Twitch Emote Resizer |
 | 💰 Calculateur de revenus | Page web | Calculateurs divers |
 | 🧭 Annuaire des autres outils (clips, bots, stats…) | Page web | |
@@ -39,14 +42,18 @@ La source Rewind reste dans OBS pendant tout le live et calcule chaque seconde u
 
 Au-delà du seuil, StreamBox attend quelques secondes (pour inclure la réaction), puis sauvegarde le **Replay Buffer** d’OBS. Au stream suivant, il rejoue les meilleurs moments dans l’ordre, via une source Média, avec un bandeau (raison, heure, réactions du chat, intensité). En option, il peut créer des clips Twitch à la place, et compléter avec les meilleurs clips de la communauté.
 
-## Connexion Twitch (pour les clips du Rewind)
+## Panneau de contrôle
 
-Le Rewind lit les clips via l’API Twitch. Pour l’activer sur ton site :
+`panneau.html` se connecte au serveur WebSocket d’OBS et envoie des `BroadcastCustomEvent`. Chaque overlay où « Contrôlable depuis le panneau » est coché les reçoit, et les traite comme la commande de chat correspondante, tapée par le streamer. On peut l’ouvrir dans un navigateur sur le PC du stream, ou comme dock OBS (Docks → Docks de navigateur personnalisés). La roue utilise le même canal pour ajouter ou retirer du temps au subathon.
+
+## Connexion Twitch
+
+Une seule connexion sert à tous les outils : follows et points de chaîne (EventSub WebSocket, sans serveur), total d’abonnés et de followers, création et lecture de clips. Pour l’activer sur ton site :
 
 1. Crée une application sur https://dev.twitch.tv/console/apps : type de client **Public**, URL de redirection `https://<ton-site>/connexion.html` (et `http://localhost:8000/connexion.html` pour tester en local).
 2. Copie le *Client ID* dans `js/config.js` (`twitchClientId`).
 
-La connexion n’utilise aucun secret. Elle ne demande qu’une permission, `clips:edit`, et seulement si tu choisis les clips Twitch automatiques. Sans connexion, le Rewind fonctionne quand même, mais il ne montre que les statistiques du chat enregistrées pendant le stream.
+La connexion n’utilise aucun secret. Permissions demandées : `clips:edit`, `moderator:read:followers`, `channel:read:redemptions`, `channel:read:subscriptions`. Rien d’autre : ni messages privés, ni modification de la chaîne. Sans connexion, le Rewind fonctionne quand même, mais il ne montre que les statistiques du chat enregistrées pendant le stream.
 
 ## Lancer en local
 
@@ -68,19 +75,22 @@ overlays/*.html       Les overlays OBS
 js/sb.js              Noyau : client chat Twitch, emotes, apparence, mode démo
 js/highlights.js      Détecteur de temps forts (chat + voix)
 js/obs.js             Client obs-websocket v5
+js/eventsub.js        Client EventSub WebSocket (follows, points de chaîne)
+panneau.html          Panneau de contrôle
 js/tools.js           Registre des outils et de leurs réglages (ajouter un outil = ajouter une entrée)
 js/annuaire-data.js   Données de l'annuaire
 ```
 
 ## Feuille de route
 
-Ce qui demande une connexion à un compte Twitch (OAuth et EventSub), donc un petit backend :
+Prochaines étapes :
 
-- [ ] Alertes de **follows** et de **points de chaîne** (absentes du chat anonyme)
-- [ ] Objectifs (abonnés, followers), et follows et dons Tipeee / StreamElements / Ko-fi automatiques dans le subathon
-- [ ] Roue de la fortune du subathon
+- [x] Alertes de follows et de points de chaîne
+- [x] Objectifs, et follows et points de chaîne dans le subathon
+- [x] Roue de la fortune
+- [ ] Dons Tipeee / StreamElements / Ko-fi automatiques
 - [ ] Bot de chat : commandes personnalisées, minuteurs, modération
-- [ ] Panneau de contrôle (dock OBS) pour piloter les overlays sans commandes
+- [x] Panneau de contrôle (dock OBS)
 - [ ] Multi-plateforme : chat Kick et YouTube fusionnés
 - [ ] Musique en cours de lecture (Spotify) et TTS
 - [ ] Compte utilisateur pour sauvegarder ses overlays

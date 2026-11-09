@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Panneau de contrôle · StreamBox</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="css/site.css">
+</head>
+<body>
+<main class="wrap">
+  <h2 class="sec" style="margin-top:32px">🎛️ Panneau de contrôle</h2>
+  <p class="sec">Pilote tes overlays sans taper de commandes. Ouvre cette page sur le PC du stream, ou ajoute-la dans OBS : <b>Docks → Docks de navigateur personnalisés</b>. Coche « Contrôlable depuis le panneau » dans les réglages de chaque overlay.</p>
+
+  <div class="box pn-conn">
+    <div class="field"><label for="obsurl">Serveur WebSocket d’OBS</label><input type="text" id="obsurl" value="ws://127.0.0.1:4455"></div>
+    <div class="field"><label for="obspass">Mot de passe</label><input type="password" id="obspass" placeholder="OBS → Outils → Paramètres du serveur WebSocket"></div>
+    <button class="btn" id="connect" type="button">Connecter</button>
+    <span class="pn-status" id="status">Non connecté</span>
+  </div>
+
+  <div class="pn-grid" id="grid">
+    <section class="box pn-card" data-tool="scenes"><h3>🎬 Scènes</h3><div class="pn-row" id="scenes"><small>Connecte OBS pour voir tes scènes.</small></div></section>
+
+    <section class="box pn-card"><h3>📊 Sondage</h3>
+      <input type="text" id="pq" placeholder="Question">
+      <input type="text" id="po" placeholder="Choix séparés par des virgules (vide = Oui, Non)">
+      <div class="pn-row"><input type="number" id="pd" placeholder="Durée (s)" min="5" style="max-width:120px">
+        <button class="btn" data-send="sondage" data-args-fn="poll">Lancer</button>
+        <button class="btn ghost" data-send="sondage" data-args="fin">Terminer</button>
+        <button class="btn ghost" data-send="sondage" data-args="cacher">Cacher</button></div>
+    </section>
+
+    <section class="box pn-card"><h3>🎁 Giveaway</h3>
+      <div class="pn-row"><input type="text" id="gk" placeholder="Mot-clé (vide = celui des réglages)">
+        <button class="btn" data-send="giveaway" data-args-fn="giveaway">Ouvrir</button></div>
+      <div class="pn-row"><button class="btn ghost" data-send="giveaway" data-args="stop">Fermer</button>
+        <button class="btn" data-send="giveaway" data-args="tirage">🎲 Tirer au sort</button>
+        <button class="btn ghost" data-send="giveaway" data-args="reset">Réinitialiser</button></div>
+    </section>
+
+    <section class="box pn-card"><h3>⏱️ Subathon</h3>
+      <div class="pn-row"><button class="btn" data-send="subathon" data-args="start">▶ Démarrer</button>
+        <button class="btn ghost" data-send="subathon" data-args="pause">⏸ Pause</button></div>
+      <div class="pn-row"><button class="btn ghost" data-send="subathon" data-args="+1">+1 min</button>
+        <button class="btn ghost" data-send="subathon" data-args="+5">+5 min</button>
+        <button class="btn ghost" data-send="subathon" data-args="+10">+10 min</button>
+        <button class="btn ghost" data-send="subathon" data-args="-5">−5 min</button></div>
+      <div class="pn-row"><input type="number" id="sd" placeholder="Don (€)" min="0" step="0.5" style="max-width:110px"><input type="text" id="sdn" placeholder="Pseudo">
+        <button class="btn ghost" data-send="subathon" data-args-fn="don">Ajouter le don</button></div>
+      <div class="pn-row"><button class="btn ghost" data-send="subathon" data-args="happy 2 30m">Happy hour ×2 (30 min)</button>
+        <button class="btn ghost" data-send="subathon" data-args="happy off">Fin happy hour</button></div>
+    </section>
+
+    <section class="box pn-card"><h3>🎡 Roue</h3>
+      <div class="pn-row"><button class="btn" data-send="roue" data-args="">Faire tourner la roue</button></div>
+    </section>
+
+    <section class="box pn-card"><h3>🎯 Objectif</h3>
+      <div class="pn-row"><button class="btn ghost" data-send="objectifs" data-args="+1">+1</button>
+        <button class="btn ghost" data-send="objectifs" data-args="+5">+5</button>
+        <button class="btn ghost" data-send="objectifs" data-args="-1">−1</button>
+        <input type="number" id="ov" placeholder="Valeur" style="max-width:110px">
+        <button class="btn ghost" data-send="objectifs" data-args-fn="goalset">Régler</button></div>
+    </section>
+
+    <section class="box pn-card"><h3>⏳ Compte à rebours</h3>
+      <div class="pn-row"><button class="btn ghost" data-send="minuteur" data-args="5">5 min</button>
+        <button class="btn ghost" data-send="minuteur" data-args="10">10 min</button>
+        <button class="btn ghost" data-send="minuteur" data-args="+1">+1 min</button>
+        <button class="btn ghost" data-send="minuteur" data-args="pause">Pause</button>
+        <button class="btn ghost" data-send="minuteur" data-args="reprendre">Reprendre</button></div>
+    </section>
+
+    <section class="box pn-card"><h3>⏪ Rewind</h3>
+      <div class="pn-row"><button class="btn" data-send="rewind" data-args="clip">📸 Marquer un temps fort</button>
+        <button class="btn ghost" data-send="rewind" data-args="">Lancer le condensé</button>
+        <button class="btn ghost" data-send="rewind" data-args="stop">Arrêter</button></div>
+    </section>
+
+    <section class="box pn-card"><h3>🔔 Alertes</h3>
+      <div class="pn-row"><button class="btn ghost" data-send="alertes" data-args="">Tester les alertes</button></div>
+    </section>
+  </div>
+</main>
+<script src="js/obs.js"></script>
+<script src="js/site.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+let obs = null;
+try { const s = JSON.parse(localStorage.getItem('sb-panel') || '{}'); if (s.url) $('obsurl').value = s.url; if (s.pass) $('obspass').value = s.pass; } catch (e) { /* ignore */ }
+
+const ARGS = {
+  poll: () => {
+    const q = $('pq').value.trim(); if (!q) { toast('Écris une question'); return null; }
+    const opts = $('po').value.split(',').map((x) => x.trim()).filter(Boolean);
+    return [$('pd').value ? +$('pd').value : '', [q, ...opts].join(' | ')].join(' ').trim();
+  },
+  giveaway: () => ('start ' + $('gk').value.trim()).trim(),
+  don: () => { const v = parseFloat($('sd').value); if (!(v > 0)) { toast('Indique un montant'); return null; } return `don ${v} ${$('sdn').value.trim()}`.trim(); },
+  goalset: () => ($('ov').value === '' ? null : 'set ' + $('ov').value),
+};
+
+function setStatus(t, ok) { $('status').textContent = t; $('status').classList.toggle('ok', !!ok); }
+
+$('connect').addEventListener('click', () => {
+  try { localStorage.setItem('sb-panel', JSON.stringify({ url: $('obsurl').value.trim(), pass: $('obspass').value })); } catch (e) { /* ignore */ }
+  if (obs && obs.ws) { obs.ws.onclose = null; obs.ws.close(); }
+  obs = new SB.OBS($('obsurl').value.trim(), $('obspass').value);
+  obs.on('status', (s) => setStatus(s === 'connecté' ? 'Connecté à OBS ✓' : 'OBS : ' + s, s === 'connecté'))
+    .on('ready', loadScenes)
+    .on('CurrentProgramSceneChanged', loadScenes)
+    .on('SceneListChanged', loadScenes)
+    .connect();
+  setStatus('Connexion…');
+});
+
+async function loadScenes() {
+  try {
+    const d = await obs.call('GetSceneList');
+    const box = $('scenes'); box.replaceChildren();
+    (d.scenes || []).slice().reverse().forEach((sc) => {
+      const b = document.createElement('button');
+      b.className = 'btn' + (sc.sceneName === d.currentProgramSceneName ? '' : ' ghost');
+      b.textContent = sc.sceneName;
+      b.onclick = () => obs.call('SetCurrentProgramScene', { sceneName: sc.sceneName }).catch((e) => toast(e.message));
+      box.appendChild(b);
+    });
+  } catch (e) { /* ignore */ }
+}
+
+document.querySelectorAll('[data-send]').forEach((b) => b.addEventListener('click', async () => {
+  if (!obs || !obs.ready) { toast('Connecte d’abord OBS'); return; }
+  const args = b.dataset.argsFn ? ARGS[b.dataset.argsFn]() : b.dataset.args;
+  if (args === null) return;
+  try {
+    await obs.call('BroadcastCustomEvent', { eventData: { streambox: { tool: b.dataset.send, args } } });
+    toast('Envoyé ✓');
+  } catch (e) { toast('Erreur : ' + e.message); }
+}));
+if ($('obspass').value || new URLSearchParams(location.search).get('auto') === '1') $('connect').click();
+</script>
+</body>
+</html>

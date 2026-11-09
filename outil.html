@@ -81,14 +81,16 @@
   /* ----- Formulaire ----- */
   const form = $('form');
   const VISIBLE = 5;
-  let more = null, styleBox = null;
+  let more = null, styleBox = null; const groups = {};
   function place(wrap, f, i) {
-    if (f.group === 'style') {
-      if (!styleBox) { styleBox = document.createElement('details'); styleBox.className = 'more style'; styleBox.innerHTML = '<summary>🎨 Personnaliser l’apparence</summary>'; form.appendChild(styleBox); }
-      styleBox.appendChild(wrap);
+    if (f.group) {
+      const GROUPS = { remote: '🎛️ Panneau de contrôle', style: '🎨 Personnaliser l’apparence' };
+      groups[f.group] = groups[f.group] || (() => { const d = document.createElement('details'); d.className = 'more style'; d.innerHTML = '<summary></summary>'; d.firstChild.textContent = GROUPS[f.group] || f.group; form.appendChild(d); return d; })();
+      groups[f.group].appendChild(wrap);
+      if (f.group === 'style') styleBox = groups.style;
     } else if (i < VISIBLE) form.appendChild(wrap);
     else {
-      if (!more) { more = document.createElement('details'); more.className = 'more'; more.innerHTML = '<summary>Plus de réglages</summary>'; form.insertBefore(more, styleBox); }
+      if (!more) { more = document.createElement('details'); more.className = 'more'; more.innerHTML = '<summary>Plus de réglages</summary>'; form.insertBefore(more, form.querySelector('details.style')); }
       more.appendChild(wrap);
     }
   }
@@ -108,7 +110,7 @@
       const setOut = (msg) => {
         input.value = ''; btn.textContent = 'Se connecter avec Twitch';
         btn.onclick = () => { location.href = 'connexion.html?retour=' + encodeURIComponent('outil.html?id=' + tool.id) + (f.scope ? '&scope=' + encodeURIComponent(f.scope) : ''); };
-        status.textContent = msg || (f.scope === 'clips:edit' ? 'Seule permission demandée : créer des clips de ta chaîne.' : 'Aucune permission demandée : StreamBox lit seulement tes clips publics.');
+        status.textContent = msg || 'Une seule connexion pour tous les outils : follows, points de chaîne, nombre d’abonnés, création de clips. Aucun accès à ton mot de passe ni à tes messages privés.';
       };
       if (!window.SB_CONFIG || !SB_CONFIG.twitchClientId) { btn.style.display = 'none'; status.textContent = 'Connexion Twitch pas encore configurée sur ce site (twitchClientId dans js/config.js).'; }
       else if (!tok) setOut();
@@ -120,8 +122,8 @@
           .then((r) => (r.ok ? r.json() : null))
           .then((d) => {
             if (!d) { try { localStorage.removeItem(TK); } catch (e) { /* ignore */ } setOut('Connexion expirée : reconnecte-toi.'); update(); return; }
-            const missing = f.scope && !(d.scopes || []).includes(f.scope);
-            status.textContent = (missing ? 'Reconnecte-toi pour autoriser la création de clips. ' : '') + `Connecté en tant que ${d.login} (expire dans ${Math.max(1, Math.round(d.expires_in / 86400))} j). Le lien contient ce jeton : ne le montre pas en stream.`;
+            const missing = (f.scope || '').split(' ').filter((x) => x && !(d.scopes || []).includes(x));
+            status.textContent = (missing.length ? 'Reconnecte-toi pour donner les nouvelles autorisations. ' : '') + `Connecté en tant que ${d.login} (expire dans ${Math.max(1, Math.round(d.expires_in / 86400))} j). Le lien contient ce jeton : ne le montre pas en stream.`;
           }).catch(() => { status.textContent = 'Connecté (vérification impossible pour le moment).'; });
       }
       place(wrap, f, i);

@@ -12,7 +12,7 @@
 <script src="js/config.js"></script>
 <script src="js/site.js"></script>
 <script>
-/* Flux OAuth « implicite » : aucun secret. Par défaut aucune permission ; le Rewind peut demander clips:edit.
+/* Flux OAuth « implicite » : aucun secret. Permissions : clips, follows, points de chaîne, nombre d'abonnés.
  * Le jeton reste dans le navigateur (localStorage) : lecture des données publiques, et création de clips si clips:edit est accordé. */
 const KEY = 'sb-twitch-token';
 const safeReturn = (r) => (r && /^[\w\-./?=&%]+$/.test(r) && !r.includes('//') ? r : 'index.html');
@@ -41,7 +41,8 @@ if (hash.get('access_token')) {
   u.searchParams.set('client_id', SB_CONFIG.twitchClientId);
   u.searchParams.set('redirect_uri', location.origin + location.pathname);
   u.searchParams.set('response_type', 'token');
-  const scope = q.get('scope') === 'clips:edit' ? 'clips:edit' : ''; // seule permission que StreamBox peut demander
+  // Une seule connexion pour tous les outils StreamBox, avec uniquement ces permissions :
+  const scope = 'clips:edit moderator:read:followers channel:read:redemptions channel:read:subscriptions';
   u.searchParams.set('scope', scope);
   u.searchParams.set('state', nonce + '|' + encodeURIComponent(safeReturn(q.get('retour'))));
   location.replace(u.toString());

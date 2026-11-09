@@ -99,6 +99,15 @@
       this.emit('trigger', this.current);
     }
 
+    /* Temps fort marqué à la main (bouton du panneau ou !rewind clip) */
+    force(now) {
+      const t = now || Date.now();
+      if (this.current) { this.current.manual = true; return; }
+      this.lastTrigger = t;
+      this.current = { t, score: 1, chat: this.lastScores.chat, voice: this.lastScores.voice, tokens: {}, texts: {}, manual: true };
+      this.emit('trigger', this.current);
+    }
+
     collect(h, recent) {
       recent.forEach((m) => {
         if (m._seen === h) return; m._seen = h;
@@ -117,6 +126,7 @@
       const reasons = [];
       if (h.chat >= 0.4) reasons.push('chat');
       if (h.voice >= 0.4) reasons.push('voix');
+      if (h.manual) reasons.push('manuel');
       return { t: h.t, score: Math.round(h.score * 100) / 100, chat: Math.round(h.chat * 100) / 100, voice: Math.round(h.voice * 100) / 100, reasons, top, quote: quote ? quote[0] : '' };
     }
   };

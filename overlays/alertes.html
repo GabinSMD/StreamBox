@@ -7,10 +7,14 @@
 </head>
 <body>
 <div id="alert"></div>
+<script src="../js/config.js"></script>
 <script src="../js/sb.js"></script>
+<script src="../js/eventsub.js"></script>
 <script>
 const c = SB.params({
-  channel: '', duration: 7, sound: true, volume: 0.4, size: 22, font: 'Inter', accent: '#9b5cff',
+  channel: '', token: '', follows: true, points: true,
+  tfollow: '{name} vient de follow !', tpoints: '{name} utilise « {reward} » !',
+  duration: 7, sound: true, volume: 0.4, size: 22, font: 'Inter', accent: '#9b5cff',
   subs: true, gifts: true, raids: true, bits: true, minbits: 1, minraid: 1,
   tsub: '{name} vient de s’abonner !', tresub: '{name} est abonné·e depuis {months} mois !',
   tgift: '{name} offre {count} abonnement(s) !', traid: 'RAID ! {name} arrive avec {count} viewers !',
@@ -88,6 +92,19 @@ function testAlerts() {
   push({ icon: '💎', tpl: c.tbits, vars: { name: u[3].login, count: 500 }, msg: f(3, 'Allez on y croit Kreygasm') });
   onNotice(Object.assign(f(6, ''), { type: 'submysterygift', giftCount: 5 }));
   onNotice(Object.assign(f(4, ''), { type: 'raid', viewers: 87 }));
+  onFollow({ login: 'nouveau_viewer', name: 'Nouveau_Viewer' });
+  onPoints({ login: u[1].login, name: u[1].login, reward: 'Hydrate-toi', cost: 500, input: '' });
+}
+
+const followed = new Set(); // un même compte ne déclenche qu'une alerte de follow par session
+function onFollow(e) {
+  if (!c.follows || followed.has(e.login)) return;
+  followed.add(e.login);
+  push({ icon: '💜', tpl: c.tfollow, vars: { name: e.name } });
+}
+function onPoints(e) {
+  if (!c.points) return;
+  push({ icon: '✨', tpl: c.tpoints, vars: { name: e.name, reward: e.reward, cost: e.cost }, msg: e.input ? { text: e.input, emotes: [] } : null });
 }
 
 const chat = new SB.TwitchChat(c.channel);
@@ -96,6 +113,8 @@ chat.on('room', (id) => emotes.load(id))
   .on('cheer', (m) => { if (c.bits && m.bits >= c.minbits) push({ icon: '💎', tpl: c.tbits, vars: { name: m.name, count: m.bits }, msg: stripCheers(m) }); })
   .on('message', (m) => { if (m.isMod && SB.command(m, c.test) !== null) testAlerts(); })
   .connect();
+SB.twitchEvents(c, ['follow', 'points']).on('follow', onFollow).on('points', onPoints);
+SB.remote('alertes', c.test, () => testAlerts());
 
 if (c.demo) { testAlerts(); setInterval(() => { if (!busy) testAlerts(); }, 2000); }
 SB.hintIfNoChannel(c);

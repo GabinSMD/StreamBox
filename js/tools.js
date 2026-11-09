@@ -6,6 +6,7 @@
   const font = { key: 'font', label: 'Police', type: 'select', default: 'Inter', options: ['Inter', 'Poppins', 'Montserrat', 'Nunito', 'Bebas Neue', 'Press Start 2P', 'Roboto Mono', 'Lilita One'] };
   const accent = { key: 'accent', label: 'Couleur principale', type: 'color', default: '#9b5cff' };
   const size = (d) => ({ key: 'size', label: 'Taille du texte (px)', type: 'number', default: d, min: 10, max: 60 });
+  const twitch = (scope, label) => ({ key: 'token', label: label || 'Connexion Twitch', type: 'twitch', scope, default: '' });
   const emoteProviders = [
     { key: 'seventv', label: 'Emotes 7TV', type: 'checkbox', default: true },
     { key: 'bttv', label: 'Emotes BetterTTV', type: 'checkbox', default: true },
@@ -37,9 +38,12 @@
       tagline: 'Abonnements, subs offerts, raids et bits, sans connecter ton compte.',
       replaces: ['Alertes StreamElements / Streamlabs (subs, raids, bits)'],
       commands: [['!testalerte', 'Lance une série d’alertes de test (modos)']],
-      note: 'Les follows ne sont pas encore pris en charge : Twitch ne les envoie pas sur le chat. Ils viendront avec la connexion à un compte Twitch.',
+      note: 'Abonnements, raids et bits marchent sans connexion. Pour les follows et les points de chaîne, connecte-toi avec Twitch : ces événements n’arrivent pas par le chat.',
       fields: [
         channel,
+        twitch('moderator:read:followers channel:read:redemptions', 'Connexion Twitch (follows et points de chaîne)'),
+        { key: 'follows', label: 'Follows', type: 'checkbox', default: true },
+        { key: 'points', label: 'Points de chaîne (récompenses)', type: 'checkbox', default: true },
         { key: 'subs', label: 'Abonnements et réabonnements', type: 'checkbox', default: true },
         { key: 'gifts', label: 'Abonnements offerts', type: 'checkbox', default: true },
         { key: 'raids', label: 'Raids', type: 'checkbox', default: true },
@@ -54,6 +58,8 @@
         { key: 'tgift', label: 'Texte : abonnements offerts', type: 'text', default: '{name} offre {count} abonnement(s) !' },
         { key: 'traid', label: 'Texte : raid', type: 'text', default: 'RAID ! {name} arrive avec {count} viewers !' },
         { key: 'tbits', label: 'Texte : bits', type: 'text', default: '{name} envoie {count} bits !' },
+        { key: 'tfollow', label: 'Texte : follow', type: 'text', default: '{name} vient de follow !' },
+        { key: 'tpoints', label: 'Texte : points de chaîne ({reward} = récompense)', type: 'text', default: '{name} utilise « {reward} » !' },
         { key: 'test', label: 'Commande de test', type: 'text', default: '!testalerte' },
         size(22), font, accent,
       ],
@@ -71,9 +77,10 @@
         ['!subathon happy 2 30m', 'Happy hour : temps ×2 pendant 30 min (happy off pour arrêter)'],
         ['!subathon reset confirmer', 'Remet le timer à zéro'],
       ],
-      note: 'Le timer est sauvegardé dans OBS : si OBS plante ou redémarre, il reprend là où il en était. Les dons sont ajoutés par les modos via la commande. Les follows arriveront avec la connexion Twitch.',
+      note: 'Le timer est sauvegardé dans OBS : si OBS plante ou redémarre, il reprend là où il en était. Les dons sont ajoutés par les modos via la commande ou le panneau de contrôle. Les follows et les points de chaîne demandent la connexion Twitch.',
       fields: [
         channel,
+        twitch('moderator:read:followers channel:read:redemptions', 'Connexion Twitch (follows et points de chaîne)'),
         { key: 'start', label: 'Temps de départ (heures)', type: 'number', default: 4, min: 0, step: 0.25 },
         { key: 'sub1', label: 'Minutes par abo palier 1', type: 'number', default: 5, min: 0, step: 0.5 },
         { key: 'bits', label: 'Minutes pour 100 bits', type: 'number', default: 1, min: 0, step: 0.25 },
@@ -81,6 +88,9 @@
         { key: 'prime', label: 'Minutes par abo Prime', type: 'number', default: 5, min: 0, step: 0.5 },
         { key: 'sub2', label: 'Minutes par abo palier 2', type: 'number', default: 10, min: 0, step: 0.5 },
         { key: 'sub3', label: 'Minutes par abo palier 3', type: 'number', default: 20, min: 0, step: 0.5 },
+        { key: 'follow', label: 'Minutes par follow (connexion Twitch)', type: 'number', default: 0, min: 0, step: 0.25 },
+        { key: 'reward', label: 'Récompense de points de chaîne qui ajoute du temps (nom exact)', type: 'text', default: '', placeholder: '+5 min au subathon' },
+        { key: 'rewardmin', label: 'Minutes ajoutées par cette récompense', type: 'number', default: 5, min: 0, step: 0.5 },
         { key: 'raid', label: 'Minutes par raid (0 = rien)', type: 'number', default: 0, min: 0 },
         { key: 'raidmin', label: 'Viewers minimum du raid', type: 'number', default: 10, min: 1 },
         { key: 'cap', label: 'Durée maximum du subathon (heures, 0 = illimitée)', type: 'number', default: 0, min: 0 },
@@ -98,7 +108,7 @@
       id: 'rewind', icon: '⏪', name: 'Rewind : le condensé des temps forts', overlay: 'overlays/rewind.html', size: [1920, 1080],
       tagline: 'Pendant le live, StreamBox repère les temps forts grâce aux réactions du chat et à ta voix, et enregistre la vidéo. Au stream suivant, il rejoue le condensé.',
       replaces: ['les compilations de clips faites à la main', 'ClipMe / Voding (repérage des temps forts)'],
-      commands: [['!rewind', 'Relance le condensé (modos)'], ['!rewind stop', 'Arrête le condensé']],
+      commands: [['!rewind', 'Relance le condensé (modos)'], ['!rewind clip', 'Marque l’instant comme temps fort'], ['!rewind stop', 'Arrête le condensé']],
       setup: [
         'OBS → Outils → Paramètres du serveur WebSocket : coche « Activer », note le mot de passe et colle-le ci-dessous.',
         'OBS → Paramètres → Sortie → Replay Buffer : active-le et choisis une durée (25 à 40 s conseillé).',
@@ -114,7 +124,7 @@
         { key: 'moments', label: 'Temps forts dans le condensé', type: 'number', default: 8, min: 1, max: 20 },
         { key: 'threshold', label: 'Sensibilité : seuil de déclenchement (0,3 = sensible, 0,8 = seulement l’énorme)', type: 'number', default: 0.55, min: 0.2, max: 0.95, step: 0.05 },
         { key: 'debug', label: 'Panneau d’analyse en direct (pour régler)', type: 'checkbox', default: false },
-        { key: 'token', label: 'Connexion Twitch (clips automatiques et clips de la communauté)', type: 'twitch', scope: 'clips:edit', default: '' },
+        twitch('clips:edit', 'Connexion Twitch (clips automatiques et clips de la communauté)'),
         { key: 'cooldown', label: 'Écart minimum entre deux temps forts (s)', type: 'number', default: 90, min: 20, max: 900 },
         { key: 'after', label: 'Attente après la réaction avant d’enregistrer (s)', type: 'number', default: 8, min: 0, max: 30 },
         { key: 'wchat', label: 'Poids du chat (0 à 1)', type: 'number', default: 0.6, min: 0, max: 1, step: 0.1 },
@@ -135,6 +145,47 @@
         { key: 'cmd', label: 'Commande', type: 'text', default: '!rewind' },
         { key: 'size', label: 'Taille du texte (px)', type: 'number', default: 40, min: 16, max: 80 },
         font, accent,
+      ],
+    },
+    {
+      id: 'objectifs', icon: '🎯', name: 'Objectifs', overlay: 'overlays/objectifs.html', size: [700, 160],
+      tagline: 'Barre d’objectif d’abonnés, de followers, de bits ou de dons, avec des paliers successifs et des confettis.',
+      replaces: ['objectifs StreamElements / Streamlabs'],
+      commands: [['!objectif +5 / -1', 'Ajoute ou retire'], ['!objectif don 15', 'Ajoute un don (objectif dons)'], ['!objectif set 42', 'Règle la valeur'], ['!objectif reset', 'Revient à la valeur de départ']],
+      note: 'Abonnements et bits comptent tout seuls. Avec la connexion Twitch, les followers comptent aussi, et le total réel (followers ou abonnés) est repris au démarrage.',
+      fields: [
+        channel,
+        { key: 'type', label: 'Objectif', type: 'select', default: 'subs', options: [['subs', 'Abonnés'], ['follows', 'Followers (connexion Twitch)'], ['bits', 'Bits'], ['dons', 'Dons (€, ajoutés par les modos)'], ['perso', 'Personnalisé (compteur manuel)']] },
+        { key: 'target', label: 'Objectif à atteindre', type: 'number', default: 50, min: 1 },
+        { key: 'next', label: 'Paliers suivants (séparés par des virgules)', type: 'text', default: '', placeholder: '100, 150, 200' },
+        { key: 'title', label: 'Titre (vide = automatique)', type: 'text', default: '', placeholder: 'Objectif : cosplay en live !' },
+        twitch('moderator:read:followers channel:read:subscriptions', 'Connexion Twitch (followers, total réel)'),
+        { key: 'start', label: 'Valeur de départ', type: 'number', default: 0, min: 0 },
+        { key: 'auto', label: 'Reprendre le total réel depuis Twitch (followers / abonnés)', type: 'checkbox', default: true },
+        { key: 'style', label: 'Style', type: 'select', default: 'carte', options: [['carte', 'Carte'], ['barre', 'Barre seule']] },
+        { key: 'cmd', label: 'Commande', type: 'text', default: '!objectif' },
+        size(22), font, accent,
+      ],
+    },
+    {
+      id: 'roue', icon: '🎡', name: 'Roue de la fortune', overlay: 'overlays/roue.html', size: [900, 900],
+      tagline: 'Une roue à défis pour tes subathons : elle tourne sur commande, tous les X abos ou pour des bits.',
+      replaces: ['Wheel of Item', 'PickerSpin (roue)'],
+      commands: [['!roue', 'Fait tourner la roue (modos)']],
+      note: 'Une case du type « +10 min » ou « -5 min » ajoute ou retire ce temps au timer de subathon, si les deux overlays sont reliés au panneau de contrôle. Le tirage utilise l’aléatoire cryptographique.',
+      fields: [
+        channel,
+        { key: 'segments', label: 'Cases de la roue (une par ligne, « Texte*2 » = 2 fois plus de chances)', type: 'textarea', default: 'Défi pompes\n+10 min\nChanger de jeu\nViewer choisit la musique\n-5 min\nAccent belge pendant 10 min\n+30 min*0.5\nRien du tout' },
+        { key: 'everysubs', label: 'Tourner automatiquement tous les X abos (0 = non)', type: 'number', default: 0, min: 0 },
+        { key: 'bits', label: 'Tourner pour un cheer d’au moins X bits (0 = non)', type: 'number', default: 0, min: 0 },
+        { key: 'title', label: 'Titre', type: 'text', default: 'Roue de la fortune' },
+        { key: 'duration', label: 'Durée du tour (s)', type: 'number', default: 6, min: 2, max: 20 },
+        { key: 'linger', label: 'Rester affichée après le résultat (s)', type: 'number', default: 8, min: 1 },
+        { key: 'hide', label: 'Cachée en dehors des tours', type: 'checkbox', default: true },
+        { key: 'sound', label: 'Sons', type: 'checkbox', default: true },
+        { key: 'volume', label: 'Volume (0 à 1)', type: 'number', default: 0.3, min: 0, max: 1, step: 0.05 },
+        { key: 'cmd', label: 'Commande', type: 'text', default: '!roue' },
+        size(28), font, accent,
       ],
     },
     {
@@ -220,6 +271,7 @@
   ];
 
   window.SB_PAGES = [
+    { id: 'panneau', icon: '🎛️', name: 'Panneau de contrôle', href: 'panneau.html', tagline: 'Des boutons pour piloter sondages, giveaways, subathon, roue, objectifs et scènes OBS, sans taper de commandes. Utilisable comme dock OBS.', replaces: ['Kloot', 'Poltergeist', 'Xenon'] },
     { id: 'resizer', icon: '🖼️', name: 'Redimensionneur d’emotes', href: 'redimensionneur.html', tagline: 'Une image, et toutes les tailles d’emotes et de badges Twitch, Discord, 7TV, BTTV et FFZ en un clic. Tout reste sur ton ordinateur.', replaces: ['EmoteResizer', 'Emote Resizer', 'Twitch Emote Resizer'] },
     { id: 'calc', icon: '💰', name: 'Calculateur de revenus', href: 'calculateur.html', tagline: 'Estime ce que te rapportent tes abonnements et tes bits chaque mois.', replaces: ['calculateurs d’EmoteResizer'] },
     { id: 'annuaire', icon: '🧭', name: 'Annuaire des outils', href: 'annuaire.html', tagline: 'Les autres outils de la communauté (clips, bots, stats…), triés et commentés.', replaces: [] },
@@ -235,5 +287,14 @@
     { key: 'css', label: 'CSS personnalisé', type: 'textarea', default: '', group: 'style', placeholder: '.msg .name { text-transform: uppercase; }',
       help: 'Pour aller plus loin. Classes utiles : .msg, .name, .text (chat) · .panel, h1, .opt (sondage, giveaway) · .alert-card, .title (alertes) · .sa-box, .sa-time (subathon) · .timer-time (minuteur) · .rw-slide, .rw-cap (Rewind).' },
   ];
-  window.SB_TOOLS.forEach((t) => { t.fields = t.fields.concat(STYLE); });
+  /* Panneau de contrôle : les overlays pilotables reçoivent ses boutons via OBS */
+  const REMOTE = [
+    { key: 'remote', label: 'Contrôlable depuis le panneau de contrôle', type: 'checkbox', default: false, group: 'remote' },
+    { key: 'obspass', label: 'Mot de passe du serveur WebSocket d’OBS', type: 'text', default: '', group: 'remote', help: 'OBS → Outils → Paramètres du serveur WebSocket. Le lien reste sur ton PC.' },
+  ];
+  const PILOTABLE = ['sondage', 'giveaway', 'subathon', 'minuteur', 'alertes', 'objectifs', 'roue'];
+  window.SB_TOOLS.forEach((t) => {
+    if (PILOTABLE.includes(t.id)) t.fields = t.fields.concat(REMOTE);
+    t.fields = t.fields.concat(STYLE);
+  });
 })();

@@ -127,6 +127,7 @@ function onMessage(m) {
 
 const chat = new SB.TwitchChat(c.channel);
 chat.on('message', onMessage).connect();
+SB.remote('giveaway', c.cmd, onMessage);
 
 if (c.demo) {
   const cycle = () => {
