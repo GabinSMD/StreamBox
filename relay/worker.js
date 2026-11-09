@@ -44,6 +44,8 @@
  *   GET/POST /o/:id/sr                   overlay Lecteur (YouTube) : état de la file, morceau fini / en erreur
  *   GET     /o/:id/spotify-token         jeton Spotify à jour pour l'overlay Musique (le relais garde le refresh token)
  *   POST    /o/:id/tts { text }           voix française générée par Workers AI (binding AI), 20 lectures par minute maximum
+ * Mini-jeux du chat (points virtuels, duels, prédictions, quiz) :
+ *   GET/PUT /me/jeux · POST /me/jeux/action { args } (commande lancée au nom du streamer) · GET /o/:id/jeux (overlay)
  *   Secrets facultatifs : YOUTUBE_API_KEY (recherche par titre et durée), SPOTIFY_CLIENT_ID.
  * Dons automatiques du subathon : Ko-fi et webhooks (instantané), StreamElements (vérifié chaque minute),
  *   Streamlabs (transmis par l'overlay OBS). Chaque don n'est compté qu'une fois.
@@ -55,6 +57,7 @@
 import { DEFAULT_BOT, sanitizeBot, onChat, onEvent, onTick, wantedSubs, userLevel, BOT_SCOPES, BOT_ACCOUNT_SCOPES } from './bot.js';
 import * as SUBA from './subathon.js';
 import * as SR from './sr.js';
+import * as JEUX from './jeux.js';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -245,7 +248,7 @@ const NEEDS = {
   sondage: ['obspass'], minuteur: ['obspass'], roue: ['obspass'], giveaway: ['obspass', 'webhook'],
   rewind: ['token', 'obspass'],
   musique: ['token', 'spotifycid', 'lastfm', 'lfmkey'], // Spotify : jeton à jour fourni par /o/:id/spotify-token
-  lecteur: [],
+  lecteur: [], jeux: [],
   tts: ['token', 'sejwt', 'sltoken', 'kofi', 'obspass'],
   discord: ['token', 'webhook'],
 };
@@ -329,6 +332,10 @@ async function accountRoutes(req, env, url, p) {
       const r = await stub('user:' + idx.user_id).fetch('https://acc/ov-tts', { method: 'POST', body: JSON.stringify({ ov: p[1], text: d.text }) });
       return withCors(new Response(r.body, { status: r.status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } }));
     }
+    if (p[2] === 'jeux' && req.method === 'GET') { // overlay Mini-jeux : état public des jeux
+      const r = await stub('user:' + idx.user_id).fetch('https://acc/ov-jeux', { method: 'POST', body: JSON.stringify({ ov: p[1] }) });
+      return withCors(new Response(r.body, { status: r.status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } }));
+    }
     if (p[2] === 'sr' || p[2] === 'spotify-token') { // overlay Lecteur (file YouTube) / overlay Musique (Spotify)
       const d = req.method === 'POST' ? await req.json().catch(() => ({})) : {};
       const r = await stub('user:' + idx.user_id).fetch('https://acc/' + (p[2] === 'sr' ? 'ov-sr' : 'ov-spotify-token'), { method: 'POST', body: JSON.stringify(Object.assign({ action: 'state' }, d, { ov: p[1] })) });
@@ -370,6 +377,11 @@ async function accountRoutes(req, env, url, p) {
     if (p.length === 2 && req.method === 'GET') return fwd('/sr-get', 'POST', {});
     if (p.length === 2 && req.method === 'PUT') return fwd('/sr-save', 'POST', body);
     if (p[2] === 'action' && req.method === 'POST') return fwd('/sr-action', 'POST', body);
+  }
+  if (p[1] === 'jeux') {
+    if (p.length === 2 && req.method === 'GET') return fwd('/jeux-get', 'POST', {});
+    if (p.length === 2 && req.method === 'PUT') return fwd('/jeux-save', 'POST', body);
+    if (p[2] === 'action' && req.method === 'POST') return fwd('/jeux-action', 'POST', body);
   }
   if (p[1] === 'subathon') {
     if (p.length === 2 && req.method === 'GET') return fwd('/sub-get', 'POST', {});
@@ -498,6 +510,7 @@ export class Account {
       if (!d.id) return err('identifiant du don manquant');
       return ok(await this.subDon({ source: clean(d.source || 'Streamlabs', 30), id: 'ov-' + clean(d.id, 80), name: clean(d.name, 60), amount: parseFloat(d.amount) || 0, currency: clean(d.currency || 'EUR', 5), message: clean(d.message, 300) }, profile, await secrets(), E));
     }
+    if (path.startsWith('/jeux-') || path === '/ov-jeux') return this.jeuxRoute(path, body, profile, await secrets(), E, ok, err);
     if (path.startsWith('/bot-')) return this.botRoute(path, body, profile, await secrets(), E, ok, err);
     if (path.startsWith('/sr-') || path === '/public-sr' || path === '/ov-sr' || path === '/ov-spotify-token') return this.srRoute(path, body, profile, await secrets(), E, ok, err);
     if (path.startsWith('/sub-') || path.startsWith('/public-')) return this.subRoute(path, body, profile, E, ok, err);
@@ -663,7 +676,9 @@ export class Account {
     const subOn = !!(subCfg && subCfg.enabled);
     const srC = await st.get('sr');
     const srOn = !!(srC && srC.enabled);
-    if (cfg.enabled || subOn || srOn) {
+    const jx = await st.get('jeux');
+    const jeuxOn = !!(jx && jx.enabled);
+    if (cfg.enabled || subOn || srOn || jeuxOn) {
       const origin = await st.get('origin');
       const bot = cfg.sender === 'bot' ? await this.botAccount() : null;
       const bid = profile.user_id;
@@ -720,7 +735,9 @@ export class Account {
       const subOn = !!(subCfg && subCfg.enabled);
       const srCfg = await st.get('sr');
       const srOn = !!(srCfg && srCfg.enabled);
-      if (!cfg.enabled && !subOn && !srOn) return ok({ ignored: true });
+      const jxCfg = await st.get('jeux');
+      const jeuxOn = !!(jxCfg && jxCfg.enabled);
+      if (!cfg.enabled && !subOn && !srOn && !jeuxOn) return ok({ ignored: true });
       const state = (await st.get('botstate')) || {};
       state.seen = state.seen || [];
       if (body.id && state.seen.includes(body.id)) return ok({ duplicate: true }); // Twitch peut renvoyer un webhook
@@ -739,7 +756,7 @@ export class Account {
         const own = b ? e.chatter_user_id === b.user_id
           : e.chatter_user_id === profile.user_id && (state.sent || []).some((x) => x.text === text && Date.now() - x.t < 60000);
         if (!own) {
-          const handled = (srOn && await this.srChat(srCfg, text, e, profile, api, secrets, E)) || (subOn && await this.subChat(subCfg, text, e, profile, api));
+          const handled = (srOn && await this.srChat(srCfg, text, e, profile, api, secrets, E)) || (subOn && await this.subChat(subCfg, text, e, profile, api)) || (jeuxOn && await this.jeuxChat(jxCfg, text, e, profile, api));
           if (!handled && cfg.enabled) await onChat(cfg, state, { text, login: e.chatter_user_login, name: e.chatter_user_name, userId: e.chatter_user_id, badges: e.badges, messageId: e.message_id, isBroadcaster: e.chatter_user_id === profile.user_id }, api, profile.login);
         }
       } else {
@@ -898,6 +915,70 @@ export class Account {
       else if ((body.action === 'ended' || body.action === 'error') && Q.current && Q.current.n === body.n) SR.advance(Q, body.action === 'error' ? 'error' : 'played', now);
       if (body.action !== 'state') await st.put('srq', Q);
       return ok({ volume: cfg.volume, paused: Q.paused, current: Q.current, next: Q.items.slice(0, 3), count: Q.items.length });
+    }
+    return err('?', 404);
+  }
+
+  /* ================= Mini-jeux du chat ================= */
+  // Points par viewer : pt:<id> = { id, n, name, login, seen, last } ; ptn:<login> = id (pour !duel @pseudo, !give)
+  pointsStore() {
+    const st = this.ctx.storage;
+    const P = {
+      async get(id) { return (await st.get('pt:' + id)) || { id: String(id), n: 0, name: '', login: '' }; },
+      async put(id, p) { p.id = String(id); await st.put('pt:' + id, p); if (p.login) await st.put('ptn:' + p.login, String(id)); },
+      async findByName(login) { const id = await st.get('ptn:' + String(login).toLowerCase()); return id ? P.get(id) : null; },
+      async top(n) { return [...(await st.list({ prefix: 'pt:', limit: 5000 })).values()].filter((x) => x.n > 0).sort((a, b) => b.n - a.n).slice(0, n).map((x) => ({ name: x.name || x.login, n: x.n })); },
+    };
+    return P;
+  }
+
+  async jeuxChat(cfg, text, e, profile, api) {
+    const st = this.ctx.storage, now = Date.now(), P = this.pointsStore();
+    const level = userLevel(e.badges, e.chatter_user_id === profile.user_id);
+    await JEUX.earn(cfg, P, { id: e.chatter_user_id, name: e.chatter_user_name, login: e.chatter_user_login }, level >= 1, now);
+    const G = (await st.get('jeuxstate')) || JEUX.freshGames();
+    const r = await JEUX.onChat(cfg, G, P, { text, login: e.chatter_user_login, name: e.chatter_user_name, userId: e.chatter_user_id }, level, now);
+    await st.put('jeuxstate', G);
+    if (r === undefined) return false; // pas une commande des jeux : le bot peut la traiter
+    if (r) await api.say(r);
+    return true;
+  }
+
+  async jeuxRoute(path, body, profile, secrets, E, ok, err) {
+    const st = this.ctx.storage, now = Date.now(), P = this.pointsStore();
+    let cfg = (await st.get('jeux')) || JEUX.sanitizeGames({}, null);
+    const G = (await st.get('jeuxstate')) || JEUX.freshGames();
+    const full = async () => ({ cfg, state: JEUX.publicGames(cfg, G, await P.top(10), now), quizAnswer: G.quiz && G.quiz.open ? G.quiz.answers.join(' / ') : null, players: (await st.list({ prefix: 'pt:', limit: 5000 })).size });
+    if (path === '/ov-jeux') {
+      const o = ((await st.get('overlays')) || {})[body.ov];
+      if (!o || o.tool !== 'jeux') return err('overlay non autorisé', 403);
+      return ok(JEUX.publicGames(cfg, G, await P.top(5), now));
+    }
+    if (path === '/jeux-get') return ok(await full());
+    if (path === '/jeux-save') {
+      const prev = cfg;
+      cfg = JEUX.sanitizeGames(body, prev);
+      await st.put('jeux', cfg);
+      let errors = [];
+      if (cfg.enabled !== prev.enabled && this.env.EVENTSUB_SECRET) errors = await this.syncSubs((await st.get('bot')) || sanitizeBot({}, null), profile, E).catch((e) => [e.message]);
+      if (!this.env.EVENTSUB_SECRET && cfg.enabled) errors.push('EVENTSUB_SECRET manquant sur le relais');
+      return ok(Object.assign(await full(), { errors }));
+    }
+    if (path === '/jeux-action') {
+      if (body.action === 'reset') { // remet tous les points à zéro
+        const keys = [...(await st.list({ prefix: 'pt:', limit: 5000 })).keys(), ...(await st.list({ prefix: 'ptn:', limit: 5000 })).keys()];
+        for (let i = 0; i < keys.length; i += 128) await st.delete(keys.slice(i, i + 128));
+        Object.assign(G, JEUX.freshGames()); await st.put('jeuxstate', G);
+        return ok(await full());
+      }
+      // Les boutons de la page lancent la même commande que dans le chat, au nom du streamer
+      const args = String(body.args || '').slice(0, 500);
+      const reply = await JEUX.onChat(cfg, G, P, { text: args, login: profile.login, name: profile.login, userId: profile.user_id }, 4, now);
+      await st.put('jeuxstate', G);
+      const bot = (await st.get('bot')) || sanitizeBot({}, null);
+      let sent = false;
+      if (reply && cfg.enabled) { const ctx = { state: (await st.get('botstate')) || {}, changed: false }; await this.makeApi(bot, profile, secrets, E, ctx).say(reply).catch(() => {}); await st.put('botstate', ctx.state); sent = true; }
+      return ok(Object.assign(await full(), { reply: reply || null, sent }));
     }
     return err('?', 404);
   }
