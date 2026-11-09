@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Demandes de musique · StreamBox</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="css/site.css">
+</head>
+<body>
+<main class="wrap">
+  <div id="err" class="box" style="margin:48px auto;max-width:560px" hidden></div>
+  <div id="app" hidden>
+    <section class="lv-hero" style="padding-bottom:16px">
+      <div class="lv-kicker"><a id="chan" target="_blank" rel="noopener"></a> · demandes de musique <span id="paused"></span></div>
+      <h1>🎶 La file du chat</h1>
+      <p class="bt-help" id="how"></p>
+    </section>
+    <section class="box"><h3 class="bt-h">▶ En ce moment</h3><div id="current"></div></section>
+    <section class="box" style="margin-top:16px"><h3 class="bt-h">📋 À venir <small id="count"></small></h3><div id="queue"></div></section>
+    <section class="box" style="margin-top:16px"><h3 class="bt-h">🕘 Derniers morceaux</h3><div id="history"></div></section>
+  </div>
+</main>
+<script src="js/config.js"></script>
+<script src="js/account.js"></script>
+<script src="js/site.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+const chan = (new URLSearchParams(location.search).get('c') || '').toLowerCase().replace(/[^a-z0-9_]/g, '');
+const len = (s) => (s ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` : '');
+function row(x, i) {
+  const r = el('div', 'sr-item');
+  if (x.thumb) { const img = el('img'); img.src = x.thumb; img.alt = ''; r.appendChild(img); }
+  const t = el('div', 'sr-t'); const a = el('a', null, x.title); a.href = x.url || '#'; a.target = '_blank'; a.rel = 'noopener';
+  t.append(i != null ? el('b', 'lv-num', `${i + 1}. `) : '', a, el('small', null, [x.artist, len(x.duration), 'demandé par ' + x.by].filter(Boolean).join(' · ')));
+  r.appendChild(t); return r;
+}
+async function load() {
+  try {
+    const r = await fetch(`${SBA.relay()}/public/${chan}/sr`); const d = await r.json();
+    if (!r.ok) throw new Error(d.error || r.status);
+    $('app').hidden = false; $('err').hidden = true;
+    $('chan').textContent = d.channel; $('chan').href = 'https://twitch.tv/' + d.channel;
+    $('paused').textContent = d.paused ? '· ⏸ en pause' : '';
+    $('how').textContent = `Dans le chat : ${d.cmd} ${d.source === 'spotify' ? 'titre ou lien Spotify' : 'lien YouTube (ou titre)'} · !file pour voir ta place · !wrongsong pour retirer ta demande`;
+    $('current').replaceChildren(d.current ? row(d.current) : el('p', 'bt-help', d.source === 'spotify' ? 'Les demandes passent dans la file Spotify du streamer.' : 'Rien en cours.'));
+    $('count').textContent = d.queue.length ? `${d.queue.length} morceau(x)` : '';
+    $('queue').replaceChildren(...(d.queue.length ? d.queue.map(row) : [el('p', 'bt-help', 'La file est vide : à toi de jouer !')]));
+    $('history').replaceChildren(...(d.history.length ? d.history.map((x) => row(x)) : [el('p', 'bt-help', 'Rien pour l’instant.')]));
+  } catch (e) { $('err').hidden = false; $('err').textContent = chan ? 'File indisponible : ' + e.message : 'Lien incomplet : il manque ?c=nom_de_la_chaine.'; }
+}
+load(); setInterval(load, 5000);
+</script>
+</body>
+</html>

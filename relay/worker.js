@@ -37,6 +37,12 @@
  *   GET     /public/:login/subathon      état public (timer, paliers, idées) ; session facultative (votes du viewer)
  *   POST    /public/:login/ideas         { text } (session viewer) · POST /public/:login/ideas/:id/vote
  *   POST    /o/:id/don                   don reçu par un overlay (Streamlabs) → subathon du relais
+ *
+ * Demandes de musique (!sr) :
+ *   GET/PUT /me/sr · POST /me/sr/action { action, n, dir } · GET /public/:login/sr (file publique)
+ *   GET/POST /o/:id/sr                   overlay Lecteur (YouTube) : état de la file, morceau fini / en erreur
+ *   GET     /o/:id/spotify-token         jeton Spotify à jour pour l'overlay Musique (le relais garde le refresh token)
+ *   Secrets facultatifs : YOUTUBE_API_KEY (recherche par titre et durée), SPOTIFY_CLIENT_ID.
  * Dons automatiques du subathon : Ko-fi et webhooks (instantané), StreamElements (vérifié chaque minute),
  *   Streamlabs (transmis par l'overlay OBS). Chaque don n'est compté qu'une fois.
  *
@@ -46,6 +52,7 @@
 
 import { DEFAULT_BOT, sanitizeBot, onChat, onEvent, onTick, wantedSubs, userLevel, BOT_SCOPES, BOT_ACCOUNT_SCOPES } from './bot.js';
 import * as SUBA from './subathon.js';
+import * as SR from './sr.js';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -235,7 +242,8 @@ const NEEDS = {
   objectifs: ['token', 'sejwt', 'sltoken', 'kofi', 'obspass'],
   sondage: ['obspass'], minuteur: ['obspass'], roue: ['obspass'], giveaway: ['obspass', 'webhook'],
   rewind: ['token', 'obspass'],
-  musique: ['token', 'spotify', 'spotifycid', 'lastfm', 'lfmkey'],
+  musique: ['token', 'spotifycid', 'lastfm', 'lfmkey'], // Spotify : jeton à jour fourni par /o/:id/spotify-token
+  lecteur: [],
   discord: ['token', 'webhook'],
 };
 const SECRET_KEYS = ['spotify', 'spotifycid', 'lastfm', 'lfmkey', 'sejwt', 'sltoken', 'kofi', 'webhook', 'obspass'];
@@ -286,7 +294,7 @@ async function accountRoutes(req, env, url, p) {
   }
 
   // ---- Subathon public : timer, paliers, idées (lecture libre ; propositions et votes avec une session) ----
-  if (p[0] === 'public' && LOGIN_RE.test(p[1] || '') && ['subathon', 'ideas'].includes(p[2])) {
+  if (p[0] === 'public' && LOGIN_RE.test(p[1] || '') && ['subathon', 'ideas', 'sr'].includes(p[2])) {
     const [ist, idx] = await call('login:' + p[1], '/index');
     if (ist !== 200 || !idx.user_id) return json({ error: 'chaîne inconnue sur StreamBox' }, 404);
     const sid = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
@@ -295,6 +303,7 @@ async function accountRoutes(req, env, url, p) {
     const owner = stub('user:' + idx.user_id);
     const go = (path, body) => owner.fetch('https://acc' + path, { method: 'POST', body: JSON.stringify(body) }).then((r) => withCors(new Response(r.body, { status: r.status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } })));
     if (req.method === 'GET' && p[2] === 'subathon') return go('/public-sub', { viewerId: viewer && viewer.user_id });
+    if (req.method === 'GET' && p[2] === 'sr') return go('/public-sr', {});
     if (req.method === 'POST' && p[2] === 'ideas') {
       if (!viewer) return json({ error: 'connecte-toi avec Twitch pour proposer ou voter' }, 401);
       const body = await req.json().catch(() => ({}));
@@ -311,6 +320,11 @@ async function accountRoutes(req, env, url, p) {
     if (p[2] === 'ws') {
       if (req.headers.get('Upgrade') !== 'websocket') return json({ error: 'WebSocket attendu' }, 426);
       return stub('user:' + idx.user_id).fetch('https://acc/ws?ov=' + p[1], req);
+    }
+    if (p[2] === 'sr' || p[2] === 'spotify-token') { // overlay Lecteur (file YouTube) / overlay Musique (Spotify)
+      const d = req.method === 'POST' ? await req.json().catch(() => ({})) : {};
+      const r = await stub('user:' + idx.user_id).fetch('https://acc/' + (p[2] === 'sr' ? 'ov-sr' : 'ov-spotify-token'), { method: 'POST', body: JSON.stringify(Object.assign({ action: 'state' }, d, { ov: p[1] })) });
+      return withCors(new Response(r.body, { status: r.status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } }));
     }
     if (p[2] === 'don' && req.method === 'POST') { // l'overlay transmet un don Streamlabs reçu en direct
       const d = await req.json().catch(() => ({}));
@@ -339,6 +353,11 @@ async function accountRoutes(req, env, url, p) {
 
   if (p.length === 1 && req.method === 'GET') return fwd('/me', 'POST', {});
   if (p[1] === 'secrets' && req.method === 'PUT') return fwd('/secrets', 'POST', body);
+  if (p[1] === 'sr') {
+    if (p.length === 2 && req.method === 'GET') return fwd('/sr-get', 'POST', {});
+    if (p.length === 2 && req.method === 'PUT') return fwd('/sr-save', 'POST', body);
+    if (p[2] === 'action' && req.method === 'POST') return fwd('/sr-action', 'POST', body);
+  }
   if (p[1] === 'subathon') {
     if (p.length === 2 && req.method === 'GET') return fwd('/sub-get', 'POST', {});
     if (p.length === 2 && req.method === 'PUT') return fwd('/sub-save', 'POST', body);
@@ -450,6 +469,7 @@ export class Account {
       return ok(await this.subDon({ source: clean(d.source || 'Streamlabs', 30), id: 'ov-' + clean(d.id, 80), name: clean(d.name, 60), amount: parseFloat(d.amount) || 0, currency: clean(d.currency || 'EUR', 5), message: clean(d.message, 300) }, profile, await secrets(), E));
     }
     if (path.startsWith('/bot-')) return this.botRoute(path, body, profile, await secrets(), E, ok, err);
+    if (path.startsWith('/sr-') || path === '/public-sr' || path === '/ov-sr' || path === '/ov-spotify-token') return this.srRoute(path, body, profile, await secrets(), E, ok, err);
     if (path.startsWith('/sub-') || path.startsWith('/public-')) return this.subRoute(path, body, profile, E, ok, err);
 
     if (path === '/me') {
@@ -592,7 +612,9 @@ export class Account {
     const ids = [];
     const subCfg = await st.get('sub');
     const subOn = !!(subCfg && subCfg.enabled);
-    if (cfg.enabled || subOn) {
+    const srC = await st.get('sr');
+    const srOn = !!(srC && srC.enabled);
+    if (cfg.enabled || subOn || srOn) {
       const origin = await st.get('origin');
       const bot = cfg.sender === 'bot' ? await this.botAccount() : null;
       const bid = profile.user_id;
@@ -647,7 +669,9 @@ export class Account {
     if (path === '/bot-event') {
       const subCfg = await st.get('sub');
       const subOn = !!(subCfg && subCfg.enabled);
-      if (!cfg.enabled && !subOn) return ok({ ignored: true });
+      const srCfg = await st.get('sr');
+      const srOn = !!(srCfg && srCfg.enabled);
+      if (!cfg.enabled && !subOn && !srOn) return ok({ ignored: true });
       const state = (await st.get('botstate')) || {};
       state.seen = state.seen || [];
       if (body.id && state.seen.includes(body.id)) return ok({ duplicate: true }); // Twitch peut renvoyer un webhook
@@ -666,7 +690,7 @@ export class Account {
         const own = b ? e.chatter_user_id === b.user_id
           : e.chatter_user_id === profile.user_id && (state.sent || []).some((x) => x.text === text && Date.now() - x.t < 60000);
         if (!own) {
-          const handled = subOn && await this.subChat(subCfg, text, e, profile, api);
+          const handled = (srOn && await this.srChat(srCfg, text, e, profile, api, secrets, E)) || (subOn && await this.subChat(subCfg, text, e, profile, api));
           if (!handled && cfg.enabled) await onChat(cfg, state, { text, login: e.chatter_user_login, name: e.chatter_user_name, userId: e.chatter_user_id, badges: e.badges, messageId: e.message_id, isBroadcaster: e.chatter_user_id === profile.user_id }, api, profile.login);
         }
       } else {
@@ -676,6 +700,155 @@ export class Account {
       if (ctx.changed) await st.put('bot', cfg);
       await st.put('botstate', state);
       return ok({ ok: true });
+    }
+    return err('?', 404);
+  }
+
+  /* ================= Demandes de musique ================= */
+  async spotifyAccess(secrets, E) {
+    if (this._sp && this._sp.exp > Date.now() && this._sp.rt === secrets.spotify) return this._sp.access;
+    const cid = secrets.spotifycid || this.env.SPOTIFY_CLIENT_ID;
+    if (!secrets.spotify || !cid) throw new Error('Spotify n’est pas connecté (Mon compte)');
+    const r = await fetch('https://accounts.spotify.com/api/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: secrets.spotify, client_id: cid }) });
+    const d = await r.json().catch(() => ({}));
+    if (!d.access_token) throw new Error('Spotify a refusé l’accès : reconnecte Spotify dans Mon compte');
+    if (d.refresh_token && d.refresh_token !== secrets.spotify) { secrets.spotify = d.refresh_token; await this.ctx.storage.put('secrets', await seal(secrets, E.key)); } // Spotify peut renouveler le jeton
+    this._sp = { access: d.access_token, exp: Date.now() + ((d.expires_in || 3600) - 60) * 1000, rt: secrets.spotify, scope: d.scope || '' };
+    return d.access_token;
+  }
+  async spotifyApi(path, opt, secrets, E) {
+    const r = await fetch('https://api.spotify.com/v1/' + path, Object.assign({}, opt, { headers: { Authorization: 'Bearer ' + (await this.spotifyAccess(secrets, E)), 'Content-Type': 'application/json' } }));
+    return r;
+  }
+  async ytMeta(id) {
+    const key = this.env.YOUTUBE_API_KEY;
+    if (key) {
+      const d = await (await fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails,status&id=${id}&key=${key}`)).json();
+      const v = (d.items || [])[0];
+      if (!v) return { error: 'vidéo introuvable.' };
+      if (v.status && v.status.embeddable === false) return { error: 'cette vidéo ne peut pas être lue en dehors de YouTube.' };
+      return { source: 'youtube', id, title: v.snippet.title, artist: v.snippet.channelTitle, duration: SR.isoDuration(v.contentDetails.duration), thumb: `https://i.ytimg.com/vi/${id}/mqdefault.jpg`, url: 'https://youtu.be/' + id };
+    }
+    const r = await fetch(`https://www.youtube.com/oembed?format=json&url=${encodeURIComponent('https://www.youtube.com/watch?v=' + id)}`);
+    if (!r.ok) return { error: r.status === 401 ? 'cette vidéo ne peut pas être lue en dehors de YouTube.' : 'vidéo introuvable.' };
+    const d = await r.json();
+    return { source: 'youtube', id, title: d.title, artist: d.author_name, duration: 0, thumb: `https://i.ytimg.com/vi/${id}/mqdefault.jpg`, url: 'https://youtu.be/' + id };
+  }
+  spTrack(t) { return { source: 'spotify', id: t.id, title: t.name, artist: (t.artists || []).map((a) => a.name).join(', '), duration: Math.round((t.duration_ms || 0) / 1000), thumb: ((t.album || {}).images || [])[0] ? t.album.images[0].url : '', url: (t.external_urls || {}).spotify || '' }; }
+  async resolve(cfg, req, secrets, E) {
+    if (req.kind === 'empty') return { error: `utilisation : ${cfg.cmd} titre ou lien` };
+    if (req.kind === 'unsupported') return { error: cfg.source === 'spotify' ? 'envoie un titre ou un lien Spotify.' : 'envoie un titre ou un lien YouTube.' };
+    if (cfg.source === 'youtube') {
+      if (req.kind === 'youtube') return this.ytMeta(req.id);
+      if (req.kind === 'spotify') return { error: 'envoie un lien YouTube.' };
+      const key = this.env.YOUTUBE_API_KEY;
+      if (!key) return { error: 'envoie un lien YouTube (la recherche par titre n’est pas activée).' };
+      const d = await (await fetch(`https://www.googleapis.com/youtube/v3/search?part=id&type=video&videoEmbeddable=true&maxResults=1&q=${encodeURIComponent(req.q)}&key=${key}`)).json();
+      const id = ((d.items || [])[0] || {}).id;
+      return id && id.videoId ? this.ytMeta(id.videoId) : { error: 'aucun résultat.' };
+    }
+    if (req.kind === 'youtube') return { error: 'envoie un titre ou un lien Spotify.' };
+    if (req.kind === 'spotify') { const r = await this.spotifyApi('tracks/' + req.id, {}, secrets, E); return r.ok ? this.spTrack(await r.json()) : { error: 'morceau Spotify introuvable.' }; }
+    const r = await this.spotifyApi(`search?type=track&limit=1&q=${encodeURIComponent(req.q)}`, {}, secrets, E);
+    const t = r.ok ? ((((await r.json()).tracks || {}).items) || [])[0] : null;
+    return t ? this.spTrack(t) : { error: 'aucun résultat sur Spotify.' };
+  }
+
+  /* Commandes du chat : !sr, !song, !file, !wrongsong, !skip */
+  async srChat(cfg, text, e, profile, api, secrets, E) {
+    const st = this.ctx.storage, now = Date.now();
+    const [w, ...rest] = text.trim().split(/\s+/);
+    const low = (w || '').toLowerCase(), args = rest.join(' '), name = e.chatter_user_name;
+    if (![cfg.cmd, '!song', '!file', '!queue', '!wrongsong', '!skip'].includes(low)) return false;
+    const level = userLevel(e.badges, e.chatter_user_id === profile.user_id);
+    const Q = (await st.get('srq')) || SR.freshQueue();
+    const user = { id: e.chatter_user_id, name };
+    let reply = null;
+    try {
+      if (low === cfg.cmd && level >= 3 && /^(on|off|pause|reprendre|clear|vider)$/i.test(args)) {
+        const a = args.toLowerCase();
+        if (a === 'on') { cfg.enabled = true; await st.put('sr', cfg); Q.paused = false; reply = '🎵 Demandes de musique ouvertes !'; }
+        else if (a === 'off' || a === 'pause') { Q.paused = true; reply = '⏸ Demandes de musique en pause.'; }
+        else if (a === 'reprendre') { Q.paused = false; reply = '▶ Demandes de musique ouvertes.'; }
+        else { Q.items = []; reply = '🧹 File vidée.'; }
+      } else if (low === cfg.cmd) {
+        const no = SR.canRequest(cfg, Q, user, level, now);
+        if (no) reply = `@${name} ${no}`;
+        else {
+          const track = await this.resolve(cfg, SR.parseRequest(args), secrets, E);
+          if (track.error) reply = `@${name} ${track.error}`;
+          else {
+            const r = SR.addTrack(cfg, Q, track, user, level, now);
+            if (r.error) reply = `@${name} ${r.error}`;
+            else if (cfg.source === 'spotify') {
+              const q = await this.spotifyApi('me/player/queue?uri=' + encodeURIComponent('spotify:track:' + track.id), { method: 'POST' }, secrets, E);
+              Q.items.pop();
+              if (!q.ok) { Q.cd[user.id] = 0; reply = `@${name} Spotify refuse l’ajout (${q.status === 404 ? 'aucun appareil Spotify actif' : q.status === 403 ? 'Spotify Premium et la permission « modifier la lecture » sont nécessaires' : 'erreur ' + q.status}).`; }
+              else { Q.history.unshift(Object.assign(r.item, { status: 'spotify', endedAt: now })); Q.history = Q.history.slice(0, 30); if (cfg.announce) reply = `🎵 ${SR.label(r.item)} ajouté à la file Spotify (demandé par ${name}).`; }
+            } else if (cfg.announce) reply = `🎵 ${SR.label(r.item)} [${SR.fmtLen(r.item.duration)}] ajouté en position ${r.position + (Q.current ? 1 : 0)} (demandé par ${name}).`;
+          }
+        }
+      } else if (low === '!song') {
+        if (cfg.source === 'spotify') {
+          const r = await this.spotifyApi('me/player/currently-playing', {}, secrets, E);
+          const d = r.status === 200 ? await r.json() : null;
+          reply = d && d.item ? `🎵 En ce moment : ${d.item.name} — ${(d.item.artists || []).map((a) => a.name).join(', ')} ${(d.item.external_urls || {}).spotify || ''}` : 'Rien ne joue sur Spotify.';
+        } else reply = Q.current ? `🎵 En ce moment : ${SR.label(Q.current)} (demandé par ${Q.current.by}) ${Q.current.url}` : 'Aucune demande en cours.';
+      } else if (low === '!file' || low === '!queue') {
+        const mine = Q.items.map((x, i) => [x, i + 1]).filter(([x]) => x.byId === String(user.id));
+        reply = `${Q.items.length} morceau(x) en attente.` + (mine.length ? ` ${name} : ${mine.map(([x, pos]) => `« ${x.title.slice(0, 40)} » en position ${pos}`).join(', ')}.` : '');
+      } else if (low === '!wrongsong') {
+        const it = SR.removeLastOf(Q, user.id);
+        reply = it ? `@${name} « ${it.title.slice(0, 60)} » retiré de la file.` : `@${name} tu n’as aucune demande en attente.`;
+      } else if (low === '!skip' && level >= 3) {
+        if (cfg.source === 'spotify') { await this.spotifyApi('me/player/next', { method: 'POST' }, secrets, E); reply = '⏭ Morceau passé.'; }
+        else if (Q.current) { SR.advance(Q, 'skipped', now); reply = '⏭ Morceau passé.' + (Q.current ? ` Suivant : ${SR.label(Q.current)}` : ''); }
+      } else return false;
+    } catch (err) { reply = `@${name} ${err.message}`; }
+    await st.put('srq', Q);
+    if (reply) await api.say(reply.slice(0, 480));
+    return true;
+  }
+
+  async srRoute(path, body, profile, secrets, E, ok, err) {
+    const st = this.ctx.storage, now = Date.now();
+    let cfg = (await st.get('sr')) || SR.sanitizeSr({}, null);
+    const Q = (await st.get('srq')) || SR.freshQueue();
+    const full = () => ({ cfg, queue: { current: Q.current, items: Q.items, history: Q.history, paused: Q.paused }, ytSearch: !!this.env.YOUTUBE_API_KEY, spotify: !!secrets.spotify, login: profile.login });
+    if (path === '/sr-get') return ok(full());
+    if (path === '/sr-save') {
+      const prev = cfg; cfg = SR.sanitizeSr(body, prev); await st.put('sr', cfg);
+      let errors = [];
+      if (cfg.enabled !== prev.enabled && this.env.EVENTSUB_SECRET) errors = await this.syncSubs((await st.get('bot')) || sanitizeBot({}, null), profile, E).catch((e) => [e.message]);
+      if (cfg.source === 'spotify' && cfg.enabled) { try { await this.spotifyAccess(secrets, E); if (this._sp && !/user-modify-playback-state/.test(this._sp.scope)) errors.push('reconnecte Spotify dans Mon compte pour autoriser l’ajout à la file'); } catch (e) { errors.push(e.message); } }
+      return ok(Object.assign(full(), { errors }));
+    }
+    if (path === '/sr-action') {
+      const i = Q.items.findIndex((x) => x.n === body.n);
+      if (body.action === 'skip') { if (cfg.source === 'spotify') await this.spotifyApi('me/player/next', { method: 'POST' }, secrets, E).catch(() => {}); else SR.advance(Q, 'skipped', now); }
+      else if (body.action === 'remove' && i >= 0) Q.items.splice(i, 1);
+      else if (body.action === 'move' && i >= 0) { const j = Math.max(0, Math.min(Q.items.length - 1, i + (body.dir < 0 ? -1 : 1))); Q.items.splice(j, 0, Q.items.splice(i, 1)[0]); }
+      else if (body.action === 'playnow' && i >= 0) { Q.items.unshift(Q.items.splice(i, 1)[0]); SR.advance(Q, 'skipped', now); }
+      else if (body.action === 'clear') Q.items = [];
+      else if (body.action === 'pause') Q.paused = true;
+      else if (body.action === 'resume') Q.paused = false;
+      await st.put('srq', Q);
+      return ok(full());
+    }
+    if (path === '/public-sr') { if (!cfg.enabled) return err('pas de demandes de musique sur cette chaîne', 404); return ok(SR.publicQueue(cfg, Q, profile.login)); }
+    // Overlays (lien court du compte)
+    const o = ((await st.get('overlays')) || {})[body.ov];
+    if (path === '/ov-spotify-token') {
+      if (!o || o.tool !== 'musique') return err('overlay non autorisé', 403);
+      try { return ok({ access: await this.spotifyAccess(secrets, E), exp: this._sp.exp }); } catch (e) { return err(e.message, 409); }
+    }
+    if (path === '/ov-sr') {
+      if (!o || o.tool !== 'lecteur') return err('overlay non autorisé', 403);
+      if (cfg.source !== 'youtube' || !cfg.enabled) return ok({ off: true, current: null, next: [] });
+      if (body.action === 'next' && !Q.current) SR.advance(Q, null, now);
+      else if ((body.action === 'ended' || body.action === 'error') && Q.current && Q.current.n === body.n) SR.advance(Q, body.action === 'error' ? 'error' : 'played', now);
+      if (body.action !== 'state') await st.put('srq', Q);
+      return ok({ volume: cfg.volume, paused: Q.paused, current: Q.current, next: Q.items.slice(0, 3), count: Q.items.length });
     }
     return err('?', 404);
   }

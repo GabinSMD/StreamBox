@@ -59,6 +59,16 @@ let spAccess = null, spExp = 0;
 const rtKey = 'sb-spotify-rt-' + (c.spotify || '').slice(-12);
 async function spToken() {
   if (spAccess && Date.now() < spExp) return spAccess;
+  // Avec un compte StreamBox, c'est le relais qui garde la connexion Spotify et fournit un jeton à jour
+  const ovId = new URLSearchParams(location.search).get('o');
+  const relay = ((window.SB_CONFIG && SB_CONFIG.relayUrl) || '').replace(/\/$/, '');
+  if (ovId && relay && !c.spotify) {
+    const r = await fetch(`${relay}/o/${ovId}/spotify-token`, { cache: 'no-store' });
+    const d = await r.json();
+    if (!d.access) throw new Error(d.error || 'Spotify indisponible');
+    spAccess = d.access; spExp = d.exp - 30000;
+    return spAccess;
+  }
   let refresh = c.spotify;
   try { refresh = localStorage.getItem(rtKey) || refresh; } catch (e) { /* ignore */ }
   const cid = c.spotifycid || SB_CONFIG.spotifyClientId;
@@ -111,7 +121,7 @@ if (c.demo) {
   const next = () => { const [title, artist, duration] = demo[i++ % demo.length]; show({ title, artist, art: '', duration, progress: 20000, at: Date.now(), playing: true }); };
   next(); setInterval(next, 6000);
 } else if (c.source === 'lastfm' && c.lastfm) { pollLastfm(); setInterval(pollLastfm, Math.max(5, c.poll) * 1000); }
-else if (c.source === 'spotify' && c.spotify) { pollSpotify(); setInterval(pollSpotify, Math.max(2, c.poll) * 1000); }
+else if (c.source === 'spotify' && (c.spotify || new URLSearchParams(location.search).get('o'))) { pollSpotify(); setInterval(pollSpotify, Math.max(2, c.poll) * 1000); }
 else {
   document.body.classList.remove('np-hide');
   const d = SB.el('div', 'sb-hint', 'StreamBox : connecte Spotify ou indique ton pseudo Last.fm dans les réglages de l’outil Musique.');

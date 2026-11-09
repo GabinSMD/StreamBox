@@ -252,3 +252,14 @@ input[type=password] { width: 100%; background: var(--bg); color: var(--text); b
 .sg-don small { color: var(--muted); }
 .sg-don.ok small { color: var(--text); }
 .sg-dons .btn { align-self: flex-start; margin-top: 4px; }
+
+/* Demandes de musique */
+.sr-item { display: flex; gap: 10px; align-items: center; padding: 8px 0; border-top: 1px solid var(--line); }
+.sr-item img { width: 64px; height: 36px; object-fit: cover; border-radius: 6px; flex: none; background: var(--bg); }
+.sr-t { flex: 1; min-width: 0; }
+.sr-t a { font-weight: 600; text-decoration: none; overflow-wrap: anywhere; }
+.sr-t a:hover { text-decoration: underline; }
+.sr-t small { display: block; color: var(--muted); font-size: 12.5px; }
+.sr-item .btn { padding: 4px 9px; }
+.sr-settings { display: flex; flex-direction: column; gap: 10px; }
+.sr-settings .bt-f select, .sr-settings .bt-f input[type=text], .sr-settings textarea { width: 100%; }
