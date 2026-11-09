@@ -70,8 +70,9 @@ if (q.get('code') && q.get('state')) {
   let wantsBot = q.get('scope') === 'bot';
   try { if (wantsBot) localStorage.setItem('sb-wants-bot', '1'); else wantsBot = localStorage.getItem('sb-wants-bot') === '1'; } catch (e) { /* ignore */ }
   const botAccount = q.get('mode') === 'botaccount';
-  try { if (botAccount) sessionStorage.setItem('sb-oauth-mode', 'botaccount'); } catch (e) { /* ignore */ }
-  const scope = botAccount ? BOT_ACCOUNT : wantsBot ? base + ' ' + BOT : base;
+  const viewer = q.get('viewer') === '1'; // viewer qui veut voter : aucune permission
+  try { if (botAccount || viewer) sessionStorage.setItem('sb-oauth-mode', botAccount ? 'botaccount' : 'viewer'); } catch (e) { /* ignore */ }
+  const scope = botAccount ? BOT_ACCOUNT : viewer ? '' : wantsBot ? base + ' ' + BOT : base;
   u.searchParams.set('scope', scope);
   if (botAccount || q.get('scope') === 'bot') u.searchParams.set('force_verify', 'true'); // permet de choisir le bon compte Twitch
   u.searchParams.set('state', nonce + '|' + encodeURIComponent(safeReturn(q.get('retour'))));

@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Subathon en direct · StreamBox</title>
+<meta name="description" content="Suis le subathon en direct : temps restant, paliers, idées et votes du chat.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="css/site.css">
+</head>
+<body>
+<main class="wrap lv">
+  <div id="err" class="box" style="margin:48px auto;max-width:560px" hidden></div>
+  <div id="app" hidden>
+    <section class="lv-hero">
+      <div class="lv-kicker"><a id="chan" target="_blank" rel="noopener"></a> · <span id="status"></span></div>
+      <h1 id="title"></h1>
+      <div class="lv-time" id="time">--:--:--</div>
+      <div class="lv-happy" id="happy" hidden></div>
+      <div class="lv-meta" id="meta"></div>
+    </section>
+
+    <div class="lv-grid">
+      <section class="box">
+        <h3 class="bt-h">🏁 Paliers</h3>
+        <div id="paliers"></div>
+      </section>
+      <section class="box">
+        <h3 class="bt-h">⏱️ Ce qui ajoute du temps</h3>
+        <div class="lv-rules" id="rules"></div>
+        <h3 class="bt-h" style="margin-top:18px">💜 Derniers soutiens</h3>
+        <div class="lv-last" id="last"></div>
+      </section>
+    </div>
+
+    <section class="box lv-ideas" id="ideasBox">
+      <h3 class="bt-h">💡 Vos idées <small id="ideasHelp"></small></h3>
+      <form class="pn-row" id="ideaForm" hidden>
+        <input type="text" id="ideaText" maxlength="140" placeholder="Propose une idée pour le subathon…" autocomplete="off">
+        <button class="btn" type="submit">Proposer</button>
+      </form>
+      <div id="loginRow" class="pn-row" hidden><span class="bt-help">Connecte-toi avec Twitch pour proposer et voter. Aucune permission n’est demandée.</span><button class="btn small" id="login" type="button">Se connecter avec Twitch</button></div>
+      <div id="ideas"></div>
+    </section>
+  </div>
+</main>
+<script src="js/config.js"></script>
+<script src="js/account.js"></script>
+<script src="js/site.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+const chan = (new URLSearchParams(location.search).get('c') || '').toLowerCase().replace(/[^a-z0-9_]/g, '');
+const relay = SBA.relay();
+let data = null, base = 0; // base = Date.now() à la réception (pour faire défiler le timer entre deux mises à jour)
+const nf = (n) => Number(n).toLocaleString('fr-FR', { maximumFractionDigits: 2 });
+const fmt = (ms) => { const s = Math.max(0, Math.ceil(ms / 1000)), d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60), p = (x) => String(x).padStart(2, '0'); return (d ? d + 'j ' : '') + `${d ? p(h) : h}:${p(m)}:${p(s % 60)}`; };
+const fmtShort = (ms) => { const m = Math.round(Math.abs(ms) / 60000); return (ms < 0 ? '−' : '+') + (m >= 60 ? `${Math.floor(m / 60)}h${String(m % 60).padStart(2, '0')}` : `${m} min`); };
+const headers = () => (SBA.loggedIn() ? { Authorization: 'Bearer ' + SBA.session().session } : {});
+
+async function load() {
+  try {
+    const r = await fetch(`${relay}/public/${chan}/subathon`, { headers: headers() });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || r.status);
+    data = d; base = Date.now(); render(); $('err').hidden = true; $('app').hidden = false;
+  } catch (e) { if (!data) { $('err').hidden = false; $('err').textContent = chan ? 'Impossible d’afficher ce subathon : ' + e.message : 'Lien incomplet : il manque ?c=nom_de_la_chaine.'; } }
+}
+
+function remainingNow() { return data.status === 'running' ? Math.max(0, data.remaining - (Date.now() - base)) : data.remaining; }
+function tick() {
+  if (!data) return;
+  const left = remainingNow();
+  $('time').textContent = data.status === 'ended' || (data.status === 'running' && left <= 0) ? 'Terminé ! 🎉' : fmt(left);
+  document.body.classList.toggle('lv-paused', data.status !== 'running');
+  if (data.happy) { const h = data.happy.until - data.now - (Date.now() - base); $('happy').hidden = h <= 0; $('happy').textContent = `🎉 Happy hour : temps ×${data.happy.mult} encore ${fmt(h)}`; }
+}
+
+function render() {
+  const d = data;
+  document.title = `${d.title} de ${d.channel} · StreamBox`;
+  $('chan').textContent = d.channel; $('chan').href = 'https://twitch.tv/' + d.channel;
+  $('status').textContent = { idle: 'pas encore commencé', running: '🔴 en cours', paused: '⏸ en pause', ended: 'terminé' }[d.status];
+  $('title').textContent = d.title;
+  const meta = [];
+  if (d.elapsed) meta.push('en cours depuis ' + fmt(d.elapsed).replace(/^0:/, ''));
+  meta.push(`${nf(d.totals.subs)} abos`, `${nf(d.totals.bits)} bits`);
+  if (d.totals.don) meta.push(`${nf(d.totals.don)} € de dons`);
+  if (d.totals.added) meta.push(`${fmtShort(d.totals.added)} ajoutées`);
+  if (d.cap) meta.push(`maximum ${d.cap} h`);
+  $('meta').textContent = meta.join(' · ');
+  $('happy').hidden = !d.happy;
+
+  const unit = { subs: 'abos', bits: 'bits', dons: '€', heures: 'h de live' }[d.metric];
+  $('paliers').replaceChildren(...(d.paliers.length ? d.paliers.map((p) => {
+    const row = el('div', 'lv-pal' + (p.reached ? ' ok' : ''));
+    const top = el('div', 'lv-pal-top'); top.append(el('b', null, (p.reached ? '✅ ' : '🔒 ') + p.label), el('span', null, `${nf(Math.min(d.value, p.target))} / ${nf(p.target)} ${unit}`));
+    const bar = el('div', 'lv-bar'); const fill = el('div'); fill.style.width = Math.min(100, (d.value / p.target) * 100) + '%'; bar.appendChild(fill);
+    row.append(top, bar); return row;
+  }) : [el('p', 'bt-help', 'Pas de palier pour ce subathon.')]));
+
+  const r = d.rules, rules = [];
+  if (r.sub1) rules.push(['⭐ Abo palier 1 / Prime', r.sub1 + ' min']);
+  if (r.sub2) rules.push(['⭐ Abo palier 2', r.sub2 + ' min']);
+  if (r.sub3) rules.push(['⭐ Abo palier 3', r.sub3 + ' min']);
+  if (r.bits) rules.push(['💎 100 bits', r.bits + ' min']);
+  if (r.don) rules.push(['💸 1 € de don', r.don + ' min']);
+  if (r.follow) rules.push(['💜 Follow', r.follow + ' min']);
+  if (r.raid) rules.push([`🚀 Raid (${r.raidMin}+ viewers)`, r.raid + ' min']);
+  $('rules').replaceChildren(...rules.map(([a, b]) => { const x = el('div'); x.append(el('span', null, a), el('b', null, '+' + b)); return x; }));
+  $('last').replaceChildren(...(d.last.length ? d.last.map((x) => { const row = el('div'); row.append(el('b', null, fmtShort(x.ms)), ' ' + x.label); return row; }) : [el('p', 'bt-help', 'Rien pour l’instant.')]));
+
+  $('ideasBox').hidden = !d.ideasOn;
+  $('ideasHelp').textContent = `Propose ici ou dans le chat avec !idee …, puis vote avec !vote numéro ou ici.`;
+  $('ideaForm').hidden = !SBA.loggedIn(); $('loginRow').hidden = SBA.loggedIn();
+  $('ideas').replaceChildren(...(d.ideas.length ? d.ideas.map((x) => {
+    const row = el('div', 'lv-idea ' + x.status);
+    const btn = el('button', 'lv-vote' + (x.voted ? ' on' : ''), (x.voted ? '♥ ' : '♡ ') + x.votes);
+    btn.type = 'button'; btn.title = x.status === 'approved' ? (x.voted ? 'Retirer mon vote' : 'Voter') : '';
+    btn.disabled = x.status !== 'approved';
+    btn.onclick = () => voteFor(x.id);
+    const txt = el('div', 'lv-itext'); txt.append(el('span', 'lv-num', '#' + x.id), ' ' + x.text);
+    const by = el('small', null, 'par ' + x.by + (x.status === 'done' ? ' · ✅ réalisée' : x.status === 'pending' ? ' · ⏳ en attente de validation' : ''));
+    txt.appendChild(by);
+    row.append(btn, txt); return row;
+  }) : [el('p', 'bt-help', 'Aucune idée pour l’instant : sois le premier !')]));
+  tick();
+}
+
+async function voteFor(id) {
+  if (!SBA.loggedIn()) return SBA.login('live.html?c=' + chan);
+  const r = await fetch(`${relay}/public/${chan}/ideas/${id}/vote`, { method: 'POST', headers: Object.assign({ 'Content-Type': 'application/json' }, headers()) });
+  if (r.status === 401) { SBA.clear(); return toast('Reconnecte-toi pour voter'); }
+  load();
+}
+$('ideaForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const text = $('ideaText').value.trim(); if (!text) return;
+  const r = await fetch(`${relay}/public/${chan}/ideas`, { method: 'POST', headers: Object.assign({ 'Content-Type': 'application/json' }, headers()), body: JSON.stringify({ text }) });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) return toast(d.error || 'Erreur');
+  $('ideaText').value = ''; toast(d.status === 'pending' ? 'Idée envoyée : elle apparaîtra après validation ✓' : 'Idée ajoutée ✓'); load();
+});
+$('login').onclick = () => { location.href = 'connexion.html?compte=1&viewer=1&retour=' + encodeURIComponent('live.html?c=' + chan); };
+setInterval(tick, 250);
+setInterval(load, 5000);
+load();
+</script>
+</body>
+</html>

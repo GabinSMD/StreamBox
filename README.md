@@ -19,6 +19,7 @@ Une boîte à outils gratuite pour streamers. Elle regroupe dans un seul site ce
 | 🎵 Musique en cours : Spotify direct, Deezer, YouTube Music et Apple Music via Last.fm | Overlay OBS | Tuna, Amuse |
 | 📣 Annonces Discord : début du live, récap de fin, gagnant du giveaway, `!discord` | Source OBS invisible | Bots d’annonce |
 | 🧩 Extension « Musiques des redifs » (VOD Twitch et rediffusions YouTube) | Extension navigateur | |
+| ⏱️ Subathon en direct : timer sur le relais, page publique pour les viewers (paliers, idées, votes) | Page web + relais | marathon-timer.com |
 | 🤖 Bot de chat : commandes, messages automatiques, modération, remerciements (24 h/24 sur le relais) | Page web + relais | Nightbot, Moobot, Fossabot |
 | 🎛️ Panneau de contrôle : boutons pour tous les overlays et les scènes OBS | Page web / dock OBS | Kloot, Poltergeist, Xenon |
 | 🖼️ Redimensionneur d’emotes et de badges | Page web | EmoteResizer, Twitch Emote Resizer |
@@ -106,6 +107,9 @@ js/sb.js              Noyau : client chat Twitch, emotes, apparence, liens court
 js/account.js         Compte StreamBox côté site (session, appels au relais)
 compte.html           Mon compte : overlays et intégrations
 bot.html              Bot de chat
+subathon.html         Gestion du subathon (streamer)
+live.html             Page publique du subathon (viewers)
+relay/subathon.js     Logique du subathon côté relais
 relay/bot.js          Logique du bot (commandes, modération, messages automatiques, événements)
 js/highlights.js      Détecteur de temps forts (chat + voix)
 js/obs.js             Client obs-websocket v5
