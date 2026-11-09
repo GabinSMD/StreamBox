@@ -441,3 +441,21 @@ ol.sx-list { counter-reset: sx; } ol.sx-list li span::before { counter-increment
 .sx-page #app > section { margin-bottom: 16px; }
 .lang-sel { flex-shrink: 0; width: 52px; background: var(--bg2); color: var(--muted); border: 1px solid var(--line); border-radius: 8px; padding: 4px 6px; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
 @media (max-width: 400px) { .top .logo { font-size: 0; gap: 0; } .top .logo i { font-size: 16px; } }
+
+/* ---------- Automatisations ---------- */
+.au-rule { border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-top: 12px; background: var(--bg2); }
+.au-rule.off { opacity: .6; }
+.au-rhead { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.au-rhead input[type=checkbox] { width: 18px; height: 18px; }
+.au-name { flex: 1; min-width: 160px; font-weight: 700; }
+.au-block { margin-top: 12px; padding-left: 12px; border-left: 3px solid #9b5cff; display: flex; flex-direction: column; gap: 8px; }
+.au-k { text-transform: uppercase; font-size: 12px; letter-spacing: .08em; color: var(--muted); }
+.au-fields { display: flex; flex-wrap: wrap; gap: 8px 14px; }
+.au-fields .bt-f { min-width: 180px; flex: 1; }
+.au-fields .bt-f input[type=text] { width: 100%; box-sizing: border-box; }
+.au-action { border: 1px dashed var(--line); border-radius: 10px; padding: 8px 10px; display: flex; flex-direction: column; gap: 8px; }
+.au-action .pn-row { flex-wrap: nowrap; align-items: center; }
+.au-action .pn-row select { flex: 1; width: auto; min-width: 0; }
+.au-block > select { max-width: 420px; }
+.au-block > .btn { align-self: flex-start; }
+#app > .bt-save { position: sticky; bottom: 12px; z-index: 5; }

@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>StreamBox · Automatisations</title>
+<link rel="stylesheet" href="../css/overlay.css">
+<script src="../js/i18n.js"></script>
+</head>
+<body>
+<div class="au" id="panel" hidden>
+  <div class="au-head"><b>⚡ Automatisations</b> <span id="st"></span></div>
+  <div id="log"></div>
+</div>
+<script src="../js/config.js"></script>
+<script src="../js/sb.js"></script>
+<script src="../js/eventsub.js"></script>
+<script src="../js/dons.js"></script>
+<script src="../js/obs.js"></script>
+<script src="../js/automatisations.js"></script>
+<script>
+/* Source navigateur invisible dans OBS : écoute le chat, Twitch et les dons, puis lance les automatisations.
+ * Avec debug=1 (par exemple en dock OBS), affiche l'état et le journal. */
+const c = SB.params({ channel: '', token: '', rules: '[]', obspass: '', obsurl: 'ws://127.0.0.1:4455', debug: false, demo: false });
+const $ = (id) => document.getElementById(id);
+const ovId = new URLSearchParams(location.search).get('o');
+const relay = ((window.SB_CONFIG && SB_CONFIG.relayUrl) || '').replace(/\/$/, '');
+let rules = []; try { rules = JSON.parse(c.rules); } catch (e) { console.warn('règles illisibles'); }
+if (c.debug || c.demo) $('panel').hidden = false;
+const status = { obs: '…', chat: '…' };
+const showStatus = () => { $('st').textContent = `OBS : ${status.obs} · chat : ${status.chat}`; };
+
+const obs = new SB.OBS(c.obsurl, c.obspass);
+const engine = new SB.AUTO.Engine(rules, {
+  obs, channel: c.channel,
+  log: (text) => { const d = SB.el('div', 'au-line', `${new Date().toLocaleTimeString(SB_LANG_TAG, { hour: '2-digit', minute: '2-digit', second: '2-digit' })} ${text}`); $('log').prepend(d); while ($('log').children.length > 12) $('log').lastChild.remove(); },
+  say: ovId && relay ? async (text, to) => { // message du chat ou Discord : envoyé par le relais (les jetons restent sur le serveur)
+    const r = await fetch(`${relay}/o/${ovId}/say`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, to }) });
+    const d = await r.json().catch(() => ({})); if (!r.ok) throw new Error(d.error || 'erreur ' + r.status);
+  } : null,
+});
+if (c.obspass || !c.demo) obs.on('status', (s) => { status.obs = s; showStatus(); }).connect();
+// Panneau / page d'édition : « test <id> » lance une règle tout de suite
+obs.on('CustomEvent', (d) => {
+  const s = d && d.streambox; if (!s || s.tool !== 'automatisations') return;
+  const m = String(s.args || '').match(/^test\s+(\S+)$/);
+  const r = m && engine.rules.find((x) => x.id === m[1]);
+  if (r) engine.run(r, { user: 'Test', amount: '5 €', months: 3, n: 5, reward: 'Test', input: 'test', args: 'test', force: true });
+});
+
+/* ---------- Événements ---------- */
+const level = (m) => (m.isBroadcaster ? 4 : m.isMod ? 3 : m.isVip ? 2 : m.isSub ? 1 : 0);
+const chat = new SB.TwitchChat(c.channel);
+chat.on('status', (s) => { status.chat = s === 'connected' ? 'connecté' : 'reconnexion…'; showStatus(); })
+  .on('message', (m) => {
+    const [w, ...rest] = (m.text || '').trim().split(/\s+/);
+    const base = { user: m.name, level: level(m), text: m.text };
+    if (w && w.startsWith('!')) engine.emit('command', Object.assign({ cmd: w.toLowerCase(), args: rest.join(' ') }, base));
+    engine.emit('keyword', base);
+  })
+  .on('cheer', (m) => engine.emit('bits', { user: m.name, n: m.bits, amount: m.bits }))
+  .on('usernotice', (n) => {
+    if (n.type === 'sub' || n.type === 'resub') engine.emit('sub', { user: n.name, months: n.months || 1 });
+    else if (n.type === 'submysterygift') engine.emit('gift', { user: n.name, n: n.giftCount || 1 });
+    else if (n.type === 'subgift' && !n.isCommunityGift) engine.emit('gift', { user: n.name, n: 1 });
+    else if (n.type === 'raid') engine.emit('raid', { user: n.name, n: n.viewers || 0 });
+  })
+  .connect();
+const types = new Set(engine.rules.map((r) => r.trigger.type));
+const wanted = ['follow', 'points', 'online'].filter((t) => types.has(t));
+if (wanted.length && c.token) SB.twitchEvents(c, wanted)
+  .on('follow', (e) => engine.emit('follow', { user: e.name }))
+  .on('points', (e) => engine.emit('points', { user: e.name, reward: e.reward, input: e.input }))
+  .on('online', () => engine.emit('online', {}));
+if (types.has('don')) SB.donations(c).on('don', (d) => engine.emit('don', { user: d.name, n: d.amount, amount: SB.formatMoney(d.amount, d.currency) }));
+engine.rules.filter((r) => r.on && r.trigger.type === 'timer' && r.trigger.minutes > 0)
+  .forEach((r) => setInterval(() => engine.emit('timer', { ruleId: r.id }), Math.max(1, r.trigger.minutes) * 60000));
+
+if (c.demo) {
+  engine.note(SB.t('Démo : {0} automatisation(s)', [engine.rules.length]));
+  setInterval(() => chat.inject(SB.fake({ text: '!hype' })), 4000);
+}
+showStatus();
+SB.hintIfNoChannel(c);
+</script>
+</body>
+</html>
