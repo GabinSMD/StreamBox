@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bot de chat · StreamBox</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Roboto+Mono&display=swap">
+<link rel="stylesheet" href="css/site.css">
+</head>
+<body>
+<main class="wrap">
+  <h2 class="sec" style="margin-top:36px">🤖 Bot de chat</h2>
+  <p class="sec">Il tourne sur le relais StreamBox, 24 h/24, même OBS fermé : commandes, messages automatiques, modération, remerciements. Rien à installer.</p>
+
+  <div id="need" class="box" hidden></div>
+
+  <div id="app" hidden>
+    <section class="box bt-status" id="status"></section>
+
+    <div class="bt-grid">
+      <div>
+        <section class="box">
+          <h3 class="bt-h">💬 Commandes <small>Variables : {user} {touser} {args} {count} {random:1-6} {uptime} {game} {title} {followage} {channel}</small></h3>
+          <div id="cmds"></div>
+          <button class="btn ghost small" id="addcmd" type="button">+ Ajouter une commande</button>
+          <details class="more" style="margin-top:14px"><summary>Commandes intégrées</summary><div id="builtins"></div></details>
+        </section>
+
+        <section class="box">
+          <h3 class="bt-h">⏰ Messages automatiques <small>Envoyés pendant le live seulement, quand le chat est actif</small></h3>
+          <div id="timers"></div>
+          <button class="btn ghost small" id="addtimer" type="button">+ Ajouter un message</button>
+        </section>
+
+        <section class="box">
+          <h3 class="bt-h">🛡️ Modération <small>Les modos et le streamer ne sont jamais concernés</small></h3>
+          <div id="mod"></div>
+        </section>
+
+        <section class="box">
+          <h3 class="bt-h">🎉 Messages d’événements</h3>
+          <div id="events"></div>
+        </section>
+      </div>
+
+      <aside class="bt-side">
+        <section class="box">
+          <h3 class="bt-h">🧪 Console de test</h3>
+          <p class="bt-help">Essaie le bot sans être en live : rien n’est envoyé sur Twitch, et rien n’est enregistré (un !addcom tapé ici reste une simulation).</p>
+          <div class="pn-row">
+            <select id="trole" style="width:auto"><option value="viewer">Viewer</option><option value="sub">Abonné</option><option value="vip">VIP</option><option value="mod">Modo</option><option value="broadcaster">Toi</option></select>
+            <input type="text" id="ttext" placeholder="!discord" autocomplete="off">
+          </div>
+          <div class="bt-log" id="tlog"></div>
+        </section>
+        <div class="bt-save"><span id="dirty"></span><button class="btn" id="save" type="button">Enregistrer</button></div>
+      </aside>
+    </div>
+  </div>
+</main>
+<script src="js/config.js"></script>
+<script src="js/account.js"></script>
+<script src="js/site.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+let cfg = null, status = null, dirty = false;
+const LEVELS = [['everyone', 'Tout le monde'], ['sub', 'Abonnés'], ['vip', 'VIP'], ['mod', 'Modos'], ['broadcaster', 'Moi seulement']];
+const ACTIONS = [['delete', 'Supprimer le message'], ['timeout:10', 'Timeout 10 s'], ['timeout:60', 'Timeout 1 min'], ['timeout:600', 'Timeout 10 min'], ['warn', 'Avertir seulement']];
+
+function mark() { dirty = true; $('dirty').textContent = 'Modifications non enregistrées'; }
+function input(obj, key, opts = {}) {
+  let e;
+  if (opts.options) { e = el('select'); opts.options.forEach(([v, l]) => { const o = el('option', null, l); o.value = v; e.appendChild(o); }); e.value = obj[key]; }
+  else if (opts.area) { e = el('textarea'); e.rows = opts.rows || 2; e.value = obj[key] || ''; }
+  else if (opts.check) { e = el('input'); e.type = 'checkbox'; e.checked = !!obj[key]; }
+  else { e = el('input'); e.type = opts.num ? 'number' : 'text'; e.value = obj[key] == null ? '' : obj[key]; if (opts.ph) e.placeholder = opts.ph; if (opts.num) { e.min = 0; e.style.maxWidth = '90px'; } }
+  const sync = () => { obj[key] = opts.check ? e.checked : opts.num ? +e.value : opts.list ? e.value.split(/[\s,]+/).filter(Boolean) : e.value; mark(); };
+  if (opts.list) e.value = (obj[key] || []).join(' ');
+  e.addEventListener(opts.check || opts.options ? 'change' : 'input', sync);
+  return e;
+}
+function labeled(label, node, cls) { const l = el('label', 'bt-f ' + (cls || '')); l.append(el('span', null, label), node); return l; }
+
+function renderStatus() {
+  const s = status, box = $('status'); box.replaceChildren();
+  const row = el('div', 'bt-row');
+  const tog = el('label', 'bt-toggle'); const cb = el('input'); cb.type = 'checkbox'; cb.checked = cfg.enabled;
+  cb.onchange = () => { cfg.enabled = cb.checked; mark(); save(); };
+  tog.append(cb, el('b', null, cfg.enabled ? 'Bot activé' : 'Bot désactivé'));
+  row.appendChild(tog);
+  row.appendChild(el('span', 'flag', s.live ? '🔴 en live' : 'hors ligne'));
+  if (cfg.enabled) row.appendChild(el('span', 'flag', `${s.subs} abonnement(s) Twitch actif(s)`));
+  box.appendChild(row);
+  const who = el('div', 'bt-row');
+  who.appendChild(el('span', null, 'Le bot écrit avec :'));
+  const sel = el('select'); sel.style.width = 'auto';
+  [['self', 'mon compte (' + SBA.session().login + ')'], ['bot', s.botAccount.configured ? `le bot du site (${s.botAccount.login})` + (s.botAccount.connected ? '' : ' : pas encore connecté') : 'le bot du site (non configuré)']].forEach(([v, l]) => { const o = el('option', null, l); o.value = v; o.disabled = v === 'bot' && !s.botAccount.connected; sel.appendChild(o); });
+  sel.value = cfg.sender; sel.onchange = () => { cfg.sender = sel.value; mark(); };
+  who.appendChild(sel);
+  box.appendChild(who);
+  if (cfg.sender === 'bot') box.appendChild(el('p', 'bt-help', `Pour la modération, tape /mod ${s.botAccount.login} dans ton chat Twitch.`));
+  if (s.missing.length) {
+    const warn = el('div', 'note');
+    warn.append(el('b', null, '⚠️ Autorisations manquantes. '), 'Le bot a besoin de lire et d’écrire dans ton chat, et de modérer. ');
+    const b = el('button', 'btn small', 'Autoriser le bot'); b.type = 'button'; b.onclick = () => { location.href = 'connexion.html?compte=1&scope=bot&retour=bot.html'; };
+    warn.appendChild(b); box.appendChild(warn);
+  }
+  if (!s.webhooks) box.appendChild(el('div', 'note', '⚠️ Le relais n’a pas encore de secret EVENTSUB_SECRET : le bot ne peut pas recevoir le chat (voir relay/README.md).'));
+  if (s.lastError) box.appendChild(el('p', 'bt-help', '⚠️ Dernière erreur : ' + s.lastError));
+  if (s.botAccount.configured && !s.botAccount.connected) {
+    const p = el('p', 'bt-help', `Propriétaire du site : connecte le compte Twitch ${s.botAccount.login} pour l’utiliser comme bot. `);
+    const a = el('a', null, 'Connecter le compte bot'); a.href = 'connexion.html?compte=1&mode=botaccount&retour=bot.html'; p.appendChild(a); box.appendChild(p);
+  }
+}
+
+function renderCmds() {
+  const box = $('cmds'); box.replaceChildren();
+  cfg.commands.forEach((c, i) => {
+    const card = el('div', 'bt-item');
+    const top = el('div', 'bt-row');
+    top.append(input(c, 'enabled', { check: true }), input(c, 'name', { ph: '!commande' }));
+    const al = input(c, 'aliases', { list: true, ph: 'alias : !autre' }); top.appendChild(al);
+    const del = el('button', 'btn ghost small', '✕'); del.type = 'button'; del.title = 'Supprimer'; del.onclick = () => { cfg.commands.splice(i, 1); mark(); renderCmds(); };
+    top.appendChild(del);
+    card.append(top, input(c, 'response', { area: true }));
+    const opts = el('div', 'bt-row bt-small');
+    opts.append(labeled('Qui', input(c, 'level', { options: LEVELS })), labeled('Délai (s)', input(c, 'cooldown', { num: true })), labeled('Par viewer (s)', input(c, 'userCooldown', { num: true })), el('span', 'bt-help', `utilisée ${c.count || 0} fois`));
+    card.appendChild(opts);
+    box.appendChild(card);
+  });
+}
+function renderBuiltins() {
+  const L = { commandes: '!commandes : liste des commandes', uptime: '!uptime : durée du live', followage: '!followage : depuis quand on suit la chaîne', so: '!so @pseudo : shoutout (modos)', addcom: '!addcom / !editcom / !delcom depuis le chat (modos)', permit: '!permit @pseudo : autorise un lien (modos)' };
+  const box = $('builtins'); box.replaceChildren();
+  Object.keys(L).forEach((k) => box.appendChild(labeled(L[k], input(cfg.builtins, k, { check: true }), 'check')));
+}
+function renderTimers() {
+  const box = $('timers'); box.replaceChildren();
+  cfg.timers.forEach((t, i) => {
+    const card = el('div', 'bt-item');
+    const top = el('div', 'bt-row'); top.append(input(t, 'enabled', { check: true }), labeled('Toutes les (min)', input(t, 'interval', { num: true })), labeled('Si au moins N messages', input(t, 'minLines', { num: true })));
+    const del = el('button', 'btn ghost small', '✕'); del.type = 'button'; del.onclick = () => { cfg.timers.splice(i, 1); mark(); renderTimers(); }; top.appendChild(del);
+    card.append(top, input(t, 'message', { area: true }));
+    box.appendChild(card);
+  });
+}
+function renderMod() {
+  const box = $('mod'); box.replaceChildren(); const m = cfg.mod;
+  const block = (title, r, extra) => {
+    const card = el('div', 'bt-item');
+    const top = el('div', 'bt-row'); top.append(input(r, 'on', { check: true }), el('b', null, title), input(r, 'action', { options: ACTIONS }));
+    card.appendChild(top); extra.forEach((x) => card.appendChild(x)); card.appendChild(labeled('Message (vide = aucun)', input(r, 'msg')));
+    box.appendChild(card);
+  };
+  block('Liens', m.links, [labeled('Domaines autorisés', input(m.links, 'allow', { ph: 'clips.twitch.tv youtube.com' })), labeled('Les abonnés peuvent poster des liens', input(m.links, 'exemptSubs', { check: true }), 'check')]);
+  const caps = el('div', 'bt-row bt-small');
+  caps.append(labeled('À partir de N lettres', input(m.caps, 'min', { num: true })), labeled('% de majuscules', input(m.caps, 'pct', { num: true })));
+  block('Majuscules', m.caps, [caps]);
+  block('Mots interdits', m.words, [labeled('Un mot par ligne ou séparés par des virgules (* = n’importe quelle fin)', input(m.words, 'list', { area: true, rows: 3 }))]);
+  box.appendChild(labeled('Durée de !permit (s)', input(m, 'permitSecs', { num: true })));
+}
+function renderEvents() {
+  const T = { follow: '💜 Follow', sub: '⭐ Abonnement ({tier})', resub: '⭐ Réabonnement ({months})', gift: '🎁 Abos offerts ({count})', raid: '🚀 Raid ({viewers})', cheer: '💎 Bits ({bits})' };
+  const box = $('events'); box.replaceChildren();
+  Object.keys(T).forEach((k) => {
+    const e = cfg.events[k]; const card = el('div', 'bt-item');
+    const top = el('div', 'bt-row'); top.append(input(e, 'on', { check: true }), el('b', null, T[k]));
+    if (k === 'raid') top.appendChild(labeled('Shoutout automatique', input(e, 'shoutout', { check: true }), 'check'));
+    if (k === 'cheer') top.appendChild(labeled('À partir de', input(e, 'min', { num: true })));
+    card.append(top, input(e, 'msg')); box.appendChild(card);
+  });
+}
+function renderAll() { renderStatus(); renderCmds(); renderBuiltins(); renderTimers(); renderMod(); renderEvents(); }
+
+async function save() {
+  $('save').disabled = true;
+  try {
+    const d = await SBA.api('PUT', '/me/bot', cfg);
+    cfg = d.cfg; status = d.status; dirty = false; renderAll();
+    $('dirty').textContent = d.errors && d.errors.length ? '⚠️ ' + d.errors.join(' · ') : 'Enregistré ✓';
+  } catch (e) { $('dirty').textContent = 'Erreur : ' + e.message; }
+  $('save').disabled = false;
+}
+
+$('addcmd').onclick = () => { cfg.commands.push({ name: '', aliases: [], response: '', level: 'everyone', cooldown: 5, userCooldown: 0, enabled: true, count: 0 }); mark(); renderCmds(); };
+$('addtimer').onclick = () => { cfg.timers.push({ message: '', interval: 15, minLines: 5, enabled: true }); mark(); renderTimers(); };
+$('save').onclick = save;
+addEventListener('beforeunload', (e) => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
+$('ttext').addEventListener('keydown', async (e) => {
+  if (e.key !== 'Enter' || !$('ttext').value.trim()) return;
+  const text = $('ttext').value.trim(); $('ttext').value = '';
+  if (dirty) await save(); // la console teste les réglages enregistrés
+  const line = el('div', 'bt-line'); line.append(el('b', null, $('trole').selectedOptions[0].textContent + ' : '), text);
+  $('tlog').prepend(line);
+  try {
+    const d = await SBA.api('POST', '/me/bot/test', { text, role: $('trole').value });
+    const res = el('div', 'bt-res');
+    if (!d.actions.length) res.textContent = '(pas de réponse)';
+    d.actions.forEach((a) => res.appendChild(el('div', null, (a.type === 'message' ? '🤖 ' : '🛡️ ') + (a.text || a.type) + (a.secs ? ` (${a.secs} s)` : ''))));
+    line.after(res);
+  } catch (err) { line.after(el('div', 'bt-res', 'Erreur : ' + err.message)); }
+});
+
+(async () => {
+  if (!SBA.enabled() || !SBA.loggedIn()) {
+    $('need').hidden = false;
+    $('need').append(el('p', 'lead', 'Le bot est lié à ton compte StreamBox : connecte-toi avec Twitch.'));
+    const b = el('button', 'btn', 'Se connecter avec Twitch'); b.onclick = () => SBA.login('bot.html'); $('need').appendChild(b);
+    return;
+  }
+  try { const d = await SBA.api('GET', '/me/bot'); cfg = d.cfg; status = d.status; $('app').hidden = false; renderAll(); }
+  catch (e) { $('need').hidden = false; $('need').textContent = 'Erreur : ' + e.message; }
+})();
+</script>
+</body>
+</html>

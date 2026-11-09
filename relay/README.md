@@ -32,6 +32,23 @@ openssl rand -base64 32 | wrangler secret put ENCRYPTION_KEY
 
 Le secret Twitch ne quitte jamais le relais. C'est lui qui renouvelle les accès Twitch des streamers, si bien que leurs overlays ne « périment » pas.
 
+### Activer le bot de chat
+
+Le bot reçoit le chat par des webhooks EventSub signés. Ajoute un secret de signature (10 à 100 caractères) :
+
+```bash
+openssl rand -hex 32 | wrangler secret put EVENTSUB_SECRET
+```
+
+Ensuite, redéploie (`wrangler deploy`) pour activer les messages automatiques.
+
+**Compte bot du site (facultatif).** Pour que le bot écrive sous un nom comme « StreamBoxBot » plutôt qu'avec le compte de chaque streamer :
+1. crée ce compte Twitch ;
+2. lance `wrangler secret put BOT_LOGIN` et donne-lui le nom de ce compte ;
+3. sur la page Bot de chat, clique sur « Connecter le compte bot » en étant connecté à Twitch **avec ce compte**.
+
+Les streamers qui le choisissent tapent `/mod StreamBoxBot` dans leur chat pour que la modération marche.
+
 > ⚠️ Ne perds pas `ENCRYPTION_KEY` : sans elle, les jetons enregistrés ne peuvent plus être lus, et chaque streamer devra les ressaisir. Ces mêmes identifiants servent aussi à l'extension, pour trouver le début des VODs Twitch.
 
 ## Brancher Ko-fi

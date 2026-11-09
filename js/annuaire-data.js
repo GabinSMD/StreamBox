@@ -26,10 +26,10 @@ window.SB_DIRECTORY = [
   { cat: 'Statistiques', name: 'TwitchTracker', url: 'https://twitchtracker.com/', flags: ['Gratuit'], desc: 'Statistiques des chaînes, streams et abonnés, plus des chiffres globaux.' },
   // Bots
   { cat: 'Bots de chat', name: 'ByteMate', url: 'https://bytemate.me/', flags: ['Gratuit'], desc: 'Bot tout-en-un avec commandes, alertes, giveaways, overlays et permissions par modo.' },
-  { cat: 'Bots de chat', name: 'CoeBot', url: 'https://www.coebot.tv/', flags: [], desc: 'Modération, commandes, citations et variables.' },
-  { cat: 'Bots de chat', name: 'Fossabot', url: 'https://fossabot.com/', flags: [], desc: 'Bot très performant et riche en fonctionnalités.' },
-  { cat: 'Bots de chat', name: 'Moobot', url: 'https://moo.bot/', flags: ['Gratuit'], desc: 'Automatise l’animation et la modération du chat.' },
-  { cat: 'Bots de chat', name: 'Nightbot', url: 'https://nightbot.tv/', flags: ['Gratuit'], desc: 'Le bot classique : commandes, minuteurs, filtres de modération.' },
+  { cat: 'Bots de chat', name: 'CoeBot', alt: 'bot', url: 'https://www.coebot.tv/', flags: [], desc: 'Modération, commandes, citations et variables.' },
+  { cat: 'Bots de chat', name: 'Fossabot', alt: 'bot', url: 'https://fossabot.com/', flags: [], desc: 'Bot très performant et riche en fonctionnalités.' },
+  { cat: 'Bots de chat', name: 'Moobot', alt: 'bot', url: 'https://moo.bot/', flags: ['Gratuit'], desc: 'Automatise l’animation et la modération du chat.' },
+  { cat: 'Bots de chat', name: 'Nightbot', alt: 'bot', url: 'https://nightbot.tv/', flags: ['Gratuit'], desc: 'Le bot classique : commandes, minuteurs, filtres de modération.' },
   { cat: 'Bots de chat', name: 'StreamElements', url: 'https://streamelements.com/', flags: [], desc: 'Bot intégré à StreamElements.' },
   { cat: 'Bots de chat', name: 'Streamlabs Cloudbot', url: 'https://streamlabs.com/cloudbot', flags: [], desc: 'Bot intégré à Streamlabs.' },
   // Chat clients
