@@ -7,8 +7,8 @@
  */
 window.SB_CONFIG = {
   twitchClientId: 'j2u8uxo89sbgljg5ni1v5idwdthf4b',
-  // Spotify (overlay Musique) : https://developer.spotify.com/dashboard, URL de redirection https://<ton-site>/spotify.html
-  spotifyClientId: '',
+  // Spotify : pas d'application commune (Spotify exige un compte Premium pour ouvrir son API).
+  // Chaque streamer utilise sa propre application, ou Last.fm (gratuit).
   // Last.fm (overlay Musique : Deezer, YouTube Music, Apple Music…) : https://www.last.fm/api/account/create
   lastfmApiKey: '',
   // Relais StreamBox (dons Ko-fi, musiques des redifs) : voir relay/README.md

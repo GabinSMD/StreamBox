@@ -908,7 +908,7 @@ export class Account {
       const s = await secrets(); const ov = await overlays();
       // overlays pubs / votes / Hype Train créés avant que le relais ne s'abonne pour eux : abonnements faits une fois
       if (!(await st.get('ovsubs')) && Object.values(ov).some((o) => OV_TWITCH[o.tool])) { await this.syncOvSubs(profile, E); await st.put('ovsubs', 1); }
-      return ok({ login: profile.login, lang: profile.lang || 'fr', scopes: profile.scopes, secrets: Object.fromEntries(SECRET_KEYS.map((k) => [k, !!s[k]])),
+      return ok({ login: profile.login, lang: profile.lang || 'fr', scopes: profile.scopes, secrets: Object.fromEntries(SECRET_KEYS.map((k) => [k, !!s[k]])), spotifycid: s.spotifycid || '', // Client ID : public
         overlays: Object.values(ov).map(({ id, tool, name, updatedAt }) => ({ id, tool, name, updatedAt })).sort((a, b) => b.updatedAt - a.updatedAt) });
     }
     if (path === '/diag') { // « Vérifier mon installation » : état du relais, du jeton Twitch, des abonnements et des overlays ouverts

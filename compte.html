@@ -119,9 +119,8 @@ const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls)
 const SECRETS = [
   { key: 'obspass', icon: '🎥', name: 'Mot de passe WebSocket d’OBS', help: 'OBS → Outils → Paramètres du serveur WebSocket. Sert au Rewind, au panneau de contrôle et à la roue.' },
   { key: 'webhook', icon: '💬', name: 'Webhook Discord', help: 'Paramètres du salon → Intégrations → Webhooks → Copier l’URL. Pour tester : !discord test dans ton chat, avec l’overlay Annonces Discord ouvert.' },
-  { key: 'spotify', icon: '🟢', name: 'Spotify', help: 'Morceau en cours dans l’overlay Musique.', connect: true },
-  { key: 'spotifycid', icon: '🟢', name: 'Client ID Spotify personnel (facultatif)', help: 'Seulement si l’application Spotify du site est pleine (25 utilisateurs maximum en mode développement).', plain: true },
-  { key: 'lastfm', icon: '🎧', name: 'Pseudo Last.fm', help: 'Pour Deezer, YouTube Music et Apple Music dans l’overlay Musique.', plain: true },
+  { key: 'lastfm', icon: '🎧', name: 'Pseudo Last.fm', help: 'Le plus simple pour l’overlay Musique (gratuit) : Spotify, Deezer, YouTube Music et Apple Music envoient ce que tu écoutes à Last.fm (« scrobbling » dans leurs réglages).', plain: true },
+  { key: 'spotify', icon: '🟢', name: 'Spotify en direct (facultatif)', help: 'Avec la progression du morceau, mais il te faut ta propre application Spotify, et Spotify l’exige d’un compte Premium. Crée-la sur developer.spotify.com (cocher « Web API », URL de redirection : l’adresse de la page spotify.html de ce site), puis colle son Client ID ici.', connect: true },
   { key: 'kofi', icon: '☕', name: 'Clé Ko-fi', help: 'Une clé secrète de ton choix (12 caractères minimum). Colle ensuite l’adresse affichée dans Ko-fi → Paramètres → API → Webhook URL.', generate: true },
   { key: 'kofiv', icon: '☕', name: 'Jeton de vérification Ko-fi', help: 'Ko-fi → Paramètres → API → Advanced → Verification Token. Le relais refuse alors tout don qui ne vient pas de Ko-fi, même avec ta clé.' },
   { key: 'sltoken', icon: '🔷', name: 'Jeton Socket API Streamlabs', help: 'Streamlabs → Paramètres → Clés API → Socket API Token.' },
@@ -141,7 +140,7 @@ async function load() {
   // Retour de la connexion Spotify : on range le jeton dans le compte, pas dans le navigateur
   let sp = null; try { sp = JSON.parse(localStorage.getItem('sb-spotify') || 'null'); } catch (e) { /* ignore */ }
   if (sp && sp.refresh) {
-    await SBA.api('PUT', '/me/secrets', { spotify: sp.refresh, spotifycid: sp.cid !== SB_CONFIG.spotifyClientId ? sp.cid : null }).catch(() => {});
+    await SBA.api('PUT', '/me/secrets', { spotify: sp.refresh, spotifycid: sp.cid || null }).catch(() => {});
     try { localStorage.removeItem('sb-spotify'); } catch (e) { /* ignore */ }
     me = await SBA.api('GET', '/me'); toast2('Spotify connecté ✓');
   }
@@ -224,9 +223,17 @@ function renderSecrets() {
       catch (e) { toast2('Erreur : ' + e.message); }
     };
     if (sec.connect) {
+      const cid = el('input'); cid.type = 'text'; cid.placeholder = 'Client ID de ton application Spotify'; cid.autocomplete = 'off'; cid.value = me.spotifycid || '';
       const b = el('button', 'btn small', set ? 'Reconnecter Spotify' : 'Se connecter avec Spotify'); b.type = 'button';
-      b.onclick = () => { location.href = 'spotify.html?retour=compte.html'; };
-      row.appendChild(b);
+      b.onclick = () => {
+        const v = cid.value.trim();
+        if (!/^[0-9a-f]{32}$/i.test(v)) return toast2(SB.t('Colle d’abord le Client ID de ton application Spotify (32 caractères).'));
+        location.href = 'spotify.html?retour=compte.html&cid=' + encodeURIComponent(v);
+      };
+      row.append(cid, b);
+      if (set) { const x = el('button', 'btn ghost small', 'Déconnecter'); x.type = 'button'; x.onclick = async () => { try { const r = await SBA.api('PUT', '/me/secrets', { spotify: null, spotifycid: null }); me.secrets = r.secrets; me.spotifycid = ''; renderSecrets(); toast2('Spotify déconnecté'); } catch (e) { toast2('Erreur : ' + e.message); } }; row.appendChild(x); }
+      card.appendChild(row); box.appendChild(card);
+      return;
     } else {
       const input = el('input'); input.type = sec.plain ? 'text' : 'password'; input.placeholder = set ? '•••••• (déjà renseigné, tape pour remplacer)' : '';
       input.autocomplete = 'off';
