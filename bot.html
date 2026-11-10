@@ -126,12 +126,17 @@ function renderStatus() {
   }
 }
 
+// Réordonner commandes et messages automatiques : poignée à glisser, ou flèches du clavier
+addEventListener('DOMContentLoaded', () => {
+  SB.sortable($('cmds'), { items: '.bt-item', handle: '.sb-grip', onEnd: (els) => { cfg.commands = els.map((x) => cfg.commands[+x.dataset.i]); mark(); renderCmds(); } });
+  SB.sortable($('timers'), { items: '.bt-item', handle: '.sb-grip', onEnd: (els) => { cfg.timers = els.map((x) => cfg.timers[+x.dataset.i]); mark(); renderTimers(); } });
+});
 function renderCmds() {
   const box = $('cmds'); box.replaceChildren();
   cfg.commands.forEach((c, i) => {
-    const card = el('div', 'bt-item');
+    const card = el('div', 'bt-item'); card.dataset.i = i;
     const top = el('div', 'bt-row');
-    top.append(input(c, 'enabled', { check: true }), input(c, 'name', { ph: '!commande' }));
+    top.append(SB.grip(c.name || SB.t('commande')), input(c, 'enabled', { check: true }), input(c, 'name', { ph: '!commande' }));
     const al = input(c, 'aliases', { list: true, ph: 'alias : !autre' }); top.appendChild(al);
     const del = el('button', 'btn ghost small', '✕'); del.type = 'button'; del.title = 'Supprimer'; del.onclick = () => { cfg.commands.splice(i, 1); mark(); renderCmds(); };
     top.appendChild(del);
@@ -150,8 +155,8 @@ function renderBuiltins() {
 function renderTimers() {
   const box = $('timers'); box.replaceChildren();
   cfg.timers.forEach((t, i) => {
-    const card = el('div', 'bt-item');
-    const top = el('div', 'bt-row'); top.append(input(t, 'enabled', { check: true }), labeled('Toutes les (min)', input(t, 'interval', { num: true })), labeled('Si au moins N messages', input(t, 'minLines', { num: true })));
+    const card = el('div', 'bt-item'); card.dataset.i = i;
+    const top = el('div', 'bt-row'); top.append(SB.grip(SB.t('message automatique {0}', [i + 1])), input(t, 'enabled', { check: true }), labeled('Toutes les (min)', input(t, 'interval', { num: true })), labeled('Si au moins N messages', input(t, 'minLines', { num: true })));
     const del = el('button', 'btn ghost small', '✕'); del.type = 'button'; del.onclick = () => { cfg.timers.splice(i, 1); mark(); renderTimers(); }; top.appendChild(del);
     card.append(top, input(t, 'message', { area: true }));
     box.appendChild(card);

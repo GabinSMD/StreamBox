@@ -91,14 +91,15 @@ function typeSelect(defs, cur, onChange) {
 const btn = (label, title, fn, cls = 'btn ghost small') => { const b = el('button', cls, label); b.type = 'button'; b.title = title; b.onclick = fn; return b; };
 
 /* ---------- Liste des règles ---------- */
+SB.sortable($('rules'), { items: '.au-rule', handle: '.au-rhead > .sb-grip', onEnd: (els) => { rules = els.map((x) => rules[+x.dataset.i]); mark(); render(); } });
 function render() {
   $('count').textContent = rules.length ? `(${rules.length})` : '';
   $('rules').replaceChildren(...(rules.length ? rules.map((r, ri) => {
-    const card = el('div', 'au-rule' + (r.on ? '' : ' off'));
+    const card = el('div', 'au-rule' + (r.on ? '' : ' off')); card.dataset.i = ri;
     const head = el('div', 'au-rhead');
     const on = el('input'); on.type = 'checkbox'; on.checked = r.on; on.title = 'Activée'; on.onchange = () => { r.on = on.checked; mark(); render(); };
     const name = el('input'); name.type = 'text'; name.value = r.name; name.className = 'au-name'; name.maxLength = 60; name.oninput = () => { r.name = name.value; mark(); };
-    head.append(on, name, btn('▶ Tester', 'Lancer cette automatisation dans OBS', () => test(r)), btn('⧉', 'Dupliquer', () => { rules.splice(ri + 1, 0, Object.assign(JSON.parse(JSON.stringify(r)), { id: A.uid(), name: r.name + ' (copie)' })); mark(); render(); }), btn('✕', 'Supprimer', () => { if (confirm(`Supprimer « ${r.name} » ?`)) { rules.splice(ri, 1); mark(); render(); } }));
+    head.append(SB.grip(r.name || SB.t('automatisation')), on, name, btn('▶ Tester', 'Lancer cette automatisation dans OBS', () => test(r)), btn('⧉', 'Dupliquer', () => { rules.splice(ri + 1, 0, Object.assign(JSON.parse(JSON.stringify(r)), { id: A.uid(), name: r.name + ' (copie)' })); mark(); render(); }), btn('✕', 'Supprimer', () => { if (confirm(`Supprimer « ${r.name} » ?`)) { rules.splice(ri, 1); mark(); render(); } }));
     // Quand…
     const when = el('div', 'au-block');
     when.append(el('b', 'au-k', 'Quand'), typeSelect(A.TRIGGERS, r.trigger.type, (t) => { r.trigger = A.newTrigger(t); }));
@@ -109,11 +110,9 @@ function render() {
     const then = el('div', 'au-block');
     then.appendChild(el('b', 'au-k', 'Alors'));
     r.actions.forEach((a, ai) => {
-      const row = el('div', 'au-action');
+      const row = el('div', 'au-action'); row.dataset.i = ai;
       const top = el('div', 'pn-row'); top.style.margin = '0';
-      top.append(el('span', 'lv-num', `${ai + 1}.`), typeSelect(A.ACTIONS, a.type, (t) => { r.actions[ai] = A.newAction(t); }),
-        btn('▲', 'Monter', () => { if (ai) { r.actions.splice(ai - 1, 0, r.actions.splice(ai, 1)[0]); mark(); render(); } }),
-        btn('▼', 'Descendre', () => { if (ai < r.actions.length - 1) { r.actions.splice(ai + 1, 0, r.actions.splice(ai, 1)[0]); mark(); render(); } }),
+      top.append(SB.grip(SB.t('action {0}', [ai + 1])), el('span', 'lv-num', `${ai + 1}.`), typeSelect(A.ACTIONS, a.type, (t) => { r.actions[ai] = A.newAction(t); }),
         btn('✕', 'Retirer', () => { r.actions.splice(ai, 1); mark(); render(); }));
       const af = el('div', 'au-fields'); A.ACTIONS[a.type].f.forEach((f) => af.appendChild(field(a, f)));
       row.append(top, af); then.appendChild(row);
@@ -121,6 +120,8 @@ function render() {
     if (r.actions.length < 15) then.appendChild(btn('+ Action', 'Ajouter une action', () => { r.actions.push(A.newAction('wait')); mark(); render(); }));
     then.appendChild(el('p', 'bt-help', 'Variables dans les textes : ' + A.VARS));
     card.append(head, when, then);
+    // réordonner les actions : poignée à glisser, ou flèches du clavier
+    SB.sortable(then, { items: '.au-action', handle: '.sb-grip', onEnd: (els) => { r.actions = els.map((x) => r.actions[+x.dataset.i]); mark(); render(); } });
     return card;
   }) : [el('p', 'bt-help', 'Aucune automatisation : commence avec un modèle ou « + Nouvelle ».')]));
 }

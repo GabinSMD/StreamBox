@@ -131,6 +131,87 @@
     return s;
   };
 
+  /* ---------- Glisser-déposer pour réordonner ----------
+   * SB.sortable(conteneur, { items: '.ligne', handle: '.poignee', onEnd(éléments) })
+   * À la souris et au doigt (on attrape la poignée), et au clavier : poignée sélectionnée, puis flèches.
+   * L'élément reste dans la page pendant le déplacement : la liste se réorganise en direct. */
+  window.SB = window.SB || {};
+  SB.sortable = function (box, opt) {
+    const items = () => [...box.children].filter((x) => x.matches(opt.items) && !x.hidden);
+    const done = (el) => { if (opt.onEnd) opt.onEnd(items(), el); };
+    let drag = null;
+    box.addEventListener('pointerdown', (e) => {
+      const h = e.target.closest(opt.handle); if (!h || !box.contains(h) || e.button > 0) return;
+      const el = h.closest(opt.items); if (!el || el.parentElement !== box) return;
+      e.preventDefault(); drag = { el, id: e.pointerId, moved: false, vy: 0, x: e.clientX, y: e.clientY };
+      // défilement automatique près du haut ou du bas de l'écran, pour les longues listes
+      const loop = () => { if (!drag) return; if (drag.vy) { scrollBy(0, drag.vy); place(drag.x, drag.y); } requestAnimationFrame(loop); };
+      requestAnimationFrame(loop);
+      h.setPointerCapture(e.pointerId); el.classList.add('sb-dragging'); try { getSelection().removeAllRanges(); } catch (err) { /* ignore */ } document.body.classList.add('sb-drag-on');
+    });
+    const place = (x, y) => {
+      const over = document.elementsFromPoint(x, y).map((x) => x.closest && x.closest(opt.items)).find((x) => x && x !== drag.el && x.parentElement === box);
+      if (!over || over === drag.last) { if (!over) drag.last = null; return; } // pas d'aller-retour tant qu'on reste sur le même élément
+      // l'élément survolé passe de l'autre côté : avant lui si on remonte, après lui si on descend (marche aussi pour les blocs très hauts)
+      const before = drag.el.compareDocumentPosition(over) & Node.DOCUMENT_POSITION_PRECEDING;
+      const ref = before ? over : over.nextSibling;
+      if (ref !== drag.el && ref !== drag.el.nextSibling) { box.insertBefore(drag.el, ref); drag.moved = true; drag.last = over; }
+    };
+    box.addEventListener('pointermove', (e) => {
+      if (!drag || e.pointerId !== drag.id) return;
+      drag.x = e.clientX; drag.y = e.clientY;
+      const edge = 70; drag.vy = e.clientY < edge ? -Math.ceil((edge - e.clientY) / 6) : e.clientY > innerHeight - edge ? Math.ceil((e.clientY - innerHeight + edge) / 6) : 0;
+      place(e.clientX, e.clientY);
+    });
+    const end = (e) => {
+      if (!drag || (e && e.pointerId !== drag.id)) return;
+      const { el, moved } = drag; drag = null;
+      el.classList.remove('sb-dragging'); document.body.classList.remove('sb-drag-on');
+      if (moved) done(el);
+    };
+    box.addEventListener('pointerup', end); box.addEventListener('pointercancel', end);
+    box.addEventListener('keydown', (e) => {
+      const h = e.target.closest(opt.handle); if (!h || !box.contains(h)) return;
+      const el = h.closest(opt.items); const list = items(); const i = list.indexOf(el);
+      if (i < 0) return;
+      let j = null;
+      if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') j = i - 1;
+      if (e.key === 'ArrowDown' || e.key === 'ArrowRight') j = i + 1;
+      if (e.key === 'Home') j = 0;
+      if (e.key === 'End') j = list.length - 1;
+      if (j == null || j < 0 || j >= list.length || j === i) return;
+      e.preventDefault();
+      box.insertBefore(el, j > i ? list[j].nextSibling : list[j]);
+      h.focus(); done(el);
+      if (window.toast) toast(SB.t ? SB.t('Déplacé en position {0} sur {1}', [j + 1, list.length]) : 'Déplacé');
+    });
+  };
+  /* Menu « ⋯ » : actions secondaires d'une ligne. items = [[libellé, fonction, 'danger'?], …] */
+  SB.menu = function (label, items) {
+    const d = document.createElement('details'); d.className = 'sb-menu';
+    const sm = document.createElement('summary'); sm.className = 'btn ghost small'; sm.setAttribute('aria-label', label); sm.title = label;
+    sm.appendChild(SB.icon ? SB.icon('ellipsis', 'ic-solo') : document.createTextNode('⋯'));
+    const list = document.createElement('div'); list.className = 'sb-menu-list'; list.setAttribute('role', 'menu');
+    items.forEach(([text, fn, cls]) => {
+      const b = document.createElement('button'); b.type = 'button'; b.setAttribute('role', 'menuitem'); b.textContent = text; if (cls) b.className = cls;
+      b.onclick = () => { d.open = false; fn(); }; list.appendChild(b);
+    });
+    d.append(sm, list);
+    d.addEventListener('keydown', (e) => { if (e.key === 'Escape') { d.open = false; sm.focus(); } });
+    d.addEventListener('toggle', () => { if (d.open) { document.querySelectorAll('details.sb-menu[open]').forEach((x) => x !== d && (x.open = false)); const f = list.querySelector('button'); if (f) f.focus(); } });
+    return d;
+  };
+  document.addEventListener('click', (e) => { document.querySelectorAll('details.sb-menu[open]').forEach((d) => { if (!d.contains(e.target)) d.open = false; }); });
+
+  /* Poignée de déplacement accessible (bouton : glisser, ou flèches du clavier) */
+  SB.grip = function (label) {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'sb-grip';
+    b.setAttribute('aria-label', (SB.t ? SB.t('Déplacer : {0}', [label]) : 'Déplacer : ' + label));
+    b.title = SB.t ? SB.t('Glisser pour déplacer (ou flèches du clavier)') : 'Glisser pour déplacer (ou flèches du clavier)';
+    if (SB.icon) b.appendChild(SB.icon('grip-vertical')); else b.textContent = '⋮⋮';
+    return b;
+  };
+
   window.toast = function (msg) {
     let t = document.querySelector('.toast');
     if (!t) { t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); t.setAttribute('aria-live', 'polite'); document.body.appendChild(t); }

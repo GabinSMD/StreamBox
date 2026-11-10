@@ -29,10 +29,16 @@
 
   <div id="in" hidden>
     <section class="acc-sec" data-acc="overlays">
-      <h1 class="sec"><svg class="ic ic-layout-grid" aria-hidden="true" focusable="false"><use href="img/icons.svg#layout-grid"/></svg>Mes overlays</h1>
+      <div class="acc-top">
+        <h1 class="sec"><svg class="ic ic-layout-grid" aria-hidden="true" focusable="false"><use href="img/icons.svg#layout-grid"/></svg>Mes overlays</h1>
+        <button class="btn" id="createBtn" type="button" aria-expanded="false" aria-controls="createBox"><svg class="ic ic-plus" aria-hidden="true" focusable="false"><use href="img/icons.svg#plus"/></svg>Créer un overlay</button>
+      </div>
     <p class="sec">Tes overlays enregistrés. Colle leur lien dans OBS une seule fois : ensuite, tout se règle ici.</p>
+    <section class="box acc-create" id="createBox" hidden aria-labelledby="createH">
+      <div class="acc-create-h"><h2 id="createH">Quel overlay créer ?</h2><input type="search" id="createQ" placeholder="Chercher : chat, alertes, subathon…" aria-label="Chercher un overlay"></div>
+      <div class="acc-pick" id="create"></div>
+    </section>
     <div class="acc-list" id="overlays"></div>
-    <details class="more" style="margin-top:14px"><summary><svg class="ic ic-plus" aria-hidden="true" focusable="false"><use href="img/icons.svg#plus"/></svg>Créer un overlay</summary><div class="pn-row" id="create"></div></details>
 
     </section>
 
@@ -163,28 +169,38 @@ function renderOverlays() {
     const row = el('div', 'acc-row');
     const info = el('div', 'acc-info');
     info.append(el('b', null, tool.icon + ' ' + o.name), SB.meta(tool.name, 'modifié le ' + new Date(o.updatedAt).toLocaleString(SB_LANG_TAG, { dateStyle: 'short', timeStyle: 'short' })));
-    const acts = el('div', 'pn-row');
-    const btn = (label, cls, fn) => { const b = el('button', 'btn small ' + (cls || 'ghost'), label); b.type = 'button'; b.onclick = fn; acts.appendChild(b); return b; };
-    const edit = el('a', 'btn small', 'Modifier'); edit.href = o.tool === 'automatisations' ? 'automatisations.html' : `outil.html?id=${o.tool}&o=${o.id}`; acts.appendChild(edit);
-    btn('Copier le lien OBS', '', async () => { await navigator.clipboard.writeText(SBA.overlayLink(tool, o.id)).catch(() => {}); toast2('Lien copié'); });
-    btn('Dupliquer', '', async () => {
-      const full = await SBA.api('GET', '/me/overlays/' + o.id);
-      await SBA.api('POST', '/me/overlays', { tool: o.tool, name: o.name + ' (copie)', settings: full.settings });
-      me = await SBA.api('GET', '/me'); renderOverlays(); toast2('Overlay dupliqué');
-    });
-    btn('Nouveau lien', '', async () => {
-      if (!confirm('Créer un nouveau lien ? L’ancien lien arrêtera de marcher : à faire si ton lien a été vu en stream. Il faudra coller le nouveau dans OBS.')) return;
-      await SBA.api('POST', `/me/overlays/${o.id}/rotate`); me = await SBA.api('GET', '/me'); renderOverlays(); toast2('Nouveau lien créé : recopie-le dans OBS');
-    });
-    btn('Supprimer', 'danger', async () => {
-      if (!confirm(`Supprimer « ${o.name} » ? Il disparaîtra aussi d’OBS.`)) return;
-      await SBA.api('DELETE', '/me/overlays/' + o.id); me = await SBA.api('GET', '/me'); renderOverlays();
-    });
+    const acts = el('div', 'pn-row acc-acts');
+    // deux actions visibles, le reste dans le menu « ⋯ »
+    const edit = el('a', 'btn ghost small', 'Modifier'); edit.href = o.tool === 'automatisations' ? 'automatisations.html' : `outil.html?id=${o.tool}&o=${o.id}`;
+    const copy = el('button', 'btn ghost small', 'Copier le lien OBS'); copy.type = 'button';
+    copy.onclick = async () => { await navigator.clipboard.writeText(SBA.overlayLink(tool, o.id)).catch(() => {}); toast2('Lien copié'); };
+    acts.append(edit, copy, SB.menu(SB.t('Autres actions pour {0}', [o.name]), [
+      ['Dupliquer', async () => {
+        const full = await SBA.api('GET', '/me/overlays/' + o.id);
+        await SBA.api('POST', '/me/overlays', { tool: o.tool, name: o.name + ' (copie)', settings: full.settings });
+        me = await SBA.api('GET', '/me'); renderOverlays(); toast2('Overlay dupliqué');
+      }],
+      ['Nouveau lien', async () => {
+        if (!confirm('Créer un nouveau lien ? L’ancien lien arrêtera de marcher : à faire si ton lien a été vu en stream. Il faudra coller le nouveau dans OBS.')) return;
+        await SBA.api('POST', `/me/overlays/${o.id}/rotate`); me = await SBA.api('GET', '/me'); renderOverlays(); toast2('Nouveau lien créé : recopie-le dans OBS');
+      }],
+      ['Supprimer', async () => {
+        if (!confirm(`Supprimer « ${o.name} » ? Il disparaîtra aussi d’OBS.`)) return;
+        await SBA.api('DELETE', '/me/overlays/' + o.id); me = await SBA.api('GET', '/me'); renderOverlays();
+      }, 'danger'],
+    ]));
     row.append(info, acts); box.appendChild(row);
   });
   const create = $('create'); create.replaceChildren();
-  SB_TOOLS.forEach((t) => { const a = el('a', 'btn ghost small', t.icon + ' ' + t.name); a.href = 'outil.html?id=' + t.id; create.appendChild(a); });
+  SB_TOOLS.filter((t) => !t.mergedInto).forEach((t) => {
+    const a = el('a', 'acc-pick-i'); a.href = 'outil.html?id=' + t.id; a.dataset.q = [t.name, t.short || '', t.tagline || ''].join(' ').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    a.append(el('b', null, t.icon + ' ' + t.name), el('span', null, t.short || ''));
+    create.appendChild(a);
+  });
+  if (!me.overlays.length) { $('createBox').hidden = false; $('createBtn').setAttribute('aria-expanded', 'true'); } // premier overlay : le choix est ouvert d'office
 }
+$('createBtn').onclick = () => { const open = $('createBox').hidden; $('createBox').hidden = !open; $('createBtn').setAttribute('aria-expanded', String(open)); if (open) $('createQ').focus(); };
+$('createQ').oninput = () => { const q = $('createQ').value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim(); document.querySelectorAll('.acc-pick-i').forEach((a) => { a.hidden = q && !q.split(/\s+/).every((w) => a.dataset.q.includes(w)); }); };
 
 function renderSecrets() {
   const box = $('secrets'); box.replaceChildren();
@@ -236,7 +252,7 @@ function linkRow(l) {
   const a = el('input'); a.type = 'text'; a.placeholder = 'Nom (ex. Discord)'; a.maxLength = 40; a.value = l.label || ''; a.className = 'pg-l';
   const u = el('input'); u.type = 'url'; u.placeholder = 'https://…'; u.value = l.url || ''; u.className = 'pg-u';
   const x = el('button', 'btn ghost small', '✕'); x.type = 'button'; x.title = 'Retirer'; x.onclick = () => r.remove();
-  r.append(a, u, x); return r;
+  r.prepend(SB.grip(l.label || SB.t('lien'))); r.append(a, u, x); return r;
 }
 function showPage(pg) {
   $('pgOn').checked = !!pg.enabled; $('pgAbout').value = pg.about || '';
@@ -245,6 +261,7 @@ function showPage(pg) {
   $('pgUrl').hidden = !pg.url; $('pgLink').textContent = pg.url || ''; $('pgLink').href = pg.url || '#';
 }
 async function loadPage() { try { showPage(await SBA.api('GET', '/me/page')); } catch (e) { /* relais ancien : section inutilisable */ } }
+SB.sortable($('pgLinks'), { items: '.pg-link', handle: '.sb-grip' }); // l'ordre des liens est relu à l'enregistrement
 $('pgAdd').onclick = () => { if ($('pgLinks').children.length >= 12) return toast2('12 liens au plus'); $('pgLinks').appendChild(linkRow({})); };
 $('pgCopy').onclick = () => { navigator.clipboard.writeText($('pgLink').href).then(() => toast2('Lien copié ✓')); };
 $('pgSave').onclick = async () => {

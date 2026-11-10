@@ -30,9 +30,11 @@
       <span class="flag" id="live"></span>
       <span class="md-st" id="stChat" title="Chat"><svg class="ic ic-message-square" aria-hidden="true" focusable="false"><use href="img/icons.svg#message-square"/></svg>…</span>
       <span class="md-st" id="stEs" title="Événements de modération"><svg class="ic ic-shield" aria-hidden="true" focusable="false"><use href="img/icons.svg#shield"/></svg>…</span>
+      <button class="btn ghost small wd-edit-btn" id="wdEdit" type="button" aria-pressed="false"><svg class="ic ic-layout-dashboard" aria-hidden="true" focusable="false"><use href="img/icons.svg#layout-dashboard"/></svg><span>Personnaliser</span></button>
       <label class="md-quick" title="Durée du bouton ⏱ dans le chat"><svg class="ic ic-timer" aria-hidden="true" focusable="false"><use href="img/icons.svg#timer"/></svg>rapide <select id="quickT"><option value="60">1 min</option><option value="600" selected>10 min</option><option value="3600">1 h</option><option value="86400">24 h</option></select></label>
     </header>
     <div class="note" id="scopeWarn" hidden></div>
+    <div class="wd-bar" id="wdBar" hidden></div>
 
     <div class="md-grid">
       <section class="md-chat box">
@@ -169,6 +171,7 @@
 <script src="js/eventsub.js"></script>
 <script src="js/account.js"></script>
 <script src="js/site.js"></script>
+<script src="js/mod-widgets.js"></script>
 <script>
 /* Panneau de modération : chaque modo se connecte avec SON compte Twitch. Les actions partent directement
  * de son navigateur vers Twitch ; le jeton est gardé en mémoire (jamais dans l'URL ni dans le stockage). */
@@ -657,7 +660,7 @@ $('tabs').onclick = (e) => {
   document.querySelectorAll('#tabs button').forEach((x) => { x.classList.toggle('on', x === b); x.setAttribute('aria-selected', String(x === b)); });
   history.replaceState(null, '', location.pathname + location.search + (b.dataset.t === 'automod' ? '' : '#' + b.dataset.t)); // onglet gardé dans l'adresse
   b.scrollIntoView({ block: 'nearest', inline: 'nearest' }); // onglet actif toujours visible si la barre défile
-  document.querySelectorAll('.md-pane').forEach((p) => { p.hidden = p.id !== 'p-' + b.dataset.t; });
+  document.querySelectorAll('#wd-tabs .md-pane').forEach((p) => { p.hidden = p.id !== 'p-' + b.dataset.t; }); // les blocs sortis des onglets restent visibles
   if (b.dataset.t === 'modes') loadModes();
   if (b.dataset.t === 'livetab') { loadLive().catch((err) => toast(err.message)); loadTeam(); }
   if (b.dataset.t === 'votes') { renderRecent(); loadVotes(); }
@@ -675,17 +678,17 @@ function select(c) {
   if (chat) chat.stop(); if (es) es.stop();
   ch = c; me.isBroadcasterOf = ch.id === me.id;
   users.clear(); $('feed').replaceChildren(); $('automod').replaceChildren(); $('journal').replaceChildren(); $('unban').replaceChildren(); count(); countUnban();
-  $('tabLive').hidden = !me.isBroadcasterOf;
-  $('tabVotes').hidden = $('tabPoints').hidden = !(me.isBroadcasterOf || viaRelay() || DEMO); // modos : seulement via le relais
+  MDW.setOff('livetab', !me.isBroadcasterOf);
+  MDW.setOff('votes', !(me.isBroadcasterOf || viaRelay() || DEMO)); MDW.setOff('points', !(me.isBroadcasterOf || viaRelay() || DEMO)); // modos : seulement via le relais
   clearTimeout(votesTimer); clearTimeout(queueTimer); rewards = []; $('nPoints').textContent = ''; votesLoaded = pointsLoaded = false;
+  MDW.refresh(); // blocs affichés seuls : chargés tout de suite
   const cur = $('tabs').querySelector('button.on');
-  if (cur && cur.hidden) $('tabs').querySelector('[data-t="automod"]').click();
-  else if (cur && cur.dataset.t === 'votes') loadVotes();
-  else if (cur && cur.dataset.t === 'points') loadPoints();
+  if (cur && !cur.hidden && cur.dataset.t === 'votes') loadVotes();
+  else if (cur && !cur.hidden && cur.dataset.t === 'points') loadPoints();
   $('feed').appendChild(el('p', 'bt-help', `Chat de ${ch.name} : les nouveaux messages s’affichent ici.`));
   try { localStorage.setItem('sb-mod-chan', ch.login); } catch (e) { /* ignore */ }
   stream();
-  if (!$('tabPoints').hidden && (!me.isBroadcasterOf || BX_NEED.every((s) => T.scopes.includes(s)))) loadPoints(); // pastille : demandes en attente
+  if (MDW.shown('points') && !MDW.standalone('points') && (!me.isBroadcasterOf || BX_NEED.every((s) => T.scopes.includes(s)))) loadPoints(); // pastille : demandes en attente
   if (DEMO) return demoStart();
   emotes = new SB.EmoteStore();
   chat = new SB.TwitchChat(ch.login);
@@ -729,6 +732,10 @@ function need(text, label, href) {
   const pick = (!DEMO && chans.find((c) => c.login === last)) || chans[list.length && !DEMO ? 1 : 0]; // par défaut : la première chaîne modérée
   $('chan').value = JSON.stringify(pick);
   $('app').hidden = false;
+  MDW.init({ loaders: { // blocs affichés seuls (hors onglets) : chargés comme à l'ouverture de leur onglet
+    modes: () => loadModes(), livetab: () => { loadLive().catch((err) => toast(err.message)); loadTeam(); },
+    votes: () => { clearTimeout(votesTimer); renderRecent(); loadVotes(); }, points: () => { clearTimeout(queueTimer); loadPoints(); },
+  } });
   select(pick);
   const want = location.hash.slice(1), tb = want && $('tabs').querySelector(`[data-t="${CSS.escape(want)}"]`);
   if (tb && !tb.hidden) tb.click(); // onglet demandé dans l'adresse (#votes, #points…)
