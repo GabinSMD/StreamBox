@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="img/logo.svg" type="image/svg+xml">
+<title>Trouver un raid · StreamBox</title>
+<meta name="description" content="À la fin de ton live, trouve une chaîne à raider : même jeu, même langue, une audience proche de la tienne, et le raid en un clic.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="StreamBox">
+<meta property="og:title" content="Trouver un raid · StreamBox">
+<meta property="og:description" content="À la fin de ton live, trouve une chaîne à raider : même jeu, même langue, une audience proche de la tienne, et le raid en un clic.">
+<meta property="og:image" content="https://gabinsmd.github.io/StreamBox/img/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400..700&family=Tektur:wght@700&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="css/site.css">
+<script src="js/i18n.js"></script>
+<script src="js/icons.js"></script>
+</head>
+<body>
+<main class="wrap">
+  <h1 class="sec" style="margin-top:36px"><svg class="ic ic-rocket" aria-hidden="true" focusable="false"><use href="img/icons.svg#rocket"/></svg>Trouver un raid</h1>
+  <p class="sec">À la fin de ton live : des chaînes en direct dans ton jeu et ta langue, avec une audience proche de la tienne. Un raid vers une petite chaîne lui fait souvent sa soirée.</p>
+  <div id="need" class="box" hidden></div>
+  <div id="app" hidden>
+    <section class="box">
+      <p class="rd-me" id="me" role="status"></p>
+      <form class="rd-f" id="form" autocomplete="off">
+        <div class="field"><label for="game">Catégorie</label><input type="text" id="game" list="games" placeholder="Just Chatting"><datalist id="games"></datalist></div>
+        <div class="field"><label for="lang">Langue</label><select id="lang"><option value="">Toutes</option><option value="fr">Français</option><option value="en">Anglais</option><option value="es">Espagnol</option><option value="de">Allemand</option><option value="it">Italien</option><option value="pt">Portugais</option></select></div>
+        <div class="field"><label for="size">Audience</label><select id="size"><option value="proche">Proche de la mienne</option><option value="petite">Plus petite que la mienne</option><option value="toutes">Toutes</option></select></div>
+        <button class="btn" type="submit" id="go">Chercher</button>
+      </form>
+    </section>
+    <p class="bt-help" id="state" role="status" aria-live="polite"></p>
+    <div class="rd-list" id="list"></div>
+  </div>
+</main>
+<script src="js/config.js"></script>
+<script src="js/sb.js"></script>
+<script src="js/account.js"></script>
+<script src="js/site.js"></script>
+<script>
+/* Chaînes à raider : streams Twitch du même jeu et de la même langue, triés par audience proche de la sienne.
+ * Le raid part avec la permission channel:manage:raids ; sans elle, la commande /raid est prête à coller dans le chat. */
+const $ = (id) => document.getElementById(id);
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+const DEMO = new URLSearchParams(location.search).get('demo') === '1';
+let T = null, me = null, mine = null, gameId = null;
+
+async function token() {
+  if (DEMO) return { access: 'demo', scopes: ['channel:manage:raids'], login: 'tachaine', user_id: '1' };
+  if (SBA.enabled() && SBA.loggedIn()) return SBA.api('GET', '/me/twitch-token');
+  let t = null; try { t = localStorage.getItem('sb-twitch-token'); } catch (e) { /* ignore */ }
+  const v = t && await SB.validateToken(t);
+  if (!v) throw Object.assign(new Error('non connecté'), { login: true });
+  return { access: t, scopes: v.scopes || [], login: v.login, user_id: v.user_id };
+}
+const helix = (path, opt) => (DEMO ? demo(path) : fetch('https://api.twitch.tv/helix/' + path, Object.assign({ headers: { 'Client-Id': SB_CONFIG.twitchClientId, Authorization: 'Bearer ' + T.access, 'Content-Type': 'application/json' } }, opt || {}))
+  .then(async (r) => { const d = r.status === 204 ? {} : await r.json().catch(() => ({})); if (!r.ok) throw new Error(d.message || 'erreur ' + r.status); return d; }));
+const canRaid = () => (T.scopes || []).includes('channel:manage:raids');
+const n = (x) => Number(x || 0).toLocaleString(SB_LANG_TAG);
+const since = (iso) => { const m = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 60000)); return m < 60 ? SB.t('{0} min', [m]) : SB.t('{0} h {1}', [Math.floor(m / 60), String(m % 60).padStart(2, '0')]); };
+
+async function start() {
+  try { T = await token(); }
+  catch (e) {
+    $('need').hidden = false;
+    $('need').replaceChildren(el('p', 'lead', SB.t('Connecte-toi avec ton compte Twitch pour trouver une chaîne à raider.')));
+    const b = el('a', 'btn', SB.t('Se connecter avec Twitch')); b.href = SBA.enabled() ? 'connexion.html?compte=1&scope=live&retour=raid.html' : 'connexion.html?scope=live&retour=raid.html'; $('need').appendChild(b);
+    return;
+  }
+  $('app').hidden = false;
+  me = { id: T.user_id, login: T.login };
+  const [ch, live] = await Promise.all([helix('channels?broadcaster_id=' + me.id), helix('streams?user_id=' + me.id)]);
+  const c = (ch.data || [])[0] || {}; mine = (live.data || [])[0] || null;
+  gameId = c.game_id || null; $('game').value = c.game_name || '';
+  if (c.broadcaster_language && [...$('lang').options].some((o) => o.value === c.broadcaster_language)) $('lang').value = c.broadcaster_language;
+  $('me').textContent = mine ? SB.t('Tu es en live depuis {0} avec {1} viewers, en {2}.', [since(mine.started_at), n(mine.viewer_count), mine.game_name || '?']) : SB.t('Tu n’es pas en live : tu peux chercher, mais le raid ne part que pendant un live.');
+  if (!canRaid()) $('me').append(' ', el('span', null, SB.t('Pour lancer le raid en un clic, autorise les raids :')), ' ', Object.assign(el('a', null, SB.t('autoriser')), { href: 'connexion.html?compte=1&scope=live&retour=raid.html' }), '. ', el('span', null, SB.t('Sinon, copie la commande /raid dans ton chat.')));
+  search();
+}
+
+/* Recherche : la catégorie choisie (sa fiche Twitch), la langue, puis tri par audience proche */
+async function search() {
+  $('state').textContent = SB.t('Recherche…'); $('list').replaceChildren();
+  try {
+    const name = $('game').value.trim();
+    if (name) { const g = ((await helix('games?name=' + encodeURIComponent(name))).data || [])[0]; gameId = g ? g.id : null; if (!g) { $('state').textContent = SB.t('Catégorie introuvable : choisis-la dans la liste.'); return; } }
+    else gameId = null;
+    let all = [], cursor = '';
+    for (let page = 0; page < 3; page++) { // jusqu'à 300 chaînes
+      const q = new URLSearchParams({ first: '100' }); if (gameId) q.set('game_id', gameId); if ($('lang').value) q.set('language', $('lang').value); if (cursor) q.set('after', cursor);
+      const d = await helix('streams?' + q); all = all.concat(d.data || []); cursor = (d.pagination || {}).cursor; if (!cursor) break;
+    }
+    const mv = mine ? mine.viewer_count : 0;
+    let list = all.filter((s) => s.user_id !== me.id && s.type === 'live');
+    if ($('size').value === 'petite' && mv) list = list.filter((s) => s.viewer_count < mv);
+    if ($('size').value !== 'toutes') list.sort((a, b) => Math.abs(Math.log((a.viewer_count + 1) / (mv + 1))) - Math.abs(Math.log((b.viewer_count + 1) / (mv + 1))));
+    list = list.slice(0, 24);
+    $('state').textContent = list.length ? SB.t('{0} chaînes en direct.', [list.length]) : SB.t('Aucune chaîne en direct avec ces filtres : essaie une autre langue ou « Toutes ».');
+    $('list').replaceChildren(...list.map(card));
+  } catch (e) { $('state').textContent = SB.t('Erreur : {0}', [e.message]); }
+}
+function card(s) {
+  const c = el('article', 'rd-card');
+  let img = el('div', 'rd-ph');
+  if (s.thumbnail_url) { img = el('img'); img.alt = ''; img.loading = 'lazy'; img.width = 320; img.height = 180; img.src = s.thumbnail_url.replace('{width}', '320').replace('{height}', '180'); }
+  const body = el('div', 'rd-b');
+  const h = el('h2'); const link = el('a', null, s.user_name); link.href = 'https://www.twitch.tv/' + s.user_login; link.target = '_blank'; link.rel = 'noopener'; link.title = SB.t('Voir la chaîne'); h.appendChild(link);
+  body.append(h, el('p', 'rd-t', s.title || ''), SB.meta(SB.t('{0} viewers', [n(s.viewer_count)]), since(s.started_at), s.game_name || ''));
+  const acts = el('div', 'pn-row');
+  if (canRaid()) {
+    const go = el('button', 'btn small', SB.t('Lancer le raid')); go.type = 'button';
+    go.onclick = () => busy(async () => {
+      if (!confirm(SB.t('Lancer un raid vers {0} ?', [s.user_name]))) return;
+      try { await helix(`raids?from_broadcaster_id=${me.id}&to_broadcaster_id=${s.user_id}`, { method: 'POST' }); toast(SB.t('Raid lancé : Twitch le confirme dans 90 s (ou clique sur « Raid » dans ton chat).')); go.replaceWith(cancelBtn()); }
+      catch (e) { toast(SB.t('Raid impossible : {0}', [e.message])); }
+    });
+    acts.append(go);
+  }
+  const cp = el('button', 'btn ghost small', SB.t('Copier /raid {0}', [s.user_login])); cp.type = 'button';
+  cp.onclick = () => navigator.clipboard.writeText('/raid ' + s.user_login).then(() => toast(SB.t('Commande copiée : colle-la dans ton chat Twitch'))).catch(() => toast('/raid ' + s.user_login));
+  acts.append(cp);
+  body.appendChild(acts);
+  c.append(img, body);
+  return c;
+}
+function cancelBtn() {
+  const b = el('button', 'btn ghost small', SB.t('Annuler le raid')); b.type = 'button';
+  b.onclick = () => busy(async () => { try { await helix('raids?broadcaster_id=' + me.id, { method: 'DELETE' }); toast(SB.t('Raid annulé')); b.remove(); } catch (e) { toast(e.message); } });
+  return b;
+}
+let tq = null;
+$('game').addEventListener('input', () => { clearTimeout(tq); const q = $('game').value.trim(); if (q.length < 2) return; tq = setTimeout(async () => { try { const d = await helix('search/categories?first=10&query=' + encodeURIComponent(q)); $('games').replaceChildren(...(d.data || []).map((g) => Object.assign(el('option'), { value: g.name }))); } catch (e) { /* ignore */ } }, 300); });
+$('form').addEventListener('submit', (e) => { e.preventDefault(); busy(search); });
+
+/* ---------- Démo ---------- */
+function demo(path) {
+  const now = Date.now(), iso = (m) => new Date(now - m * 60000).toISOString();
+  if (path.startsWith('channels?')) return Promise.resolve({ data: [{ game_id: '27471', game_name: 'Minecraft', broadcaster_language: 'fr' }] });
+  if (path.startsWith('streams?user_id')) return Promise.resolve({ data: [{ user_id: '1', viewer_count: 42, started_at: iso(185), game_name: 'Minecraft', type: 'live' }] });
+  if (path.startsWith('games?')) return Promise.resolve({ data: [{ id: '27471', name: 'Minecraft' }] });
+  if (path.startsWith('search/')) return Promise.resolve({ data: [{ name: 'Minecraft' }, { name: 'Minecraft Dungeons' }] });
+  if (path.startsWith('streams?')) return Promise.resolve({ data: [['Pixelmaud', 38, 'Survie hardcore jour 12', 95], ['Kevin_le_Roux', 55, 'On construit la gare', 140], ['Lou_Builds', 12, 'Redstone et chill', 60], ['Nocturne', 210, 'Speedrun any%', 30], ['Tartiflette42', 6, 'Premier live sur Minecraft !', 25]]
+    .map(([name, v, title, m], i) => ({ user_id: String(10 + i), user_login: name.toLowerCase(), user_name: name, viewer_count: v, title, started_at: iso(m), game_name: 'Minecraft', type: 'live', thumbnail_url: '' })) });
+  if (path.startsWith('raids')) return Promise.resolve({});
+  return Promise.resolve({ data: [] });
+}
+start().catch((e) => { $('need').hidden = false; $('need').textContent = SB.t('Erreur : {0}', [e.message]); });
+</script>
+</body>
+</html>

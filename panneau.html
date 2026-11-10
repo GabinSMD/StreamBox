@@ -91,6 +91,15 @@
         <button class="btn ghost" data-send="compteurs" data-args-fn="ctreset">Remettre à zéro</button></div>
     </section>
 
+    <section class="box pn-card"><h2><svg class="ic ic-trophy" aria-hidden="true" focusable="false"><use href="img/icons.svg#trophy"/></svg>Tableau de score</h2>
+      <div class="pn-row"><button class="btn ghost" data-send="score" data-args="score 1 +">Équipe 1 +1</button>
+        <button class="btn ghost" data-send="score" data-args="score 1 -">Équipe 1 −1</button>
+        <button class="btn ghost" data-send="score" data-args="score 2 +">Équipe 2 +1</button>
+        <button class="btn ghost" data-send="score" data-args="score 2 -">Équipe 2 −1</button></div>
+      <div class="pn-row"><button class="btn ghost" data-send="score" data-args="manche +">Manche suivante</button>
+        <button class="btn ghost" data-send="score" data-args="score reset">Tout remettre à zéro</button></div>
+    </section>
+
     <section class="box pn-card"><h2><svg class="ic ic-volume-1" aria-hidden="true" focusable="false"><use href="img/icons.svg#volume-1"/></svg>Sons et écran de fin</h2>
       <div class="pn-row"><label class="pn-f" style="max-width:140px"><span>Son</span><input type="text" id="sndname" value="tada" placeholder="tada"></label>
         <button class="btn ghost" data-send="sons" data-args-fn="sound">Jouer</button>

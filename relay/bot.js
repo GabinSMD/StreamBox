@@ -27,6 +27,9 @@ export const DEFAULT_BOT = {
     cheer: { on: false, msg: 'Merci {user} pour les {bits} bits ! 💎', min: 100 },
     don: { on: false, msg: 'Merci {user} pour le don de {amount} ! 💸' },
   },
+  // Bouclier anti-raid haineux : un raid venant d'un compte très récent passe le chat en mode protégé pendant quelques minutes
+  shield: { on: false, maxAge: 30, minViewers: 2, followers: true, followMins: 10, shieldMode: false, duration: 10, trusted: '',
+    msg: 'Raid suspect de {user} : le chat passe en mode followers pendant {minutes} min. Les vrais viewers sont les bienvenus !' },
 };
 
 const LEVELS = { everyone: 0, sub: 1, vip: 2, mod: 3, broadcaster: 4 };
@@ -59,6 +62,10 @@ export function sanitizeBot(input, prev) {
     if (k === 'caps') Object.assign(out.mod[k], { min: num(m.min, 15, 5, 200), pct: num(m.pct, 70, 30, 100) });
     if (k === 'words') out.mod[k].list = str(m.list, 3000);
   }
+  const sh = c.shield || p.shield || d.shield, ds = d.shield;
+  out.shield = { on: bool(sh.on, ds.on), maxAge: num(sh.maxAge, ds.maxAge, 1, 3650), minViewers: num(sh.minViewers, ds.minViewers, 1, 100000),
+    followers: bool(sh.followers, ds.followers), followMins: num(sh.followMins, ds.followMins, 0, 129600), shieldMode: bool(sh.shieldMode, ds.shieldMode),
+    duration: num(sh.duration, ds.duration, 1, 240), trusted: str(sh.trusted, 1000), msg: str(sh.msg != null ? sh.msg : ds.msg, 400) };
   for (const k of Object.keys(d.events)) {
     const e = (c.events || {})[k] || (p.events || d.events)[k] || d.events[k];
     out.events[k] = { on: bool(e.on, d.events[k].on), msg: str(e.msg, 400) };
@@ -89,8 +96,8 @@ function fmtSince(iso) {
 export async function render(tpl, v, api, st) {
   let out = String(tpl || '');
   out = out.replace(/\{random:(\d{1,6})-(\d{1,6})\}/g, (_, a, b) => { const lo = Math.min(+a, +b), hi = Math.max(+a, +b); return String(lo + Math.floor(Math.random() * (hi - lo + 1))); });
-  const simple = { user: v.user, touser: v.touser || v.user, args: v.args || '', channel: v.channel, count: v.count, months: v.months, viewers: v.viewers, bits: v.bits, tier: v.tier, amount: v.amount };
-  out = out.replace(/\{(user|touser|args|channel|count|months|viewers|bits|tier|amount)\}/g, (_, k) => (simple[k] != null ? String(simple[k]) : ''));
+  const simple = { user: v.user, touser: v.touser || v.user, args: v.args || '', channel: v.channel, count: v.count, months: v.months, viewers: v.viewers, bits: v.bits, tier: v.tier, amount: v.amount, minutes: v.minutes };
+  out = out.replace(/\{(user|touser|args|channel|count|months|viewers|bits|tier|amount|minutes)\}/g, (_, k) => (simple[k] != null ? String(simple[k]) : ''));
   if (/\{uptime\}/.test(out)) out = out.replace(/\{uptime\}/g, st.live && st.startedAt ? fmtDur(Date.now() - st.startedAt) : 'hors ligne');
   if (/\{(game|title)\}/.test(out)) {
     const ch = await api.channel().catch(() => null) || {};
@@ -233,14 +240,43 @@ export async function onEvent(cfg, st, type, e, api, channel) {
   if (type === 'channel.subscription.gift' && E.gift.on) return api.say(await render(E.gift.msg, { user: e.is_anonymous ? 'Anonyme' : e.user_name, count: e.total, tier: tier(e.tier), channel }, api, st));
   if (type === 'channel.cheer' && E.cheer.on && e.bits >= E.cheer.min) return api.say(await render(E.cheer.msg, { user: e.is_anonymous ? 'Anonyme' : e.user_name, bits: e.bits, channel }, api, st));
   if (type === 'don' && E.don && E.don.on) return api.say(await render(E.don.msg, { user: e.user_name, amount: e.amount, channel }, api, st));
+  if (type === 'channel.raid' && cfg.shield && cfg.shield.on && await shieldCheck(cfg, st, e, api, channel)) return; // raid suspect : ni accueil ni shoutout
   if (type === 'channel.raid' && E.raid.on) {
     await api.say(await render(E.raid.msg, { user: e.from_broadcaster_user_name, viewers: e.viewers, channel }, api, st));
     if (E.raid.shoutout) await api.shoutout(e.from_broadcaster_user_id).catch(() => {});
   }
 }
 
+/* Bouclier : raid d'un compte créé il y a moins de `maxAge` jours (et hors chaînes de confiance) → mode followers et/ou
+ * mode bouclier de Twitch pendant `duration` minutes, puis retour aux réglages d'avant (dans onTick). */
+const trustedList = (s) => String(s || '').toLowerCase().split(/[\s,;]+/).map((x) => x.replace(/^@/, '')).filter(Boolean);
+export async function shieldCheck(cfg, st, e, api, channel) {
+  const S = cfg.shield, login = String(e.from_broadcaster_user_login || '').toLowerCase();
+  if ((+e.viewers || 0) < S.minViewers || trustedList(S.trusted).includes(login)) return false;
+  const u = await api.userById(e.from_broadcaster_user_id).catch(() => null);
+  const ageDays = u && u.created_at ? (Date.now() - Date.parse(u.created_at)) / 86400000 : 0;
+  if (u && ageDays >= S.maxAge) return false;
+  const now = Date.now();
+  if (!st.shield) { // on garde les réglages d'avant une seule fois, même si plusieurs raids suspects s'enchaînent
+    const prev = await api.getChatSettings().catch(() => null);
+    st.shield = { prev: prev ? (prev.follower_mode ? { follower_mode: true, follower_mode_duration: prev.follower_mode_duration || 0 } : { follower_mode: false }) : null, mode: false };
+  }
+  st.shield.until = now + S.duration * 60000; st.shield.from = e.from_broadcaster_user_name; st.shield.at = now;
+  if (S.followers) await api.chatSettings({ follower_mode: true, follower_mode_duration: S.followMins }).catch(() => {});
+  if (S.shieldMode) { await api.shieldMode(true).catch(() => {}); st.shield.mode = true; }
+  if (S.msg) await api.say(await render(S.msg, { user: e.from_broadcaster_user_name, viewers: e.viewers, minutes: S.duration, channel }, api, st));
+  if (api.changed) api.changed();
+  return true;
+}
+async function shieldEnd(st, api) {
+  const s = st.shield; delete st.shield;
+  if (s.prev) await api.chatSettings(s.prev).catch(() => {}); // réglages d'avant le raid
+  if (s.mode) await api.shieldMode(false).catch(() => {});
+}
+
 /* Messages automatiques : appelé chaque minute pendant le live. Un seul message par passage. */
 export async function onTick(cfg, st, api, channel) {
+  if (st.shield && Date.now() >= st.shield.until) await shieldEnd(st, api); // fin du bouclier, même si le live s'est arrêté
   if (!st.live) return;
   st.timers = st.timers || {};
   const now = Date.now();
@@ -269,9 +305,11 @@ export function wantedSubs(cfg, broadcasterId, readerId) {
   if (E.resub.on) subs.push({ type: 'channel.subscription.message', version: '1', condition: b });
   if (E.gift.on) subs.push({ type: 'channel.subscription.gift', version: '1', condition: b });
   if (E.cheer.on) subs.push({ type: 'channel.cheer', version: '1', condition: b });
-  if (E.raid.on) subs.push({ type: 'channel.raid', version: '1', condition: { to_broadcaster_user_id: broadcasterId } });
+  if (E.raid.on || (cfg.shield && cfg.shield.on)) subs.push({ type: 'channel.raid', version: '1', condition: { to_broadcaster_user_id: broadcasterId } });
   return subs;
 }
 
 export const BOT_SCOPES = 'user:read:chat user:write:chat user:bot channel:bot moderator:manage:chat_messages moderator:manage:banned_users moderator:manage:shoutouts moderator:read:followers bits:read';
-export const BOT_ACCOUNT_SCOPES = 'user:read:chat user:write:chat user:bot moderator:manage:chat_messages moderator:manage:banned_users moderator:manage:shoutouts';
+export const BOT_ACCOUNT_SCOPES = 'user:read:chat user:write:chat user:bot moderator:manage:chat_messages moderator:manage:banned_users moderator:manage:shoutouts moderator:manage:chat_settings moderator:manage:shield_mode';
+// Bouclier anti-raid : permissions en plus, demandées seulement quand il est activé
+export const SHIELD_SCOPES = 'moderator:manage:chat_settings moderator:manage:shield_mode';

@@ -53,6 +53,12 @@
           <h2 class="bt-h"><svg class="ic ic-party-popper" aria-hidden="true" focusable="false"><use href="img/icons.svg#party-popper"/></svg>Messages d’événements</h2>
           <div id="events"></div>
         </section>
+
+        <section class="box">
+          <h2 class="bt-h"><svg class="ic ic-shield" aria-hidden="true" focusable="false"><use href="img/icons.svg#shield"/></svg>Bouclier anti-raid haineux</h2>
+          <p class="bt-help">Un raid qui vient d’un compte tout récent est souvent un raid haineux. Le bot passe alors le chat en mode followers (et, si tu veux, en mode bouclier de Twitch) pendant quelques minutes, sans accueil ni shoutout, puis remet tes réglages d’avant. Tes modos le voient dans le journal du panneau de modération.</p>
+          <div id="shield"></div>
+        </section>
       </div>
 
       <aside class="bt-side">
@@ -188,7 +194,28 @@ function renderEvents() {
     card.append(top, input(e, 'msg')); box.appendChild(card);
   });
 }
-function renderAll() { renderStatus(); renderCmds(); renderBuiltins(); renderTimers(); renderMod(); renderEvents(); }
+function renderShield() {
+  const S = cfg.shield, box = $('shield'); box.replaceChildren();
+  const card = el('div', 'bt-item');
+  const top = el('div', 'bt-row'); top.append(input(S, 'on', { check: true }), el('b', null, 'Activer le bouclier'));
+  const rule = el('div', 'bt-row bt-small');
+  rule.append(labeled('Compte du raideur créé il y a moins de (jours)', input(S, 'maxAge', { num: true })), labeled('Raid d’au moins (viewers)', input(S, 'minViewers', { num: true })));
+  const act = el('div', 'bt-row bt-small');
+  act.append(labeled('Mode followers', input(S, 'followers', { check: true }), 'check'), labeled('Follow depuis au moins (min)', input(S, 'followMins', { num: true })),
+    labeled('Mode bouclier de Twitch', input(S, 'shieldMode', { check: true }), 'check'), labeled('Pendant (min)', input(S, 'duration', { num: true })));
+  const res = el('p', 'bt-help'); res.setAttribute('role', 'status');
+  const test = el('button', 'btn ghost small', 'Tester sur un faux raid'); test.type = 'button';
+  test.onclick = () => busy(async () => {
+    try { const d = await SBA.api('POST', '/me/bot/test', { raid: true, user: 'raideur_test', cfg }); const say = (a) => { if (a.type === 'modes du chat') return a.p.follower_mode ? SB.t('Mode followers activé (follow depuis {0} min)', [a.p.follower_mode_duration]) : SB.t('Mode followers retiré'); if (a.type === 'mode bouclier') return a.on ? SB.t('Mode bouclier activé') : SB.t('Mode bouclier retiré'); if (a.type === 'shoutout') return SB.t('Shoutout'); return SB.t('Message : {0}', [a.text]); };
+      res.textContent = d.actions.some((a) => a.type === 'modes du chat' || a.type === 'mode bouclier') ? SB.t('Bouclier déclenché.') + ' ' + d.actions.map(say).join(' ; ') : SB.t('Ce raid ne déclencherait pas le bouclier (raid normal : {0}).', [d.actions.map(say).join(' ; ')]); }
+    catch (e) { res.textContent = 'Erreur : ' + e.message; }
+  });
+  card.append(top, rule, act, labeled('Chaînes de confiance (jamais bloquées, séparées par des espaces)', input(S, 'trusted', { ph: 'amie_streameuse pote_du_stream' })),
+    labeled('Message dans le chat (vide = aucun) : {user}, {viewers}, {minutes}', input(S, 'msg')), el('div', 'pn-row'));
+  card.lastChild.append(test); card.appendChild(res);
+  box.appendChild(card);
+}
+function renderAll() { renderStatus(); renderCmds(); renderBuiltins(); renderTimers(); renderMod(); renderEvents(); renderShield(); }
 
 async function save() {
   $('save').disabled = true;

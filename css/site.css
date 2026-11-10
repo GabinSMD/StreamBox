@@ -862,3 +862,18 @@ main:focus { outline: none; }
 .sb-menu-list button { text-align: left; padding: 10px 12px; min-height: 40px; border: 0; border-radius: 8px; background: transparent; color: var(--text); font: inherit; font-size: 14px; cursor: pointer; }
 .sb-menu-list button:hover, .sb-menu-list button:focus-visible { background: color-mix(in srgb, #fff 8%, transparent); }
 .sb-menu-list button.danger { color: var(--danger-ink); }
+.sx-weekly { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); justify-content: space-between; }
+
+/* Trouver un raid */
+.rd-me { margin: 0 0 14px; }
+.rd-f { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1.4fr) auto; gap: 12px; align-items: end; }
+.rd-f .field { margin: 0; }
+.rd-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; margin-top: 8px; }
+.rd-card { display: flex; flex-direction: column; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.rd-card > img, .rd-ph { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; object-fit: cover; background: linear-gradient(135deg, var(--bg2), color-mix(in srgb, var(--accent) 25%, var(--bg2))); }
+.rd-b { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px 14px; flex: 1; }
+.rd-b h2 { margin: 0; font-size: 17px; }
+.rd-b h2 a { color: var(--text); text-decoration: underline; text-decoration-color: var(--accent-ink); text-underline-offset: 4px; }
+.rd-t { margin: 0; color: var(--muted); font-size: 14px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.rd-b .pn-row { margin-top: auto; padding-top: 6px; }
+@media (max-width: 760px) { .rd-f { grid-template-columns: minmax(0, 1fr); } }

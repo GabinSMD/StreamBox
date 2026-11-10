@@ -31,6 +31,11 @@
         <label class="bt-toggle"><input type="checkbox" id="enabled"><b id="enabledLabel"></b></label>
         <span class="flag" id="st"></span>
       </div>
+      <div class="bt-row sx-weekly">
+        <label class="bt-toggle"><input type="checkbox" id="weekly"><b>Récap de la semaine sur Discord, chaque lundi matin</b></label>
+        <button class="btn ghost small" id="recapNow" type="button">Envoyer un aperçu maintenant</button>
+      </div>
+      <p class="bt-help" id="weeklyHelp">Lives, heures, viewers en moyenne et pic, follows, abonnements, messages et meilleur live, comparés à la semaine d’avant. Il part sur le webhook Discord de Mon compte → Intégrations.</p>
       <div class="note" id="warn" hidden></div>
     </section>
 
@@ -153,6 +158,7 @@ function chatSeries(samples) { const out = []; for (let i = 0; i < samples.lengt
 /* ---------- Rendu ---------- */
 function render() {
   const c = data.cfg;
+  $('weekly').checked = !!c.weekly; $('weekly').disabled = !c.enabled;
   $('enabled').checked = c.enabled; $('enabledLabel').textContent = c.enabled ? 'Enregistrement des lives activé' : 'Enregistrement désactivé';
   $('st').textContent = data.live ? '🔴 live en cours' : c.enabled ? 'en attente du prochain live' : '';
   const warn = [];
@@ -222,8 +228,16 @@ $('dDel').onclick = async () => {
 };
 $('dClose').onclick = () => { current = null; $('detail').hidden = true; render(); };
 $('period').onclick = (e) => { const b = e.target.closest('button'); if (!b) return; period = +b.dataset.i; document.querySelectorAll('#period button').forEach((x) => x.classList.toggle('on', x === b)); render(); };
+$('weekly').onchange = async () => {
+  try { const d = DEMO ? { cfg: Object.assign({}, data.cfg, { weekly: $('weekly').checked }) } : await SBA.api('PUT', '/me/stats', { enabled: data.cfg.enabled, weekly: $('weekly').checked }); data.cfg = d.cfg; render(); toast(d.cfg.weekly ? 'Récap du lundi activé' : 'Récap du lundi désactivé'); }
+  catch (e) { toast('Erreur : ' + e.message); $('weekly').checked = !$('weekly').checked; }
+};
+$('recapNow').onclick = () => busy(async () => {
+  if (DEMO) { toast('Aperçu envoyé (démo)'); return; }
+  try { await SBA.api('POST', '/me/stats/recap'); toast('Récap envoyé sur Discord'); } catch (e) { toast('Erreur : ' + e.message); }
+});
 $('enabled').onchange = async () => {
-  try { const d = DEMO ? { cfg: { enabled: $('enabled').checked }, errors: [] } : await SBA.api('PUT', '/me/stats', { enabled: $('enabled').checked }); data.cfg = d.cfg; render(); toast(d.errors && d.errors.length ? '⚠️ ' + d.errors.join(' · ') : d.cfg.enabled ? 'Enregistrement activé' : 'Enregistrement désactivé'); }
+  try { const d = DEMO ? { cfg: { enabled: $('enabled').checked }, errors: [] } : await SBA.api('PUT', '/me/stats', { enabled: $('enabled').checked, weekly: !!data.cfg.weekly }); data.cfg = d.cfg; render(); toast(d.errors && d.errors.length ? '⚠️ ' + d.errors.join(' · ') : d.cfg.enabled ? 'Enregistrement activé' : 'Enregistrement désactivé'); }
   catch (e) { toast('Erreur : ' + e.message); $('enabled').checked = !$('enabled').checked; }
 };
 let rz; addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { if (data && data.live) render(); if (current) open(current.startedAt); }, 200); });

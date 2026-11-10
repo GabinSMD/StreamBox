@@ -70,7 +70,7 @@
  *   EVENTSUB_SECRET (10 à 100 caractères, pour signer les webhooks), BOT_LOGIN (facultatif : compte bot du site).
  */
 
-import { DEFAULT_BOT, sanitizeBot, onChat, onEvent, onTick, wantedSubs, userLevel, BOT_SCOPES, BOT_ACCOUNT_SCOPES } from './bot.js';
+import { DEFAULT_BOT, sanitizeBot, onChat, onEvent, onTick, wantedSubs, userLevel, BOT_SCOPES, BOT_ACCOUNT_SCOPES, SHIELD_SCOPES } from './bot.js';
 import * as SUBA from './subathon.js';
 import * as SR from './sr.js';
 import * as JEUX from './jeux.js';
@@ -315,7 +315,7 @@ const NEEDS = {
   musique: ['token', 'spotifycid', 'lastfm', 'lfmkey'], // Spotify : jeton à jour fourni par /o/:id/spotify-token
   lecteur: [], jeux: [], generique: [], soustitres: [], pngtuber: ['obspass'], shoutout: ['token', 'obspass'], clips: ['token', 'obspass'], etiquettes: ['token', 'sejwt', 'sltoken', 'kofi', 'obspass'], automatisations: ['token', 'sejwt', 'sltoken', 'kofi', 'obspass'], qrdons: [], compteurs: ['obspass'], sons: ['token', 'obspass'],
   tts: ['token', 'sejwt', 'sltoken', 'kofi', 'obspass'],
-  planning: [], hypetrain: ['token'], vedette: [], pubs: ['token'], votes: ['token'],
+  planning: [], hypetrain: ['token'], vedette: [], pubs: ['token'], votes: ['token'], score: ['obspass'],
   discord: ['token', 'webhook'],
 };
 const SECRET_KEYS = ['spotify', 'spotifycid', 'lastfm', 'lfmkey', 'sejwt', 'sltoken', 'kofi', 'webhook', 'obspass'];
@@ -486,6 +486,7 @@ async function accountRoutes(req, env, url, p) {
   if (p[1] === 'stats') {
     if (p.length === 2 && req.method === 'GET') return fwd('/stats-get', 'POST', {});
     if (p.length === 2 && req.method === 'PUT') return fwd('/stats-save', 'POST', body);
+    if (p[2] === 'recap' && p.length === 3 && req.method === 'POST') return fwd('/stats-recap', 'POST', {});
     if (/^\d{10,15}$/.test(p[2] || '') && p.length === 3 && req.method === 'GET') return fwd('/stats-one', 'POST', { key: p[2] });
     if (/^\d{10,15}$/.test(p[2] || '') && p.length === 3 && req.method === 'DELETE') return fwd('/stats-del', 'POST', { key: p[2] });
   }
@@ -768,6 +769,11 @@ export class Account {
       const bot = await st.get('bot');
       return ok(EQ.publicPage(pg, bot && sanitizeBot(bot, null), profile, { profile: this._pub.profile, live: this._pub.live, schedule: pg.sections.schedule ? this._pub.schedule : undefined, vacation: pg.sections.schedule ? this._pub.vacation : undefined }));
     }
+    if (path === '/stats-recap') { // récap de la semaine : aperçu envoyé tout de suite sur Discord
+      const s = await secrets().catch(() => ({}));
+      if (!s.webhook) return err('aucun webhook Discord enregistré dans Mon compte → Intégrations');
+      return ok({ sent: true, text: await this.statWeekly(profile, s) });
+    }
     if (path.startsWith('/stats-')) return this.statsRoute(path, body, profile, ok, err);
     if (path.startsWith('/jeux-') || path === '/ov-jeux') return this.jeuxRoute(path, body, profile, await secrets(), E, ok, err);
     if (path.startsWith('/bot-')) return this.botRoute(path, body, profile, await secrets(), E, ok, err);
@@ -947,7 +953,7 @@ export class Account {
   async botStatus(cfg, profile) {
     const st = this.ctx.storage;
     const bot = await this.botAccount().catch(() => null);
-    const need = (cfg.sender === 'bot' ? 'channel:bot moderator:read:followers' : BOT_SCOPES).split(' ');
+    const need = ((cfg.sender === 'bot' ? 'channel:bot moderator:read:followers' : BOT_SCOPES) + (cfg.shield && cfg.shield.on && cfg.sender !== 'bot' ? ' ' + SHIELD_SCOPES : '')).split(' ');
     const missing = need.filter((s) => !(profile.scopes || []).includes(s));
     const state = (await st.get('botstate')) || {};
     return { enabled: cfg.enabled, sender: cfg.sender, missing, live: !!state.live, subs: ((await st.get('botsubs')) || []).length,
@@ -975,6 +981,10 @@ export class Account {
       async shoutout(to) { const [mid, t] = await modToken(); return helix(`chat/shoutouts?from_broadcaster_id=${bid}&to_broadcaster_id=${to}&moderator_id=${mid}`, { method: 'POST' }, t); },
       async channel(id) { return ((await (await helix('channels?broadcaster_id=' + (id || bid))).json()).data || [])[0]; },
       async user(login) { return ((await (await helix('users?login=' + encodeURIComponent(login))).json()).data || [])[0]; },
+      async userById(id) { return ((await (await helix('users?id=' + encodeURIComponent(id))).json()).data || [])[0]; },
+      async getChatSettings() { const [mid, t] = await modToken(); return ((await (await helix(`chat/settings?broadcaster_id=${bid}&moderator_id=${mid}`, {}, t)).json()).data || [])[0]; },
+      async chatSettings(patch) { const [mid, t] = await modToken(); return fail('modes du chat', await helix(`chat/settings?broadcaster_id=${bid}&moderator_id=${mid}`, { method: 'PATCH', body: JSON.stringify(patch) }, t)); },
+      async shieldMode(on) { const [mid, t] = await modToken(); return fail('mode bouclier', await helix(`moderation/shield_mode?broadcaster_id=${bid}&moderator_id=${mid}`, { method: 'PUT', body: JSON.stringify({ is_active: !!on }) }, t)); },
       async followedAt(uid) { const d = await (await helix(`channels/followers?broadcaster_id=${bid}&user_id=${uid}`, {}, await self.twitchAccess(secrets, E))).json(); return d.data && d.data[0] ? d.data[0].followed_at : null; },
       async clip() { // créé avec le compte du streamer (permission clips:edit)
         const r = await helix('clips?broadcaster_id=' + bid, { method: 'POST' }, await self.twitchAccess(secrets, E));
@@ -999,6 +1009,9 @@ export class Account {
       async timeout(uid, secs) { out.push({ type: 'timeout', secs }); }, async shoutout() { out.push({ type: 'shoutout' }); },
       async channel() { return { game_name: '(jeu en cours)', title: '(titre du live)' }; },
       async user(login) { return { id: '0', login: login.toLowerCase(), display_name: login }; },
+      async userById() { return { id: '0', created_at: new Date(Date.now() - 2 * 86400000).toISOString() }; },
+      async getChatSettings() { return { follower_mode: false, follower_mode_duration: 0 }; },
+      async chatSettings(p) { out.push({ type: 'modes du chat', p }); }, async shieldMode(on) { out.push({ type: 'mode bouclier', on }); },
       async followedAt() { return new Date(Date.now() - 400 * 86400000).toISOString(); },
       async clip() { out.push({ type: 'clip' }); return { id: 'ClipDeTest' }; },
       async discord(text) { out.push({ type: 'discord', text }); },
@@ -1069,6 +1082,12 @@ export class Account {
       if (subsChanged && this.env.EVENTSUB_SECRET) errors = await this.syncSubs(cfg, profile, E).catch((e) => [e.message]);
       if (!this.env.EVENTSUB_SECRET && cfg.enabled) errors.push('EVENTSUB_SECRET manquant sur le relais');
       return ok({ cfg, status: await this.botStatus(cfg, profile), errors });
+    }
+    if (path === '/bot-test' && body.raid) { // faux raid suspect : règles du bouclier telles qu'affichées (non enregistrées), rien n'est envoyé à Twitch
+      const out = [], state = {};
+      const c = sanitizeBot(Object.assign({}, cfg, { shield: (body.cfg || {}).shield || cfg.shield }), cfg);
+      await onEvent(c, state, 'channel.raid', { from_broadcaster_user_id: '0', from_broadcaster_user_login: String(body.user || 'raideur_test').toLowerCase().slice(0, 25), from_broadcaster_user_name: String(body.user || 'Raideur_Test').slice(0, 25), viewers: 30 }, this.dryApi(out, state), profile.login);
+      return ok({ actions: out });
     }
     if (path === '/bot-test') {
       const out = [];
@@ -1278,6 +1297,31 @@ export class Account {
     return err('?', 404);
   }
 
+  /* Récap de la semaine (statistiques des 7 derniers jours, comparées aux 7 précédents), envoyé sur le webhook Discord */
+  async statWeekly(profile, secrets) {
+    const idx = (await this.ctx.storage.get('statidx')) || [];
+    const lang = profile.lang, T = (s, v) => tr(s, lang).replace(/\{(\d)\}/g, (_, i) => v[i]);
+    const loc = { fr: 'fr-FR', en: 'en-US', es: 'es-ES' }[lang] || 'fr-FR';
+    const n = (x) => Number(x || 0).toLocaleString(loc);
+    const t = STATS.trends(idx, Date.now(), 7), a = t.now, b = t.before;
+    const delta = (x, y) => (!y ? (x ? T('nouveau', []) : '=') : (x >= y ? '+' : '') + Math.round((x - y) / y * 100) + ' %');
+    const lines = ['**' + T('Récap de la semaine de {0}', [profile.login]) + '**'];
+    if (!a.lives) lines.push(T('Pas de live cette semaine. À la semaine prochaine !', []));
+    else {
+      lines.push(T('Lives : {0} ({1} h)', [n(a.lives), n(a.hours)]), T('Viewers en moyenne : {0} ({1})', [n(a.avg), delta(a.avg, b.avg)]), T('Pic : {0} viewers', [n(a.peak)]),
+        T('Nouveaux follows : {0} ({1})', [n(a.follows), delta(a.follows, b.follows)]), T('Abonnements : {0} ({1})', [n(a.subs), delta(a.subs, b.subs)]), T('Messages dans le chat : {0}', [n(a.msgs)]));
+      const week = idx.filter((r) => r.startedAt >= Date.now() - 7 * 86400000);
+      const best = week.reduce((m, r) => (!m || r.avg > m.avg ? r : m), null);
+      if (best) lines.push(T('Meilleur live : {0} ({1} viewers en moyenne)', [String(best.title || '').slice(0, 80) || '—', n(best.avg)]));
+    }
+    lines.push('twitch.tv/' + profile.login);
+    const text = lines.join('\n');
+    if (/^https:\/\/(?:\w+\.)?discord(?:app)?\.com\/api\/webhooks\/\d+\/[\w-]+$/.test(secrets.webhook || '')) {
+      await fetch(secrets.webhook, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: text, allowed_mentions: { parse: [] } }) });
+    }
+    return text;
+  }
+
   /* ================= Statistiques ================= */
   async statStart(stream, now) {
     const st = this.ctx.storage;
@@ -1333,7 +1377,7 @@ export class Account {
         can: { chat: sc.includes('user:read:chat') && sc.includes('channel:bot'), bits: sc.includes('bits:read'), webhooks: !!this.env.EVENTSUB_SECRET } });
     }
     if (path === '/stats-save') {
-      const prev = cfg; cfg = { enabled: !!body.enabled };
+      const prev = cfg; cfg = { enabled: !!body.enabled, weekly: body.weekly != null ? !!body.weekly : !!prev.weekly }; // weekly : récap du lundi sur Discord
       await st.put('stats', cfg);
       let errors = [];
       if (cfg.enabled !== prev.enabled && this.env.EVENTSUB_SECRET) errors = await this.syncSubs((await st.get('bot')) || sanitizeBot({}, null), profile, this.E).catch((e) => [e.message]);
@@ -1559,7 +1603,14 @@ export class Account {
     let next = Infinity;
     const stats = await st.get('stats');
     if (stats && stats.enabled) next = Math.min(next, (await this.statPoll(profile).catch(() => false)) ? 60000 : 300000); // en live : chaque minute, sinon toutes les 5 min
-    if (cfg && cfg.enabled && state.live) {
+    if (stats && stats.enabled && stats.weekly && secrets.webhook) { // le lundi matin (UTC), une fois par semaine
+      const d = new Date(), w = (await st.get('weekly')) || {};
+      if (d.getUTCDay() === 1 && d.getUTCHours() >= 8 && (!w.at || Date.now() - w.at > 5 * 86400000)) {
+        await st.put('weekly', { at: Date.now() });
+        await this.statWeekly(profile, secrets).catch(() => {});
+      }
+    }
+    if (cfg && cfg.enabled && (state.live || state.shield)) { // bouclier : levé à l'heure prévue, même après la fin du live
       const ctx = { state, changed: false };
       await onTick(cfg, state, this.makeApi(cfg, profile, secrets, this.E, ctx), profile.login);
       await st.put('botstate', state);

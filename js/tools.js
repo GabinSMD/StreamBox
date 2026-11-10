@@ -387,6 +387,25 @@
       ],
     },
     {
+      id: 'score', icon: '🏆', name: 'Tableau de score', short: 'Équipes, scores et manche en cours, pour tes tournois et tes défis.', overlay: 'overlays/score.html', size: [700, 160],
+      tagline: 'Un tableau de score de 2 à 4 équipes, avec la manche en cours et le format (BO3, BO5…). Tes modos le mettent à jour depuis le chat ou le panneau de contrôle.',
+      replaces: ['GGCombat', 'Scoreboard de Streamer.bot'],
+      commands: [['!score 1 +', 'Un point pour l’équipe 1 (ou !score 2 +3)'], ['!score 1 -', 'Retire un point'], ['!score 2 = 5', 'Règle le score'], ['!manche +', 'Manche suivante'], ['!score reset', 'Tout remet à zéro']],
+      note: 'Une équipe par ligne : « nom | couleur ». Avec un format BO (best of), le gagnant s’affiche dès qu’une équipe a gagné assez de manches. Les scores sont gardés dans OBS, même si la source se recharge.',
+      links: [['Panneau de contrôle', 'panneau.html']],
+      fields: [
+        channel,
+        { key: 'teams', label: 'Équipes (une par ligne : nom | couleur)', type: 'textarea', default: 'Équipe bleue | #3b82f6\nÉquipe rouge | #ef4444' },
+        { key: 'title', label: 'Titre', type: 'text', default: '', placeholder: 'Tournoi de la commu' },
+        { key: 'bo', label: 'Format', type: 'select', default: '0', options: [['0', 'Sans limite'], ['3', 'BO3 (2 manches gagnantes)'], ['5', 'BO5 (3 manches gagnantes)'], ['7', 'BO7 (4 manches gagnantes)']] },
+        { key: 'rounds', label: 'Afficher la manche en cours', type: 'checkbox', default: true },
+        { key: 'level', label: 'Qui peut modifier le score', type: 'select', default: 'mod', options: [['mod', 'Modos'], ['vip', 'VIP et modos'], ['everyone', 'Tout le monde']] },
+        { key: 'cmd', label: 'Commande du score', type: 'text', default: '!score', group: 'textes' },
+        { key: 'roundcmd', label: 'Commande de la manche', type: 'text', default: '!manche', group: 'textes' },
+        size(30), font, accent,
+      ],
+    },
+    {
       id: 'sons', icon: '🔉', name: 'Sons des viewers', short: 'Tes viewers jouent des sons avec une commande, des points ou des bits.', overlay: 'overlays/sons.html', size: [600, 160],
       tagline: 'Tes viewers jouent des sons sur le stream avec une commande, des points de chaîne ou des bits.',
       replaces: ['SoundAlerts'],
@@ -647,6 +666,7 @@
   ];
 
   window.SB_PAGES = [
+    { id: 'raid', icon: '🚀', name: 'Trouver un raid', short: 'Une chaîne à raider : même jeu, même langue, audience proche de la tienne.', href: 'raid.html', tagline: 'À la fin du live, des chaînes en direct dans ton jeu et ta langue, triées par audience proche de la tienne, et le raid en un clic (ou la commande /raid prête à coller).', replaces: ['Raid Finder', 'recherche à la main dans le répertoire Twitch'] },
     { id: 'diagnostic', icon: '✅', name: 'Vérifier mon installation', short: 'Contrôle relais, connexion Twitch et overlays, et envoie de faux événements.', href: 'diagnostic.html', tagline: 'Avant un live : vérifie en un clic le relais, ta connexion Twitch, les abonnements aux événements et les overlays ouverts dans OBS, puis envoie de faux abos, raids ou dons à tes overlays.', replaces: ['bouton « Test alert » de Streamlabs'] },
     { id: 'subathon-live', icon: '⏱️', name: 'Subathon', short: 'Un timer de subathon qui compte seul les abos, bits et dons.', href: 'subathon.html', tagline: 'Timer qui compte tout seul les abos, bits, follows et dons, même OBS fermé. Paliers, happy hour, overlay OBS et page publique où les viewers proposent et votent des idées.', replaces: ['marathon-timer.com'],
       links: [['Gérer le subathon', 'subathon.html'], ['Overlay OBS', 'outil.html?id=subathon'], ['Roue à défis', 'outil.html?id=roue']] },
@@ -703,7 +723,7 @@
     { id: 'outils', icon: '🛠️', name: 'Outils pratiques', desc: 'Piloter tes overlays, préparer tes emotes, estimer tes revenus, trouver d’autres outils.' },
   ];
   const CAT = { chat: 'communaute', bot: 'communaute', sondage: 'communaute', giveaway: 'communaute', roue: 'communaute', emotes: 'communaute', moderation: 'communaute', chaine: 'communaute', jeux: 'communaute', minijeux: 'communaute',
-    alertes: 'alertes', objectifs: 'alertes', discord: 'alertes', tts: 'alertes', qrdons: 'alertes', planning: 'communaute', hypetrain: 'alertes', vedette: 'communaute', pubs: 'alertes', votes: 'communaute', sons: 'communaute', compteurs: 'communaute', generique: 'evenements',
+    alertes: 'alertes', objectifs: 'alertes', discord: 'alertes', tts: 'alertes', qrdons: 'alertes', planning: 'communaute', hypetrain: 'alertes', vedette: 'communaute', pubs: 'alertes', votes: 'communaute', score: 'communaute', raid: 'outils', sons: 'communaute', compteurs: 'communaute', generique: 'evenements',
     'subathon-live': 'evenements', minuteur: 'evenements', rewind: 'evenements',
     musique: 'musique', sr: 'musique', extension: 'musique',
     panneau: 'outils', automatisations: 'outils', soustitres: 'communaute', 'sous-titres': 'communaute', pngtuber: 'communaute', shoutout: 'communaute', clips: 'evenements', etiquettes: 'alertes', stats: 'outils', integrations: 'outils', resizer: 'outils', testeur: 'outils', calc: 'outils', annuaire: 'outils', diagnostic: 'outils' };

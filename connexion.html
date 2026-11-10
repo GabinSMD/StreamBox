@@ -78,8 +78,8 @@ if (q.get('code') && q.get('state')) {
   // Une seule connexion pour tous les outils StreamBox, avec uniquement ces permissions :
   const base = 'clips:edit moderator:read:followers channel:read:redemptions channel:read:subscriptions channel:read:hype_train channel:read:ads channel:read:polls channel:read:predictions';
   // Bot de chat : permissions en plus, demandées seulement quand le streamer active le bot
-  const BOT = 'user:read:chat user:write:chat user:bot channel:bot moderator:manage:chat_messages moderator:manage:banned_users moderator:manage:shoutouts bits:read';
-  const BOT_ACCOUNT = 'user:read:chat user:write:chat user:bot moderator:manage:chat_messages moderator:manage:banned_users moderator:manage:shoutouts';
+  const BOT = 'user:read:chat user:write:chat user:bot channel:bot moderator:manage:chat_messages moderator:manage:banned_users moderator:manage:shoutouts bits:read moderator:manage:chat_settings moderator:manage:shield_mode';
+  const BOT_ACCOUNT = 'user:read:chat user:write:chat user:bot moderator:manage:chat_messages moderator:manage:banned_users moderator:manage:shoutouts moderator:manage:chat_settings moderator:manage:shield_mode';
   // Modération : pour les modos (et le streamer) qui utilisent le panneau de modération
   const MOD = 'user:read:moderated_channels moderator:manage:banned_users moderator:manage:chat_messages moderator:manage:chat_settings moderator:manage:automod moderator:manage:shield_mode moderator:manage:announcements moderator:manage:warnings moderator:manage:unban_requests moderator:manage:blocked_terms moderator:read:moderators moderator:read:vips moderator:read:chatters';
   // Gestion du live (streamer seulement) : titre, jeu, raid

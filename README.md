@@ -40,6 +40,10 @@ Une boîte à outils gratuite pour streamers. Elle regroupe dans un seul site ce
 | 📌 Message en vedette : un modo clique sur un message dans le panneau de modération, il s’affiche en grand sur le stream | Overlay OBS + relais | Highlight message de StreamElements |
 | ⏳ Pubs Twitch : compte à rebours avant la pub, pause pub, « merci d’être resté », chat prévenu avant et après | Overlay OBS + relais | Ad timer de StreamElements |
 | 🔮 Sondages et prédictions natifs de Twitch à l’écran : votes, points en jeu, gagnant, en direct | Overlay OBS | Widgets de prédictions StreamElements / Streamlabs |
+| 🏆 Tableau de score : 2 à 4 équipes, manche en cours, format BO3/BO5/BO7, piloté par le chat ou le panneau de contrôle | Overlay OBS | GGCombat |
+| 🚀 Trouver un raid : chaînes en direct dans ton jeu et ta langue, triées par audience proche de la tienne, raid en un clic | Page web | Recherche à la main dans le répertoire Twitch |
+| 🛡️ Bouclier anti-raid haineux : un raid venant d’un compte tout récent passe le chat en mode followers (et en mode bouclier) quelques minutes | Bot (relais) | Réglages manuels pendant le raid |
+| 📊 Récap de la semaine sur Discord, chaque lundi : lives, viewers, follows, abonnements, meilleur live | Statistiques (relais) | |
 | 🎬 `!clip` : le bot crée un clip et le poste sur Discord | Bot (relais) | — |
 | 📊 Statistiques des lives : viewers minute par minute, chat, follows, abos, bits, raids, dons, catégories ; tendances et export CSV | Page web + relais | TwitchTracker, StreamsCharts |
 | 🛡️ Panneau de modération : sanctions en un clic, fiche viewer, AutoMod, journal de l’équipe, débans, modes du chat, annonces, sondages, prédictions, file des récompenses de points de chaîne, titre et raid ; chaque modo avec son compte Twitch | Page web (dock OBS) + relais | Mod View de Twitch |
@@ -195,6 +199,7 @@ Prochaines étapes :
 - [x] Planning des lives (overlay et image à partager), Hype Train, sauvegarde et import de la configuration
 - [x] Vérification de l’installation et simulateur d’événements
 - [x] Message en vedette, pubs Twitch, sondages et prédictions natifs à l’écran
+- [x] Tableau de score, recherche de raid, bouclier anti-raid haineux, récap hebdomadaire sur Discord
 
 ## Contribuer
 
