@@ -99,7 +99,7 @@ if (c.demo) {
     setTimeout(() => set('pred', pred(61000, 37500, { winning_outcome_id: 'o1', status: 'resolved' }), true), 13500);
   };
   c.hold = 3; run(); setInterval(run, 18000);
-} else if (!c.channel || !c.token) {
+} else if (!c.channel || !(c.token || SB.ovLink)) {
   SB.hintIfNoChannel(c);
   if (c.channel && !SB._cfgError) document.body.appendChild(SB.el('div', 'sb-hint', 'StreamBox : ' + SB.t('connecte ton compte Twitch dans les réglages de l’overlay pour afficher les sondages et prédictions.')));
 } else {

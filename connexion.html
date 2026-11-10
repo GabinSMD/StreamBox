@@ -55,9 +55,9 @@ if (q.get('code') && q.get('state')) {
   }
 } else if (hash.get('access_token')) {
   let expected = null;
-  try { expected = sessionStorage.getItem('sb-oauth-state'); } catch (e) { /* ignore */ }
+  try { expected = sessionStorage.getItem('sb-oauth-state'); sessionStorage.removeItem('sb-oauth-state'); } catch (e) { /* ignore */ }
   const [nonce, ...ret] = (hash.get('state') || '').split('|');
-  if (expected && nonce !== expected) say('Connexion refusée', 'La réponse de Twitch ne correspond pas à la demande. Réessaie.');
+  if (!expected || nonce !== expected) // la demande doit venir de cet onglet (sinon : jeton imposé par un lien piégé) say('Connexion refusée', 'La réponse de Twitch ne correspond pas à la demande. Réessaie.');
   else {
     try { localStorage.setItem(KEY, hash.get('access_token')); } catch (e) { /* ignore */ }
     say('Connecté !', 'Retour à l’outil…');
@@ -68,7 +68,7 @@ if (q.get('code') && q.get('state')) {
 } else if (!SB_CONFIG.twitchClientId) {
   say('Connexion Twitch non configurée', 'Le propriétaire du site doit renseigner twitchClientId dans js/config.js (voir le README).');
 } else {
-  const nonce = Math.random().toString(36).slice(2);
+  const nonce = Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, '0')).join('');
   try { sessionStorage.setItem('sb-oauth-state', nonce); } catch (e) { /* ignore */ }
   const u = new URL('https://id.twitch.tv/oauth2/authorize');
   u.searchParams.set('client_id', SB_CONFIG.twitchClientId);

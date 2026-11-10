@@ -74,7 +74,7 @@ async function refresh() {
 if (c.demo) {
   const loop = () => { nextAd = Date.now() + 8000; adEnd = 0; thanksUntil = 0; setTimeout(() => adBegin({ duration_seconds: 10, started_at: new Date().toISOString() }), 8000); };
   c.before = 10; loop(); setInterval(loop, 8000 + 10000 + c.thanks * 1000 + 3000);
-} else if (!c.channel || !c.token) {
+} else if (!c.channel || !(c.token || SB.ovLink)) {
   SB.hintIfNoChannel(c);
   if (c.channel && !SB._cfgError) document.body.appendChild(SB.el('div', 'sb-hint', 'StreamBox : ' + SB.t('connecte ton compte Twitch dans les réglages de l’overlay pour suivre les pubs.')));
 } else {

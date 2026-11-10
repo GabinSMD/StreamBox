@@ -107,6 +107,10 @@
   /* Raccourci : renvoie un client EventSub prêt (ou un client « vide » sans connexion, utile en démo) */
   SB.twitchEvents = function (c, wanted) {
     const es = new SB.EventSub(c.token, c.channel, wanted);
+    if (!c.token && SB.ovLink && !c.demo) { // overlay du compte sans jeton : les événements arrivent par le relais
+      (SB._twitchRelay = SB._twitchRelay || []).push((ev, d) => { if (wanted.includes(ev)) es.inject(ev, d); });
+      return es;
+    }
     if (!c.demo) es.start();
     return es;
   };

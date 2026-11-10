@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "StreamBox · Musiques des redifs",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Affiche la musique qui passait pendant le live dans une rediffusion Twitch ou YouTube, et peut la jouer en synchro (chaînes qui utilisent StreamBox).",
   "content_scripts": [
     {

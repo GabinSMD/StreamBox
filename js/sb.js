@@ -30,10 +30,11 @@
     } catch (e) { SB._cfgError = 'Relais StreamBox injoignable.'; }
     if (SB._cfgError) setTimeout(() => location.reload(), 15000);
     else {
+      SB.ovLink = { relay, id: ovId }; // overlay lié au compte : le relais peut lire Twitch à sa place (pubs, votes, Hype Train)
       let retry = 0;
       const live = () => {
         const ws = new WebSocket(relay.replace(/^http/, 'ws') + '/o/' + ovId + '/ws');
-        ws.onmessage = (e) => { try { const m = JSON.parse(e.data); if (m.type === 'update' || m.type === 'deleted') location.reload(); else if (m.type === 'sim' && SB.simulate) SB.simulate(m.ev); else if (SB.onRelay) SB.onRelay(m); } catch (err) { /* ignore */ } };
+        ws.onmessage = (e) => { try { const m = JSON.parse(e.data); if (m.type === 'update' || m.type === 'deleted') location.reload(); else if (m.type === 'sim' && SB.simulate) SB.simulate(m.ev); else if (m.type === 'twitch') (SB._twitchRelay || []).forEach((f) => f(m.ev, m.data)); else if (SB.onRelay) SB.onRelay(m); } catch (err) { /* ignore */ } };
         ws.onopen = () => { retry = 0; };
         ws.onclose = () => setTimeout(live, Math.min(60000, 3000 * 2 ** retry++));
       };
@@ -421,6 +422,11 @@
    * des données publiques (clips, VODs). Il est obtenu via connexion.html.
    */
   SB.helix = async function (path, token) {
+    if (!token && SB.ovLink) { // overlay du compte sans jeton : le relais fait la lecture (points d'accès autorisés pour cet overlay)
+      const r = await fetch(SB.ovLink.relay + '/o/' + SB.ovLink.id + '/twitch?path=' + encodeURIComponent(path));
+      if (!r.ok) throw new Error('API Twitch : erreur ' + r.status);
+      return r.json();
+    }
     const cid = window.SB_CONFIG && SB_CONFIG.twitchClientId;
     if (!cid || !token) throw new Error('Connexion Twitch non configurée');
     const r = await fetch('https://api.twitch.tv/helix/' + path, { headers: { 'Client-Id': cid, Authorization: 'Bearer ' + token } });

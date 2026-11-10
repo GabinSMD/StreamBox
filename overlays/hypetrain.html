@@ -98,7 +98,7 @@ if (c.demo) {
     setTimeout(() => update({ id: 'demo', level: 3, total: 4850, top_contributions: tops }, true), 600 + steps.length * 3500 + 2500);
   };
   run(); setInterval(run, 40000);
-} else if (!c.channel || !c.token) {
+} else if (!c.channel || !(c.token || SB.ovLink)) {
   SB.hintIfNoChannel(c);
   if (c.channel && !SB._cfgError) document.body.appendChild(SB.el('div', 'sb-hint', 'StreamBox : ' + SB.t('connecte ton compte Twitch dans les réglages de l’overlay pour suivre le Hype Train.')));
 }

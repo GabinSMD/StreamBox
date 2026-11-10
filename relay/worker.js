@@ -24,7 +24,7 @@
  *   GET    /me                          profil, overlays, intégrations renseignées (jamais les valeurs)
  *   PUT    /me/lang                     { lang: fr | en | es } : langue des réponses du bot et des jeux
  *   PUT    /me/secrets                  { cle: valeur | null }  (jetons chiffrés au repos)
- *   POST   /me/overlays                 { tool, name, settings } → { id }
+ *   POST   /me/overlays                 { tool, name, settings } → { id } (réglages limités aux champs de l'outil : tool-keys.js)
  *   GET    /me/overlays/:id             réglages d'un overlay (pour le configurateur)
  *   PUT    /me/overlays/:id             { name?, settings? } → les overlays ouverts dans OBS se rechargent
  *   POST   /me/overlays/:id/rotate      nouveau lien (l'ancien ne marche plus)
@@ -33,7 +33,10 @@
  *   GET    /me/twitch-token             jeton Twitch du compte connecté, pour le panneau de modération (gardé en mémoire
  *                                       par la page, jamais dans une URL ni dans le stockage du navigateur)
  *   GET    /o/:id                       réglages + jetons utiles à cet outil seulement (lu par l'overlay)
- *   GET    /o/:id/ws                    WebSocket : « update » quand le streamer modifie l'overlay
+ *   GET    /o/:id/ws                    WebSocket : « update » quand le streamer modifie l'overlay ; « twitch » (pubs, votes,
+ *                                       Hype Train : événements reçus par le relais) ; fermée quand le lien est régénéré ou supprimé
+ *   GET    /o/:id/twitch?path=…         pubs, votes, Hype Train : lecture Twitch faite par le relais (l'overlay n'a pas de jeton)
+ *   POST   /o/:id/track                 overlay Musique : journal des musiques pour l'extension (sans jeton Twitch)
  *
  * Bot de chat :
  *   GET/PUT /me/bot · POST /me/bot/test (console de test, n'écrit rien sur Twitch)
@@ -78,6 +81,7 @@ import * as STATS from './stats.js';
 import * as MC from './multichat.js';
 import { tr, LANGS } from './i18n.js';
 import * as EQ from './equipe.js';
+import { TOOL_KEYS } from './tool-keys.js';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -139,9 +143,7 @@ export default {
             await room('yt:' + ch).fetch('https://room/alias', { method: 'POST', body: JSON.stringify({ login }) });
             return json({ ok: true });
           }
-          const t = { at: +body.at || Date.now(), title: clean(body.title, 200), artist: clean(body.artist, 200), album: clean(body.album, 200), art: clean(body.art, 400), url: clean(body.url, 400), source: clean(body.source, 20), duration: Math.max(0, Math.min(3600000, +body.duration || 0)) };
-          if (!t.title) return json({ error: 'titre manquant' }, 400);
-          return room('chan:' + login).fetch('https://room/tracks', { method: 'POST', body: JSON.stringify(t) }).then(withCors);
+          return logTrack(env, login, body);
         }
       }
       /* ---- Images du compte (publiques, adresse impossible à deviner) ---- */
@@ -151,7 +153,7 @@ export default {
       /* ---- Sous-titres : WebSocket de la page Sous-titres (ticket à usage unique) ---- */
       if (p[0] === 'captions' && /^\d{1,20}$/.test(p[1] || '')) {
         if (req.headers.get('Upgrade') !== 'websocket') return json({ error: 'WebSocket attendu' }, 426);
-        return env.ACCOUNT.get(env.ACCOUNT.idFromName('user:' + p[1])).fetch('https://acc/cap-ws?t=' + encodeURIComponent(url.searchParams.get('t') || ''), req);
+        return env.ACCOUNT.get(env.ACCOUNT.idFromName('user:' + p[1])).fetch('https://acc/cap-ws?t=' + encodeURIComponent(url.searchParams.get('t') || ''), { headers: { Upgrade: 'websocket' } }); // jamais les en-têtes du client
       }
       /* ---- Chat multiplateforme (Kick, YouTube) ---- */
       if (req.method === 'GET' && p[0] === 'kick' && MC.KICK_SLUG.test(p[1] || '')) return cached('kick:' + p[1].toLowerCase(), 3600, () => MC.kickChannel(p[1]));
@@ -312,17 +314,36 @@ const NEEDS = {
   objectifs: ['token', 'sejwt', 'sltoken', 'kofi', 'obspass'],
   sondage: ['obspass'], minuteur: ['obspass'], roue: ['obspass'], giveaway: ['obspass', 'webhook'],
   rewind: ['token', 'obspass'],
-  musique: ['token', 'spotifycid', 'lastfm', 'lfmkey'], // Spotify : jeton à jour fourni par /o/:id/spotify-token
+  musique: ['spotifycid', 'lastfm', 'lfmkey'], // Spotify : jeton à jour fourni par /o/:id/spotify-token ; journal des musiques : /o/:id/track
   lecteur: [], jeux: [], generique: [], soustitres: [], pngtuber: ['obspass'], shoutout: ['token', 'obspass'], clips: ['token', 'obspass'], etiquettes: ['token', 'sejwt', 'sltoken', 'kofi', 'obspass'], automatisations: ['token', 'sejwt', 'sltoken', 'kofi', 'obspass'], qrdons: [], compteurs: ['obspass'], sons: ['token', 'obspass'],
   tts: ['token', 'sejwt', 'sltoken', 'kofi', 'obspass'],
-  planning: [], hypetrain: ['token'], vedette: [], pubs: ['token'], votes: ['token'], score: ['obspass'],
+  planning: [], hypetrain: [], vedette: [], pubs: [], votes: [], score: ['obspass'], // pubs, votes, Hype Train : le relais lit Twitch pour eux (OV_TWITCH)
   discord: ['token', 'webhook'],
 };
+// Overlays qui suivent Twitch SANS recevoir le jeton du streamer : le relais s'abonne aux événements
+// (webhooks EventSub) et les leur pousse par /o/:id/ws ; il fait aussi pour eux quelques lectures Helix précises.
+const OV_TWITCH = {
+  pubs: { subs: [['channel.ad_break.begin', '1', 'adBreak']], helix: ['channels/ads'] },
+  votes: { subs: [['channel.poll.begin', '1', 'pollBegin'], ['channel.poll.progress', '1', 'pollProgress'], ['channel.poll.end', '1', 'pollEnd'],
+    ['channel.prediction.begin', '1', 'predBegin'], ['channel.prediction.progress', '1', 'predProgress'], ['channel.prediction.lock', '1', 'predLock'], ['channel.prediction.end', '1', 'predEnd']], helix: ['polls', 'predictions'] },
+  hypetrain: { subs: [['channel.hype_train.begin', '2', 'hypeBegin'], ['channel.hype_train.progress', '2', 'hypeProgress'], ['channel.hype_train.end', '2', 'hypeEnd']], helix: ['hypetrain/status'] },
+};
+const OV_EV = Object.fromEntries(Object.entries(OV_TWITCH).flatMap(([tool, x]) => x.subs.map(([type, , ev]) => [type, { tool, ev }])));
+const LOCAL_WS = /^wss?:\/\/(localhost|127\.\d+\.\d+\.\d+|\[::1\]|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)(:\d+)?\/?$/i;
+const DISCORD_HOOK = /^https:\/\/(?:\w+\.)?discord(?:app)?\.com\/api\/webhooks\/\d+\/[\w-]+$/;
 const SECRET_KEYS = ['spotify', 'spotifycid', 'lastfm', 'lfmkey', 'sejwt', 'sltoken', 'kofi', 'webhook', 'obspass'];
 const TEAM_SCOPES = ['channel:manage:polls', 'channel:manage:predictions', 'channel:manage:redemptions', 'moderation:read'];
 const SCOPES = 'clips:edit moderator:read:followers channel:read:redemptions channel:read:subscriptions channel:read:hype_train channel:read:ads channel:read:polls channel:read:predictions';
 const rand = (n = 24) => [...crypto.getRandomValues(new Uint8Array(n))].map((b) => b.toString(36).padStart(2, '0')).join('').slice(0, Math.ceil(n * 1.4));
 const OV_RE = /^[a-z0-9]{20,48}$/;
+
+/* Journal des musiques : un morceau pour la chaîne (adresses en https uniquement : l'extension en fait un lien et une image) */
+const httpsOnly = (s, n) => { const v = clean(s, n); try { return new URL(v).protocol === 'https:' ? v : ''; } catch (e) { return ''; } };
+async function logTrack(env, login, body) {
+  const t = { at: +body.at || Date.now(), title: clean(body.title, 200), artist: clean(body.artist, 200), album: clean(body.album, 200), art: httpsOnly(body.art, 400), url: httpsOnly(body.url, 400), source: clean(body.source, 20), duration: Math.max(0, Math.min(3600000, +body.duration || 0)) };
+  if (!t.title) return json({ error: 'titre manquant' }, 400);
+  return env.ROOM.get(env.ROOM.idFromName('chan:' + login)).fetch('https://room/tracks', { method: 'POST', body: JSON.stringify(t) }).then(withCors);
+}
 
 async function accountRoutes(req, env, url, p) {
   const stub = (name) => env.ACCOUNT.get(env.ACCOUNT.idFromName(name));
@@ -393,7 +414,7 @@ async function accountRoutes(req, env, url, p) {
     if (st !== 200 || !idx.user_id) return json({ error: 'overlay introuvable (lien supprimé ou régénéré)' }, 404);
     if (p[2] === 'ws') {
       if (req.headers.get('Upgrade') !== 'websocket') return json({ error: 'WebSocket attendu' }, 426);
-      return stub('user:' + idx.user_id).fetch('https://acc/ws?ov=' + p[1], req);
+      return stub('user:' + idx.user_id).fetch('https://acc/ws?ov=' + p[1], { headers: { Upgrade: 'websocket' } }); // jamais les en-têtes du client (X-Env, X-Origin…)
     }
     if (p[2] === 'tts' && req.method === 'POST') { // overlay Lecture à voix haute : voix du relais
       const d = await req.json().catch(() => ({}));
@@ -416,6 +437,17 @@ async function accountRoutes(req, env, url, p) {
     if (p[2] === 'sr' || p[2] === 'spotify-token') { // overlay Lecteur (file YouTube) / overlay Musique (Spotify)
       const d = req.method === 'POST' ? await req.json().catch(() => ({})) : {};
       const r = await stub('user:' + idx.user_id).fetch('https://acc/' + (p[2] === 'sr' ? 'ov-sr' : 'ov-spotify-token'), { method: 'POST', body: JSON.stringify(Object.assign({ action: 'state' }, d, { ov: p[1] })) });
+      return withCors(new Response(r.body, { status: r.status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } }));
+    }
+    if (p[2] === 'track' && req.method === 'POST') { // overlay Musique : journal des musiques, sans jeton Twitch dans l'overlay
+      const d = await req.json().catch(() => null);
+      if (!d) return json({ error: 'JSON attendu' }, 400);
+      const [s2, o] = await call('user:' + idx.user_id, '/ov-track', { ov: p[1] });
+      if (s2 !== 200) return json(o, s2);
+      return logTrack(env, o.login, d);
+    }
+    if (p[2] === 'twitch' && req.method === 'GET') { // pubs, votes, Hype Train : lecture Twitch faite par le relais (l'overlay n'a pas le jeton)
+      const r = await stub('user:' + idx.user_id).fetch('https://acc/ov-twitch', { method: 'POST', headers: { 'X-Env': JSON.stringify({ cid: env.TWITCH_CLIENT_ID, secret: env.TWITCH_CLIENT_SECRET, key: env.ENCRYPTION_KEY || '' }) }, body: JSON.stringify({ ov: p[1], path: url.searchParams.get('path') || '' }) });
       return withCors(new Response(r.body, { status: r.status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } }));
     }
     if (p[2] === 'don' && req.method === 'POST') { // l'overlay transmet un don Streamlabs reçu en direct
@@ -640,6 +672,35 @@ export class Account {
       return new Response(JSON.stringify({ access, login: profile.login, user_id: profile.user_id, scopes: v.scopes || profile.scopes || [], expires_in: v.expires_in || 0 }), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
     }
     if (path === '/don') return ok(await this.subDon(body.don || {}, profile, await secrets(), E));
+    if (path === '/ov-track') {
+      const o = ((await st.get('overlays')) || {})[body.ov];
+      if (!o || o.tool !== 'musique' || !(o.settings || {}).log) return err('overlay non autorisé', 403);
+      const now = Date.now(); // 30 morceaux par minute et par compte
+      this._trk = (this._trk || []).filter((t) => now - t < 60000);
+      if (this._trk.length >= 30) return err('trop de morceaux, réessaie dans un instant', 429);
+      this._trk.push(now);
+      return ok({ login: profile.login });
+    }
+    if (path === '/ov-twitch') { // lecture Helix pour un overlay OV_TWITCH : point d'accès autorisé pour son outil, chaîne du compte uniquement
+      const o = ((await st.get('overlays')) || {})[body.ov];
+      const allow = o && OV_TWITCH[o.tool];
+      if (!allow) return err('overlay non autorisé', 403);
+      const [ep, qs] = String(body.path || '').split('?');
+      if (ep === 'users') return ok({ data: [{ id: profile.user_id, login: profile.login }] });
+      if (!allow.helix.includes(ep)) return err('lecture non autorisée pour cet overlay', 403);
+      const now = Date.now(); // 60 lectures par minute et par compte
+      this._ovtw = (this._ovtw || []).filter((t) => now - t < 60000);
+      if (this._ovtw.length >= 60) return err('trop de lectures, réessaie dans un instant', 429);
+      this._ovtw.push(now);
+      const access = await this.twitchAccess(await secrets(), E);
+      if (!access) return err('connexion Twitch expirée : reconnecte-toi sur StreamBox', 401);
+      const q = new URLSearchParams({ broadcaster_id: profile.user_id });
+      const first = new URLSearchParams(qs || '').get('first');
+      if (first && /^\d{1,2}$/.test(first)) q.set('first', first);
+      const r = await fetch('https://api.twitch.tv/helix/' + ep + '?' + q, { headers: { 'Client-Id': E.cid, Authorization: 'Bearer ' + access } }).catch(() => null);
+      if (!r) return err('Twitch injoignable', 502);
+      return new Response(JSON.stringify(await r.json().catch(() => ({}))), { status: r.status, headers: { 'Content-Type': 'application/json' } });
+    }
     if (path === '/ov-tts') {
       const o = ((await st.get('overlays')) || {})[body.ov];
       if (!o || !['tts', 'generique'].includes(o.tool)) return err('overlay non autorisé', 403); // générique : lecture du résumé
@@ -792,7 +853,7 @@ export class Account {
       // 2. index : pseudo, clé Ko-fi, liens d'overlays
       await idx('login:' + profile.login);
       if (s.kofi) await idx('kofikey:' + s.kofi);
-      for (const id of Object.keys((await st.get('overlays')) || {})) await idx('ov:' + id);
+      for (const id of Object.keys((await st.get('overlays')) || {})) { this.revoke(id); await idx('ov:' + id); }
       // 3. accès Twitch révoqué, puis tout est effacé
       if (s.twitch && s.twitch.access && E.cid) await fetch('https://id.twitch.tv/oauth2/revoke', { method: 'POST', body: new URLSearchParams({ client_id: E.cid, token: s.twitch.access }) }).catch(() => {});
       await st.deleteAlarm().catch(() => {});
@@ -801,6 +862,8 @@ export class Account {
     }
     if (path === '/me') {
       const s = await secrets(); const ov = await overlays();
+      // overlays pubs / votes / Hype Train créés avant que le relais ne s'abonne pour eux : abonnements faits une fois
+      if (!(await st.get('ovsubs')) && Object.values(ov).some((o) => OV_TWITCH[o.tool])) { await this.syncOvSubs(profile, E); await st.put('ovsubs', 1); }
       return ok({ login: profile.login, lang: profile.lang || 'fr', scopes: profile.scopes, secrets: Object.fromEntries(SECRET_KEYS.map((k) => [k, !!s[k]])),
         overlays: Object.values(ov).map(({ id, tool, name, updatedAt }) => ({ id, tool, name, updatedAt })).sort((a, b) => b.updatedAt - a.updatedAt) });
     }
@@ -856,13 +919,24 @@ export class Account {
       this.broadcastAll();
       return ok({ ok: true, secrets: Object.fromEntries(SECRET_KEYS.map((k) => [k, !!s[k]])) });
     }
-    const checkSettings = (o) => { const j = JSON.stringify(o || {}); if (j.length > 20000) throw new Error('réglages trop volumineux'); return JSON.parse(j); };
+    // Réglages d'un overlay : seulement les champs que le configurateur propose pour cet outil (TOOL_KEYS),
+    // jamais un jeton ni une adresse qui détournerait les secrets fournis par le relais (relay, token…).
+    const checkSettings = (tool, o) => {
+      const j = JSON.stringify(o || {}); if (j.length > 20000) throw new Error('réglages trop volumineux');
+      const s = JSON.parse(j), keys = TOOL_KEYS[tool] || [], out = {};
+      if (!s || typeof s !== 'object' || Array.isArray(s)) return out;
+      for (const k of keys) if (k in s && !SECRET_KEYS.includes(k)) out[k] = s[k];
+      if ('obsurl' in out && !LOCAL_WS.test(String(out.obsurl))) delete out.obsurl; // OBS : seulement ce PC ou le réseau local
+      if (out.discord && out.discord !== 'compte' && !DISCORD_HOOK.test(String(out.discord))) delete out.discord;
+      return out;
+    };
     if (path === '/overlay-create') {
       const ov = await overlays();
       if (Object.keys(ov).length >= 50) return err('50 overlays maximum par compte');
       if (!NEEDS[body.tool]) return err('outil inconnu');
-      ov[body.id] = { id: body.id, tool: body.tool, name: clean(body.name || body.tool, 80), settings: checkSettings(body.settings), updatedAt: Date.now() };
+      ov[body.id] = { id: body.id, tool: body.tool, name: clean(body.name || body.tool, 80), settings: checkSettings(body.tool, body.settings), updatedAt: Date.now() };
       await st.put('overlays', ov);
+      if (OV_TWITCH[body.tool]) await this.syncOvSubs(profile, E);
       return ok({ id: body.id });
     }
     const ov = await overlays(); const o = ov[body.id || url.searchParams.get('ov')];
@@ -875,14 +949,14 @@ export class Account {
     if (path === '/overlay-get') return ok(o);
     if (path === '/overlay-update') {
       if (body.name != null) o.name = clean(body.name, 80);
-      if (body.settings) o.settings = checkSettings(body.settings);
+      if (body.settings) o.settings = checkSettings(o.tool, body.settings);
       o.updatedAt = Date.now(); await st.put('overlays', ov);
       this.broadcast(o.id);
       return ok({ ok: true });
     }
-    if (path === '/overlay-delete') { this.broadcast(o.id, 'deleted'); delete ov[o.id]; await st.put('overlays', ov); return ok({ ok: true }); }
+    if (path === '/overlay-delete') { this.revoke(o.id); delete ov[o.id]; await st.put('overlays', ov); if (OV_TWITCH[o.tool]) await this.syncOvSubs(profile, E); return ok({ ok: true }); }
     if (path === '/overlay-rotate') {
-      this.broadcast(o.id, 'deleted');
+      this.revoke(o.id);
       delete ov[o.id]; o.id = body.nid; o.updatedAt = Date.now(); ov[o.id] = o; await st.put('overlays', ov);
       return ok({ id: o.id });
     }
@@ -1019,6 +1093,17 @@ export class Account {
     };
   }
 
+  // Abonnements des overlays pubs / votes / Hype Train (créés ou supprimés avec l'overlay)
+  async syncOvSubs(profile, E) {
+    if (!this.env.EVENTSUB_SECRET || !(await this.ctx.storage.get('origin'))) return [];
+    return this.syncSubs((await this.ctx.storage.get('bot')) || sanitizeBot({}, null), profile, E).catch((e) => [e.message]);
+  }
+
+  // Révoque un lien d'overlay : prévient l'overlay puis ferme ses connexions (l'ancien lien ne reçoit plus rien)
+  revoke(id) {
+    this.ctx.getWebSockets('ov:' + id).forEach((ws) => { try { ws.send(JSON.stringify({ type: 'deleted' })); ws.close(4001, 'lien révoqué'); } catch (e) { /* déjà fermé */ } });
+  }
+
   async syncSubs(cfg, profile, E) {
     const st = this.ctx.storage, errors = [];
     const app = await appAccess(E.cid, E.secret);
@@ -1033,7 +1118,8 @@ export class Account {
     const jeuxOn = !!(jx && jx.enabled);
     const sx = await st.get('stats');
     const statsOn = !!(sx && sx.enabled);
-    if (cfg.enabled || subOn || srOn || jeuxOn || statsOn) {
+    const ovTools = [...new Set(Object.values((await st.get('overlays')) || {}).map((o) => o.tool).filter((t) => OV_TWITCH[t]))];
+    if (cfg.enabled || subOn || srOn || jeuxOn || statsOn || ovTools.length) {
       const origin = await st.get('origin');
       const bot = cfg.sender === 'bot' ? await this.botAccount() : null;
       const bid = profile.user_id;
@@ -1054,6 +1140,8 @@ export class Account {
         if (sc.includes('bits:read')) list.push({ type: 'channel.cheer', version: '1', condition: b });
         if (!cfg.enabled && !subOn && !srOn && !jeuxOn && !(sc.includes('user:read:chat') && sc.includes('channel:bot'))) list = list.filter((x) => x.type !== 'channel.chat.message');
       }
+      if (!cfg.enabled && !subOn && !srOn && !jeuxOn && !statsOn) list = []; // seulement des overlays pubs / votes / Hype Train
+      for (const t of ovTools) for (const [type, version] of OV_TWITCH[t].subs) list.push({ type, version, condition: { broadcaster_user_id: bid } });
       list = list.filter((x, i) => list.findIndex((y) => y.type === x.type) === i);
       if (cfg.sender === 'bot' && !bot) errors.push('compte bot du site non connecté');
       else for (const sub of list) {
@@ -1099,6 +1187,11 @@ export class Account {
       return ok({ actions: out });
     }
     if (path === '/bot-event') {
+      const ovEv = OV_EV[body.type];
+      if (ovEv) { // pub, sondage, prédiction, Hype Train : poussé aux overlays de cet outil
+        if (body.kind !== 'revocation') this.ctx.getWebSockets('tool:' + ovEv.tool).forEach((ws) => { try { ws.send(JSON.stringify({ type: 'twitch', ev: ovEv.ev, data: body.event || {} })); } catch (e) { /* parti */ } });
+        return ok({ ok: true });
+      }
       const subCfg = await st.get('sub');
       const subOn = !!(subCfg && subCfg.enabled);
       const srCfg = await st.get('sr');
