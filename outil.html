@@ -198,7 +198,7 @@ const isDefault = (f, v) => v === f.default || (f.type === 'checkbox' && !!v ===
         input.value = sp.refresh; btn.textContent = 'Se déconnecter de Spotify';
         status.textContent = 'Connecté à Spotify ✓ Le lien contient ce jeton : ne le montre pas en stream.';
         btn.onclick = () => { try { localStorage.removeItem('sb-spotify'); } catch (e) { /* ignore */ } input.value = ''; btn.textContent = 'Se connecter avec Spotify'; btn.onclick = login; status.textContent = ''; update(); };
-        setTimeout(() => { if (form.elements.spotifycid && sp.cid && sp.cid !== SB_CONFIG.spotifyClientId && !form.elements.spotifycid.value) { form.elements.spotifycid.value = sp.cid; update(); } }, 0);
+        setTimeout(() => { if (form.elements.spotifycid && sp.cid && !form.elements.spotifycid.value) { form.elements.spotifycid.value = sp.cid; update(); } }, 0);
       } else { btn.textContent = 'Se connecter avec Spotify'; btn.onclick = login; status.textContent = 'Seule permission demandée : voir le morceau en cours.'; }
       place(wrap, f, i);
       return;

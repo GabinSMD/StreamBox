@@ -20,7 +20,7 @@ Une boîte à outils gratuite pour streamers. Elle regroupe dans un seul site ce
 | ⏳ Écran « Ça commence bientôt » avec compte à rebours | Overlay OBS | Packs d’écrans d’attente |
 | ⏱️ Timer de subathon (abos, subs offerts, bits, dons, raids, happy hour, durée max, sauvegarde) | Overlay OBS | marathon-timer.com |
 | ⏪ Rewind : condensé vidéo des temps forts, repérés grâce aux réactions du chat et à la voix du streamer | Overlay OBS + obs-websocket | ClipMe, Voding (repérage) |
-| 🎵 Musique en cours : Spotify direct, Deezer, YouTube Music et Apple Music via Last.fm | Overlay OBS | Tuna, Amuse |
+| 🎵 Musique en cours : Spotify, Deezer, YouTube Music et Apple Music via Last.fm (ou Spotify en direct avec ta propre application) | Overlay OBS | Tuna, Amuse |
 | 📣 Annonces Discord : début du live, récap de fin, gagnant du giveaway, `!discord` | Source OBS invisible | Bots d’annonce |
 | 🧩 Extension « Musiques des redifs » (VOD Twitch et rediffusions YouTube) | Extension navigateur | |
 | 🔊 Lecture à voix haute : `!tts`, cheers, dons, points de chaîne ; voix du navigateur ou voix française du relais | Overlay OBS | TTS StreamElements / Streamlabs |
@@ -99,12 +99,12 @@ Sans compte, tout fonctionne comme avant, avec les réglages dans le lien.
 | Twitch | Chat (sans compte), follows, points de chaîne, abonnés, clips, début et fin du live | Non |
 | OBS (obs-websocket) | Micro et Replay Buffer (Rewind), panneau de contrôle, scènes | Non |
 | Discord | Webhook : annonces, récap, gagnants, messages des modos | Non |
-| Spotify | Morceau en cours (connexion PKCE, sans secret) | Non |
-| Deezer, YouTube Music, Apple Music | Via Last.fm (scrobbling natif ou extension Web Scrobbler) | Non |
+| Last.fm : Spotify, Deezer, YouTube Music, Apple Music | Morceau en cours (scrobbling natif ou extension Web Scrobbler) | Non |
+| Spotify en direct | Morceau en cours avec la progression (connexion PKCE, sans secret) | L'application Spotify de chaque streamer (Spotify l'exige d'un compte Premium) |
 | StreamElements, Streamlabs | Dons en direct | Non |
 | Ko-fi, et tout service à webhook | Dons en direct via le relais | Relais Cloudflare gratuit (`relay/`) |
 
-Toutes les clés publiques (Client ID Twitch et Spotify, clé API Last.fm, adresse du relais) se règlent dans `js/config.js`.
+Toutes les clés publiques (Client ID Twitch, clé API Last.fm, adresse du relais) se règlent dans `js/config.js`.
 
 ## Dons automatiques du subathon
 

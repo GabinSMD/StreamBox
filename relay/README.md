@@ -86,7 +86,7 @@ Rien à configurer en plus du bot (EVENTSUB_SECRET) : les points, duels, prédic
 ### Demandes de musique (facultatif)
 
 - **Recherche YouTube par titre et durée maximum** : crée une clé API « YouTube Data API v3 » sur https://console.cloud.google.com (gratuite, 10 000 unités par jour, soit environ 100 recherches), puis `wrangler secret put YOUTUBE_API_KEY`. Sans clé, les viewers envoient un lien YouTube.
-- **Spotify** : si le site a son propre Client ID Spotify, `wrangler secret put SPOTIFY_CLIENT_ID` (sinon, celui enregistré par chaque streamer est utilisé).
+- **Spotify** : il n'y a pas d'application Spotify commune (Spotify réserve son API aux comptes Premium). Le relais utilise le Client ID que chaque streamer enregistre avec sa connexion Spotify ; `SPOTIFY_CLIENT_ID` reste possible si tu as une application commune.
 
 > ⚠️ Ne perds pas `ENCRYPTION_KEY` : sans elle, les jetons enregistrés ne peuvent plus être lus, et chaque streamer devra les ressaisir. Ces mêmes identifiants servent aussi à l'extension, pour trouver le début des VODs Twitch.
 

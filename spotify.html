@@ -47,8 +47,8 @@ const ss = { get: (k) => { try { return sessionStorage.getItem(k); } catch (e) {
     say('Connecté à Spotify !', 'Retour à l’outil…');
     return location.replace(safeReturn(ss.get('sb-sp-return')));
   }
-  const cid = (q.get('cid') || SB_CONFIG.spotifyClientId || '').trim();
-  if (!cid) return say('Spotify n’est pas configuré', 'Indique ton propre Client ID Spotify dans l’outil Musique, ou renseigne spotifyClientId dans js/config.js.');
+  const cid = (q.get('cid') || '').trim();
+  if (!/^[0-9a-f]{32}$/i.test(cid)) return say('Il faut ton application Spotify', 'Crée-la sur developer.spotify.com (compte Premium exigé par Spotify), puis colle son Client ID dans Mon compte ou dans l’outil Musique. Sinon, Last.fm marche gratuitement.');
   const verifier = b64url(crypto.getRandomValues(new Uint8Array(48)));
   const challenge = b64url(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier)));
   const state = b64url(crypto.getRandomValues(new Uint8Array(12)));

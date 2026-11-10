@@ -20,11 +20,13 @@
 <script src="../js/sb.js"></script>
 <script>
 const c = SB.params({
-  source: 'spotify', spotify: '', spotifycid: '', lastfm: '', lfmkey: '',
+  source: '', spotify: '', spotifycid: '', lastfm: '', lfmkey: '',
   style: 'carte', hideidle: true, progress: true, label: 'En écoute', poll: 4,
   channel: '', token: '', log: false, relay: '',
   size: 20, font: 'Inter', accent: '#9b5cff', demo: false,
 });
+// Source : Last.fm par défaut ; un ancien lien sans source réglée reste sur Spotify s'il n'a pas de pseudo Last.fm
+if (!c.source) c.source = c.lastfm ? 'lastfm' : 'spotify';
 SB.loadFont(c.font); SB.setAccent(c.accent);
 document.documentElement.style.setProperty('--size', c.size + 'px');
 document.body.classList.add('np-' + c.style);
@@ -70,7 +72,7 @@ async function spToken() {
   }
   let refresh = c.spotify;
   try { refresh = localStorage.getItem(rtKey) || refresh; } catch (e) { /* ignore */ }
-  const cid = c.spotifycid || SB_CONFIG.spotifyClientId;
+  const cid = c.spotifycid; // ta propre application Spotify (il n'y a pas d'application commune)
   const r = await fetch('https://accounts.spotify.com/api/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: refresh, client_id: cid }) });
   const d = await r.json();
   if (!d.access_token) throw new Error('Spotify : reconnecte-toi sur StreamBox (' + (d.error || r.status) + ')');
@@ -122,6 +124,8 @@ if (c.demo) {
   let i = 0;
   const next = () => { const [title, artist, duration] = demo[i++ % demo.length]; show({ title, artist, art: '', duration, progress: 20000, at: Date.now(), playing: true }); };
   next(); setInterval(next, 6000);
+} else if (c.source === 'lastfm' && c.lastfm && !(c.lfmkey || SB_CONFIG.lastfmApiKey)) {
+  document.body.appendChild(SB.el('div', 'sb-hint', 'StreamBox : ' + SB.t('il manque une clé API Last.fm (gratuite, sur last.fm/api) : mets-la dans les réglages de l’overlay.')));
 } else if (c.source === 'lastfm' && c.lastfm) { pollLastfm(); setInterval(pollLastfm, Math.max(5, c.poll) * 1000); }
 else if (c.source === 'spotify' && (c.spotify || new URLSearchParams(location.search).get('o'))) { pollSpotify(); setInterval(pollSpotify, Math.max(2, c.poll) * 1000); }
 else {
