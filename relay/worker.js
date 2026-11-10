@@ -315,12 +315,12 @@ const NEEDS = {
   musique: ['token', 'spotifycid', 'lastfm', 'lfmkey'], // Spotify : jeton à jour fourni par /o/:id/spotify-token
   lecteur: [], jeux: [], generique: [], soustitres: [], pngtuber: ['obspass'], shoutout: ['token', 'obspass'], clips: ['token', 'obspass'], etiquettes: ['token', 'sejwt', 'sltoken', 'kofi', 'obspass'], automatisations: ['token', 'sejwt', 'sltoken', 'kofi', 'obspass'], qrdons: [], compteurs: ['obspass'], sons: ['token', 'obspass'],
   tts: ['token', 'sejwt', 'sltoken', 'kofi', 'obspass'],
-  planning: [], hypetrain: ['token'],
+  planning: [], hypetrain: ['token'], vedette: [], pubs: ['token'], votes: ['token'],
   discord: ['token', 'webhook'],
 };
 const SECRET_KEYS = ['spotify', 'spotifycid', 'lastfm', 'lfmkey', 'sejwt', 'sltoken', 'kofi', 'webhook', 'obspass'];
 const TEAM_SCOPES = ['channel:manage:polls', 'channel:manage:predictions', 'channel:manage:redemptions', 'moderation:read'];
-const SCOPES = 'clips:edit moderator:read:followers channel:read:redemptions channel:read:subscriptions channel:read:hype_train';
+const SCOPES = 'clips:edit moderator:read:followers channel:read:redemptions channel:read:subscriptions channel:read:hype_train channel:read:ads channel:read:polls channel:read:predictions';
 const rand = (n = 24) => [...crypto.getRandomValues(new Uint8Array(n))].map((b) => b.toString(36).padStart(2, '0')).join('').slice(0, Math.ceil(n * 1.4));
 const OV_RE = /^[a-z0-9]{20,48}$/;
 
@@ -402,7 +402,7 @@ async function accountRoutes(req, env, url, p) {
     }
     if (p[2] === 'say' && req.method === 'POST') { // overlay Automatisations : message du chat ou Discord envoyé par le relais
       const d = await req.json().catch(() => ({}));
-      const r = await stub('user:' + idx.user_id).fetch('https://acc/ov-say', { method: 'POST', headers: { 'X-Env': JSON.stringify({ cid: env.TWITCH_CLIENT_ID, secret: env.TWITCH_CLIENT_SECRET, key: env.ENCRYPTION_KEY || '' }) }, body: JSON.stringify({ ov: p[1], text: d.text, to: d.to }) });
+      const r = await stub('user:' + idx.user_id).fetch('https://acc/ov-say', { method: 'POST', headers: { 'X-Env': JSON.stringify({ cid: env.TWITCH_CLIENT_ID, secret: env.TWITCH_CLIENT_SECRET, key: env.ENCRYPTION_KEY || '' }) }, body: JSON.stringify({ ov: p[1], text: d.text, to: d.to, which: d.which }) });
       return withCors(new Response(r.body, { status: r.status, headers: { 'Content-Type': 'application/json' } }));
     }
     if ((p[2] === 'credits' || p[2] === 'recap') && req.method === 'GET') { // overlay Générique de fin (et son résumé par l'IA)
@@ -462,6 +462,11 @@ async function accountRoutes(req, env, url, p) {
   if (p[1] === 'team') {
     if (p.length === 2 && req.method === 'GET') return fwd('/team-get', 'POST', {});
     if (p.length === 2 && req.method === 'PUT') return fwd('/team-save', 'POST', body);
+    if (/^\d{1,15}$/.test(p[2] || '') && p[3] === 'feature' && p.length === 4 && req.method === 'POST') { // message en vedette sur la chaîne p[2]
+      const r = await stub('user:' + p[2]).fetch('https://acc/team-feature', { method: 'POST', headers: { 'X-Env': envHdr['X-Env'] }, body: JSON.stringify({ caller: sess.user_id, msg: body.msg, clear: !!body.clear }) });
+      if (r.status === 404 && (await r.clone().json().catch(() => ({}))).error === 'compte inconnu') return json({ error: 'cette chaîne n’utilise pas de compte StreamBox' }, 404);
+      return withCors(new Response(r.body, { status: r.status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } }));
+    }
     if (/^\d{1,15}$/.test(p[2] || '') && p.length === 3 && req.method === 'POST') { // action pour la chaîne p[2] (la sienne, ou une chaîne où l'on est modo)
       const r = await stub('user:' + p[2]).fetch('https://acc/team-helix', { method: 'POST', headers: { 'X-Env': envHdr['X-Env'] }, body: JSON.stringify({ caller: sess.user_id, req: body }) });
       if (r.status === 404 && (await r.clone().json().catch(() => ({}))).error === 'compte inconnu') return json({ error: 'cette chaîne n’utilise pas de compte StreamBox : son streamer doit se connecter à StreamBox et autoriser ses modos' }, 404);
@@ -660,8 +665,12 @@ export class Account {
     }
     if (path === '/ov-say') {
       const o = ((await st.get('overlays')) || {})[body.ov];
-      if (!o || o.tool !== 'automatisations') return err('overlay non autorisé', 403);
-      const text = clean(body.text, 450).trim();
+      if (!o || !['automatisations', 'pubs'].includes(o.tool)) return err('overlay non autorisé', 403);
+      // Pubs : seulement les deux messages enregistrés dans ses réglages (un lien d'overlay ne peut pas écrire n'importe quoi)
+      const PUB = { avant: ['msgbefore', 'Petite pub dans une minute : le temps d’aller boire un verre !'], apres: ['msgafter', 'La pub est finie, merci d’être resté !'] };
+      if (o.tool === 'pubs' && !PUB[body.which]) return err('message inconnu');
+      const text = clean(o.tool === 'pubs' ? (o.settings[PUB[body.which][0]] != null ? o.settings[PUB[body.which][0]] : tr(PUB[body.which][1], profile.lang)) : body.text, 450).trim();
+      if (o.tool === 'pubs') body.to = 'chat';
       if (!text) return err('message vide');
       const now = Date.now(); // 20 messages par minute au plus (évite qu'une boucle inonde le chat)
       this._say = (this._say || []).filter((t) => now - t < 60000);
@@ -716,33 +725,23 @@ export class Account {
     if (path === '/team-get') return ok(Object.assign({ mods: false }, await st.get('team'), { scopes: TEAM_SCOPES.filter((s) => !(profile.scopes || []).includes(s)) }));
     if (path === '/team-save') { const t = { mods: !!body.mods }; await st.put('team', t); this._mods = new Map(); return ok(t); }
     if (path === '/team-helix') {
-      const isOwner = String(body.caller) === String(profile.user_id);
-      const team = (await st.get('team')) || {};
-      if (!isOwner && !team.mods) return err(`${profile.login} n’a pas autorisé ses modos à gérer sondages, prédictions et récompenses depuis StreamBox`, 403);
-      const rq = EQ.teamRequest(body.req || {}, profile.user_id, isOwner);
+      const g = await this.teamGuard(body, profile, E, secrets);
+      if (g.error) return err(g.error, g.status || 403);
+      const rq = EQ.teamRequest(body.req || {}, profile.user_id, g.isOwner);
       if (rq.error) return err(rq.error, 403);
-      const now = Date.now(); // 90 actions par minute au plus pour toute l'équipe
-      this._team = (this._team || []).filter((t) => now - t < 60000);
-      if (this._team.length >= 90) return err('trop d’actions, réessaie dans un instant', 429);
-      this._team.push(now);
-      const s = await secrets();
-      const access = await this.twitchAccess(s, E);
-      if (!access) return err(`la connexion Twitch de ${profile.login} a expiré : il ou elle doit se reconnecter à StreamBox`, 403);
-      const H = { 'Client-Id': E.cid, Authorization: 'Bearer ' + access, 'Content-Type': 'application/json' };
-      if (!isOwner) { // modo vérifié auprès de Twitch (gardé 5 minutes)
-        this._mods = this._mods || new Map();
-        const hit = this._mods.get(body.caller);
-        if (!hit || now - hit.at > 300000) {
-          const r = await fetch(`https://api.twitch.tv/helix/moderation/moderators?broadcaster_id=${profile.user_id}&user_id=${encodeURIComponent(body.caller)}`, { headers: H });
-          if (r.status === 401 || r.status === 403) return err(`${profile.login} doit se reconnecter à StreamBox pour autoriser cette fonction`, 403);
-          const d = await r.json().catch(() => ({}));
-          this._mods.set(body.caller, { ok: r.ok && (d.data || []).length > 0, at: now });
-        }
-        if (!this._mods.get(body.caller).ok) return err(`tu n’es pas modo de ${profile.login}`, 403);
-      }
+      const H = g.H;
       const r = await fetch(rq.url, { method: rq.method, headers: H, body: rq.body ? JSON.stringify(rq.body) : undefined });
       const txt = r.status === 204 ? '{}' : await r.text();
       return new Response(txt || '{}', { status: r.status, headers: { 'Content-Type': 'application/json' } });
+    }
+    if (path === '/team-feature') { // message mis en vedette depuis le panneau de modération → overlays « Message en vedette »
+      const g = await this.teamGuard(body, profile, E, secrets);
+      if (g.error) return err(g.error, g.status || 403);
+      const msg = body.clear ? null : EQ.featureMsg(body.msg);
+      if (!body.clear && !msg) return err('message invalide');
+      let sent = 0;
+      this.ctx.getWebSockets('tool:vedette').forEach((ws) => { try { ws.send(JSON.stringify({ type: 'feature', msg })); sent++; } catch (e) { /* parti */ } });
+      return ok({ sent });
     }
     /* ---- Page publique de la chaîne ---- */
     if (path === '/page-get') return ok(Object.assign(EQ.sanitizePage(await st.get('page')), { url: EQ.pageUrl(await st.get('page'), profile.login) }));
@@ -916,6 +915,33 @@ export class Account {
     if (!r.ok) return null;
     const d = await r.json();
     return d.access ? d : null;
+  }
+
+  /* Le streamer, ou un modo qu'il a autorisé (vérifié auprès de Twitch, gardé 5 minutes). 90 actions par minute pour toute l'équipe. */
+  async teamGuard(body, profile, E, secrets) {
+    const st = this.ctx.storage;
+    const isOwner = String(body.caller) === String(profile.user_id);
+    const team = (await st.get('team')) || {};
+    if (!isOwner && !team.mods) return { error: `${profile.login} n’a pas autorisé ses modos à gérer sondages, prédictions, récompenses et messages en vedette depuis StreamBox` };
+    const now = Date.now();
+    this._team = (this._team || []).filter((t) => now - t < 60000);
+    if (this._team.length >= 90) return { error: 'trop d’actions, réessaie dans un instant', status: 429 };
+    this._team.push(now);
+    const access = await this.twitchAccess(await secrets(), E);
+    if (!access) return { error: `la connexion Twitch de ${profile.login} a expiré : il ou elle doit se reconnecter à StreamBox` };
+    const H = { 'Client-Id': E.cid, Authorization: 'Bearer ' + access, 'Content-Type': 'application/json' };
+    if (!isOwner) {
+      this._mods = this._mods || new Map();
+      const hit = this._mods.get(body.caller);
+      if (!hit || now - hit.at > 300000) {
+        const r = await fetch(`https://api.twitch.tv/helix/moderation/moderators?broadcaster_id=${profile.user_id}&user_id=${encodeURIComponent(body.caller)}`, { headers: H });
+        if (r.status === 401 || r.status === 403) return { error: `${profile.login} doit se reconnecter à StreamBox pour autoriser cette fonction` };
+        const d = await r.json().catch(() => ({}));
+        this._mods.set(body.caller, { ok: r.ok && (d.data || []).length > 0, at: now });
+      }
+      if (!this._mods.get(body.caller).ok) return { error: `tu n’es pas modo de ${profile.login}` };
+    }
+    return { isOwner, H };
   }
 
   async botStatus(cfg, profile) {

@@ -396,6 +396,9 @@ footer .logo { font-size: 17px; }
 .md-msg .emote { height: 1.6em; vertical-align: middle; }
 .md-a { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); display: none; gap: 3px; background: var(--card-h); padding: 2px; border-radius: 8px; box-shadow: 0 2px 10px var(--shadow); }
 .md-msg.sel .md-a { display: inline-flex; }
+.md-msg.feat { box-shadow: inset 3px 0 0 var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.md-feat { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 10px; padding: 6px 10px; margin-bottom: 6px; border-radius: 10px; font-size: 14px; background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.md-feat[hidden] { display: none; }
 .md-msg.sel { background: var(--card-h); }
 .md-a button { background: var(--bg2); border: 1px solid var(--line); border-radius: 6px; padding: 0 7px; font-size: 14px; line-height: 24px; cursor: pointer; color: inherit; }
 .md-a button:hover { background: var(--accent-fill); }

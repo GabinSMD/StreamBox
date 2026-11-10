@@ -42,6 +42,7 @@
           <label><input type="checkbox" id="fLinks"> Liens</label>
           <label><input type="checkbox" id="fHide"> Masquer les messages supprimés</label>
         </div>
+        <div class="md-feat" id="featBar" hidden><span>En vedette à l’écran : <b id="featWho"></b></span><button class="btn ghost small" id="featClear" type="button">Retirer de l’écran</button></div>
         <div class="md-feed" id="feed" aria-live="off"></div>
         <button class="btn small md-more" id="more" type="button" hidden></button>
       </section>
@@ -132,7 +133,7 @@
           </div>
           <div id="teamBox" hidden>
             <h2 class="bt-h" style="margin-top:18px"><svg class="ic ic-handshake" aria-hidden="true" focusable="false"><use href="img/icons.svg#handshake"/></svg>Équipe</h2>
-            <label class="bt-toggle"><input type="checkbox" id="teamMods"><b>Mes modos peuvent gérer sondages, prédictions et file des récompenses</b></label>
+            <label class="bt-toggle"><input type="checkbox" id="teamMods"><b>Mes modos peuvent gérer sondages, prédictions, file des récompenses et messages en vedette</b></label>
             <p class="bt-help">Twitch réserve ces actions au compte du streamer : StreamBox les fait pour tes modos, après avoir vérifié auprès de Twitch qu’ils sont bien modos. Créer ou supprimer une récompense reste réservé à toi.</p>
           </div>
         </section>
@@ -227,8 +228,9 @@ function addMessage(m) {
   const row = el('div', 'md-msg' + (m.first ? ' first' : '') + (LINK.test(m.text) ? ' link' : ''));
   row.dataset.id = m.id; row.dataset.login = m.login; row.dataset.text = m.text.toLowerCase();
   const acts = el('span', 'md-a');
+  const b = (label, title, fn) => { const x = el('button', null, label); x.type = 'button'; x.title = title; x.setAttribute('aria-label', title); x.onclick = (e) => { e.stopPropagation(); fn(); }; acts.appendChild(x); };
+  if (DEMO || viaRelay()) b('📌', 'Mettre en vedette à l’écran', () => feature(m, row));
   if (!m.isBroadcaster && !m.isMod) { // Twitch ne permet pas de sanctionner un modo
-    const b = (label, title, fn) => { const x = el('button', null, label); x.type = 'button'; x.title = title; x.onclick = (e) => { e.stopPropagation(); fn(); }; acts.appendChild(x); };
     b('🗑', 'Supprimer le message', () => del(m.id));
     b('⏱', 'Timeout (durée choisie en haut)', () => timeout(u.id, +$('quickT').value));
     b('🔨', 'Bannir', () => { if (confirm(`Bannir ${m.name} ?`)) ban(u.id); });
@@ -244,6 +246,23 @@ function addMessage(m) {
   if (atBottom) feed.scrollTop = feed.scrollHeight; else { unseen++; $('more').hidden = false; $('more').textContent = `⬇ ${unseen} nouveau(x) message(s)`; }
   if (cardUser === m.login) renderHist();
 }
+/* Message en vedette : affiché en grand par l'overlay « Message en vedette » (via le relais) */
+let featured = null;
+function feature(m, row) {
+  const msg = { name: m.name, login: m.login, text: m.text, emotes: m.emotes || [], color: m.color || null, isBroadcaster: m.isBroadcaster, isMod: m.isMod, isVip: m.isVip, isSub: m.isSub, action: m.action };
+  const done = (r) => {
+    document.querySelectorAll('.md-msg.feat').forEach((x) => x.classList.remove('feat'));
+    row.classList.add('feat'); featured = m.id; $('featWho').textContent = m.name; $('featBar').hidden = false;
+    if (r && r.sent === 0) toast('Aucun overlay « Message en vedette » n’est ouvert dans OBS');
+  };
+  if (DEMO) { done(); toast('Message en vedette (démo)'); return; }
+  act('Message en vedette', async () => done(await SBA.api('POST', `/me/team/${ch.id}/feature`, { msg })));
+}
+$('featClear').onclick = () => {
+  const off = () => { document.querySelectorAll('.md-msg.feat').forEach((x) => x.classList.remove('feat')); featured = null; $('featBar').hidden = true; };
+  if (DEMO) { off(); return; }
+  act('Retiré de l’écran', async () => { await SBA.api('POST', `/me/team/${ch.id}/feature`, { clear: true }); off(); });
+};
 function markGone(sel, by) { document.querySelectorAll(sel).forEach((r) => { r.classList.add('gone'); if (by && !r.querySelector('.md-by')) r.appendChild(el('small', 'md-by', by)); applyFilter(r); }); }
 function applyFilter(r) {
   const q = $('filter').value.trim().toLowerCase();

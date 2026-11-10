@@ -20,6 +20,15 @@
     hypeBegin: { type: 'channel.hype_train.begin', version: '2', cond: (b) => ({ broadcaster_user_id: b }), raw: true },
     hypeProgress: { type: 'channel.hype_train.progress', version: '2', cond: (b) => ({ broadcaster_user_id: b }), raw: true },
     hypeEnd: { type: 'channel.hype_train.end', version: '2', cond: (b) => ({ broadcaster_user_id: b }), raw: true },
+    // Pubs (channel:read:ads), sondages (channel:read:polls) et prédictions (channel:read:predictions) natifs de Twitch
+    adBreak: { type: 'channel.ad_break.begin', version: '1', cond: (b) => ({ broadcaster_user_id: b }), raw: true },
+    pollBegin: { type: 'channel.poll.begin', version: '1', cond: (b) => ({ broadcaster_user_id: b }), raw: true },
+    pollProgress: { type: 'channel.poll.progress', version: '1', cond: (b) => ({ broadcaster_user_id: b }), raw: true },
+    pollEnd: { type: 'channel.poll.end', version: '1', cond: (b) => ({ broadcaster_user_id: b }), raw: true },
+    predBegin: { type: 'channel.prediction.begin', version: '1', cond: (b) => ({ broadcaster_user_id: b }), raw: true },
+    predProgress: { type: 'channel.prediction.progress', version: '1', cond: (b) => ({ broadcaster_user_id: b }), raw: true },
+    predLock: { type: 'channel.prediction.lock', version: '1', cond: (b) => ({ broadcaster_user_id: b }), raw: true },
+    predEnd: { type: 'channel.prediction.end', version: '1', cond: (b) => ({ broadcaster_user_id: b }), raw: true },
   };
   const RAW = Object.fromEntries(Object.entries(TYPES).filter(([, t]) => t.raw).map(([k, t]) => [t.type, k]));
 

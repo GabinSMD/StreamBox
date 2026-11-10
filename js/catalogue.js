@@ -10,7 +10,7 @@
   // Plateformes : Twitch par défaut ; « toutes » pour ce qui ne dépend d'aucune plateforme
   const PLATFORMS = { chat: ['twitch', 'kick', 'youtube'], extension: ['twitch', 'youtube'], qrdons: ['toutes'], panneau: ['toutes'], 'sous-titres': ['toutes'], integrations: ['toutes'], annuaire: ['toutes'] };
   // Aperçus disponibles (img/apercus/<id>.jpg)
-  const PREVIEWS = new Set('alertes annuaire automatisations bot calc chaine chat clips compteurs discord emotes etiquettes extension generique giveaway integrations minijeux minuteur moderation musique objectifs panneau pngtuber qrdons resizer rewind roue shoutout sondage sons sous-titres sr stats subathon-live testeur tts planning hypetrain diagnostic'.split(' '));
+  const PREVIEWS = new Set('alertes annuaire automatisations bot calc chaine chat clips compteurs discord emotes etiquettes extension generique giveaway integrations minijeux minuteur moderation musique objectifs panneau pngtuber qrdons resizer rewind roue shoutout sondage sons sous-titres sr stats subathon-live testeur tts planning hypetrain diagnostic vedette pubs votes'.split(' '));
   const all = [...window.SB_TOOLS, ...window.SB_PAGES].filter((t) => !t.mergedInto).map((t) => {
     const f = t.fields || [];
     t.kind = t.overlay ? 'overlay' : t.id === 'extension' ? 'extension' : 'page';

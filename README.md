@@ -37,6 +37,9 @@ Une boîte à outils gratuite pour streamers. Elle regroupe dans un seul site ce
 | 📱 QR code de dons (Ko-fi, PayPal, Tipeee…), généré sans service extérieur | Overlay OBS | TipStreams |
 | 📅 Planning des lives tiré du planning Twitch, en liste ou en semaine, et image à partager (Discord, réseaux) avec le texte prêt à coller | Overlay OBS + page web + relais | Plannings faits main sur Canva |
 | 🚂 Hype Train : niveau, progression, temps restant, meilleurs contributeurs, record de la chaîne | Overlay OBS | Hype Train StreamElements / Streamlabs |
+| 📌 Message en vedette : un modo clique sur un message dans le panneau de modération, il s’affiche en grand sur le stream | Overlay OBS + relais | Highlight message de StreamElements |
+| ⏳ Pubs Twitch : compte à rebours avant la pub, pause pub, « merci d’être resté », chat prévenu avant et après | Overlay OBS + relais | Ad timer de StreamElements |
+| 🔮 Sondages et prédictions natifs de Twitch à l’écran : votes, points en jeu, gagnant, en direct | Overlay OBS | Widgets de prédictions StreamElements / Streamlabs |
 | 🎬 `!clip` : le bot crée un clip et le poste sur Discord | Bot (relais) | — |
 | 📊 Statistiques des lives : viewers minute par minute, chat, follows, abos, bits, raids, dons, catégories ; tendances et export CSV | Page web + relais | TwitchTracker, StreamsCharts |
 | 🛡️ Panneau de modération : sanctions en un clic, fiche viewer, AutoMod, journal de l’équipe, débans, modes du chat, annonces, sondages, prédictions, file des récompenses de points de chaîne, titre et raid ; chaque modo avec son compte Twitch | Page web (dock OBS) + relais | Mod View de Twitch |
@@ -123,7 +126,7 @@ Une seule connexion sert à tous les outils : follows et points de chaîne (Even
 1. Crée une application sur https://dev.twitch.tv/console/apps : type de client **Public**, URL de redirection `https://<ton-site>/connexion.html` (et `http://localhost:8000/connexion.html` pour tester en local).
 2. Copie le *Client ID* dans `js/config.js` (`twitchClientId`).
 
-La connexion n’utilise aucun secret. Permissions demandées : `clips:edit`, `moderator:read:followers`, `channel:read:redemptions`, `channel:read:subscriptions`, `channel:read:hype_train`. Rien d’autre : ni messages privés, ni modification de la chaîne. Sans connexion, le Rewind fonctionne quand même, mais il ne montre que les statistiques du chat enregistrées pendant le stream.
+La connexion n’utilise aucun secret. Permissions demandées : `clips:edit`, `moderator:read:followers`, `channel:read:redemptions`, `channel:read:subscriptions`, `channel:read:hype_train`, `channel:read:ads`, `channel:read:polls`, `channel:read:predictions`. Rien d’autre : ni messages privés, ni modification de la chaîne. Sans connexion, le Rewind fonctionne quand même, mais il ne montre que les statistiques du chat enregistrées pendant le stream.
 
 ## Lancer en local
 
@@ -191,6 +194,7 @@ Prochaines étapes :
 - [x] Comptes StreamBox (connexion Twitch, réglages et jetons enregistrés, liens courts)
 - [x] Planning des lives (overlay et image à partager), Hype Train, sauvegarde et import de la configuration
 - [x] Vérification de l’installation et simulateur d’événements
+- [x] Message en vedette, pubs Twitch, sondages et prédictions natifs à l’écran
 
 ## Contribuer
 
