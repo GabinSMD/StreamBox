@@ -598,6 +598,7 @@
   ];
 
   window.SB_PAGES = [
+    { id: 'diagnostic', icon: '✅', name: 'Vérifier mon installation', short: 'Contrôle relais, connexion Twitch et overlays, et envoie de faux événements.', href: 'diagnostic.html', tagline: 'Avant un live : vérifie en un clic le relais, ta connexion Twitch, les abonnements aux événements et les overlays ouverts dans OBS, puis envoie de faux abos, raids ou dons à tes overlays.', replaces: ['bouton « Test alert » de Streamlabs'] },
     { id: 'subathon-live', icon: '⏱️', name: 'Subathon', short: 'Un timer de subathon qui compte seul les abos, bits et dons.', href: 'subathon.html', tagline: 'Timer qui compte tout seul les abos, bits, follows et dons, même OBS fermé. Paliers, happy hour, overlay OBS et page publique où les viewers proposent et votent des idées.', replaces: ['marathon-timer.com'],
       links: [['Gérer le subathon', 'subathon.html'], ['Overlay OBS', 'outil.html?id=subathon'], ['Roue à défis', 'outil.html?id=roue']] },
     { id: 'sr', icon: '🎶', name: 'Demandes de musique', short: 'Tes viewers demandent des morceaux avec !sr, sur YouTube ou Spotify.', href: 'sr.html', tagline: 'Tes viewers demandent des morceaux avec !sr (YouTube ou Spotify) : file d’attente, limites, modération, page publique.', replaces: ['Nightbot Song Requests', 'StreamElements Media Request'],
@@ -656,7 +657,7 @@
     alertes: 'alertes', objectifs: 'alertes', discord: 'alertes', tts: 'alertes', qrdons: 'alertes', planning: 'communaute', hypetrain: 'alertes', sons: 'communaute', compteurs: 'communaute', generique: 'evenements',
     'subathon-live': 'evenements', minuteur: 'evenements', rewind: 'evenements',
     musique: 'musique', sr: 'musique', extension: 'musique',
-    panneau: 'outils', automatisations: 'outils', soustitres: 'communaute', 'sous-titres': 'communaute', pngtuber: 'communaute', shoutout: 'communaute', clips: 'evenements', etiquettes: 'alertes', stats: 'outils', integrations: 'outils', resizer: 'outils', testeur: 'outils', calc: 'outils', annuaire: 'outils' };
+    panneau: 'outils', automatisations: 'outils', soustitres: 'communaute', 'sous-titres': 'communaute', pngtuber: 'communaute', shoutout: 'communaute', clips: 'evenements', etiquettes: 'alertes', stats: 'outils', integrations: 'outils', resizer: 'outils', testeur: 'outils', calc: 'outils', annuaire: 'outils', diagnostic: 'outils' };
   const MERGED = { subathon: 'subathon-live', lecteur: 'sr', jeux: 'minijeux', soustitres: 'sous-titres' };
   [...window.SB_TOOLS, ...window.SB_PAGES].forEach((t) => { t.cat = CAT[t.id] || 'outils'; if (MERGED[t.id]) t.mergedInto = MERGED[t.id]; });
 

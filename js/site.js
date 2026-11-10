@@ -51,7 +51,7 @@
     ['Pendant le live', [['panneau.html', 'Panneau de contrôle', 'sliders-horizontal'], ['moderation.html', 'Modération', 'shield'], ['sous-titres.html', 'Sous-titres', 'message-square']]],
     ['Mes réglages', [['compte.html', 'Mes overlays', 'layout-grid'], ['bot.html', 'Bot de chat', 'bot'], ['automatisations.html', 'Automatisations', 'zap'], ['subathon.html', 'Subathon', 'timer'], ['sr.html', 'Demandes de musique', 'list-music'], ['jeux.html', 'Mini-jeux', 'dices']]],
     ['Après le live', [['stats.html', 'Statistiques', 'chart-column']]],
-    ['Mon compte', [['compte.html#integrations', 'Intégrations', 'plug'], ['compte.html#page', 'Page publique', 'globe'], ['compte.html#images', 'Images', 'image'], ['compte.html#compte', 'Compte', 'user']]],
+    ['Mon compte', [['compte.html#integrations', 'Intégrations', 'plug'], ['compte.html#page', 'Page publique', 'globe'], ['compte.html#images', 'Images', 'image'], ['compte.html#compte', 'Compte', 'user'], ['diagnostic.html', 'Vérifier mon installation', 'circle-check']]],
   ];
   const main = document.querySelector('main');
   const inEspace = ESPACE.some(([, items]) => items.some(([h]) => h.split('#')[0] === page));

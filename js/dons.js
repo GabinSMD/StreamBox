@@ -12,7 +12,7 @@
   const num = (v) => { const n = parseFloat(String(v == null ? '' : v).replace(',', '.')); return isNaN(n) ? 0 : n; };
 
   SB.Donations = class {
-    constructor() { this.handlers = {}; this.seen = new Set(); this.status = {}; }
+    constructor() { this.handlers = {}; this.seen = new Set(); this.status = {}; if (SB.sources) SB.sources('dons').push(this); } // simulateur
     on(ev, fn) { (this.handlers[ev] = this.handlers[ev] || []).push(fn); return this; }
     emit(ev, d) { (this.handlers[ev] || []).forEach((f) => { try { f(d); } catch (e) { console.error(e); } }); }
     don(d) {

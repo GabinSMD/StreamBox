@@ -452,6 +452,8 @@ async function accountRoutes(req, env, url, p) {
   if (p[1] === 'secrets' && req.method === 'PUT') return fwd('/secrets', 'POST', body);
   if (p[1] === 'lang' && req.method === 'PUT') return fwd('/lang', 'POST', body);
   if (p[1] === 'twitch-token' && p.length === 2 && req.method === 'GET') return fwd('/my-token', 'POST', {});
+  if (p[1] === 'diag' && p.length === 2 && req.method === 'GET') return fwd('/diag', 'POST', {});
+  if (p[1] === 'sim' && p.length === 2 && req.method === 'POST') return fwd('/sim', 'POST', body);
   if (p[1] === 'sr') {
     if (p.length === 2 && req.method === 'GET') return fwd('/sr-get', 'POST', {});
     if (p.length === 2 && req.method === 'PUT') return fwd('/sr-save', 'POST', body);
@@ -796,6 +798,44 @@ export class Account {
       const s = await secrets(); const ov = await overlays();
       return ok({ login: profile.login, lang: profile.lang || 'fr', scopes: profile.scopes, secrets: Object.fromEntries(SECRET_KEYS.map((k) => [k, !!s[k]])),
         overlays: Object.values(ov).map(({ id, tool, name, updatedAt }) => ({ id, tool, name, updatedAt })).sort((a, b) => b.updatedAt - a.updatedAt) });
+    }
+    if (path === '/diag') { // « Vérifier mon installation » : état du relais, du jeton Twitch, des abonnements et des overlays ouverts
+      const s = await secrets().catch(() => ({}));
+      const out = { relay: { twitch: !!(E.cid && E.secret), eventsub: !!this.env.EVENTSUB_SECRET, encryption: !!E.key, botAccount: !!this.env.BOT_LOGIN, youtube: !!this.env.YOUTUBE_API_KEY, ai: !!this.env.AI },
+        login: profile.login, secrets: Object.fromEntries(SECRET_KEYS.map((k) => [k, !!s[k]])) };
+      let access = null; try { access = await this.twitchAccess(s, E); } catch (e) { /* refus de Twitch */ }
+      const v = access ? await fetch('https://id.twitch.tv/oauth2/validate', { headers: { Authorization: 'OAuth ' + access } }).then((r) => (r.ok ? r.json() : null)).catch(() => null) : null;
+      out.token = v ? { ok: true, scopes: v.scopes || [], expiresIn: v.expires_in || 0 } : { ok: false };
+      const on = async (k) => !!((await st.get(k)) || {}).enabled;
+      const bot = (await st.get('bot')) || null;
+      out.features = { bot: !!(bot && bot.enabled), subathon: await on('sub'), sr: await on('sr'), jeux: await on('jeux'), stats: await on('stats'), page: await on('page') };
+      if (out.features.bot) { const b = await this.botStatus(bot, profile); out.bot = { sender: b.sender, missing: b.missing, lastError: b.lastError, botAccount: b.botAccount }; }
+      const mine = (await st.get('botsubs')) || [];
+      out.subs = { expected: mine.length, list: null };
+      if (mine.length && E.cid && E.secret) {
+        try {
+          const app = await appAccess(E.cid, E.secret);
+          const d = await fetch('https://api.twitch.tv/helix/eventsub/subscriptions?user_id=' + profile.user_id, { headers: { 'Client-Id': E.cid, Authorization: 'Bearer ' + app } }).then((r) => r.json());
+          const ids = new Set(mine);
+          out.subs.list = (d.data || []).filter((x) => ids.has(x.id)).map((x) => ({ type: x.type, status: x.status }));
+        } catch (e) { /* Twitch injoignable : liste inconnue */ }
+      }
+      out.overlays = Object.values(await overlays()).map((o) => ({ id: o.id, tool: o.tool, name: o.name, open: this.ctx.getWebSockets('ov:' + o.id).length }));
+      return ok(out);
+    }
+    if (path === '/sim') { // simulateur : un faux événement envoyé aux overlays ouverts dans OBS (rien n'est enregistré)
+      const now = Date.now();
+      this._sim = (this._sim || []).filter((t) => now - t < 10000);
+      if (this._sim.length >= 10) return err('doucement : 10 tests toutes les 10 secondes au plus', 429);
+      const ev = EQ.simEvent(body.ev);
+      if (!ev) return err('événement inconnu');
+      this._sim.push(now);
+      const ov = await overlays();
+      let sent = 0;
+      for (const id of (Array.isArray(body.ids) ? body.ids : []).filter((x) => ov[x]).slice(0, 50)) {
+        this.ctx.getWebSockets('ov:' + id).forEach((ws) => { try { ws.send(JSON.stringify({ type: 'sim', ev })); sent++; } catch (e) { /* parti */ } });
+      }
+      return ok({ sent });
     }
     if (path === '/secrets') {
       const s = await secrets();

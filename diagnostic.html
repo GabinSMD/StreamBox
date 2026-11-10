@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="img/logo.svg" type="image/svg+xml">
+<title>Vérifier mon installation · StreamBox</title>
+<meta name="description" content="Vérifie en un clic ton installation StreamBox (relais, connexion Twitch, abonnements, overlays ouverts dans OBS) et envoie de faux événements à tes overlays.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="StreamBox">
+<meta property="og:title" content="Vérifier mon installation · StreamBox">
+<meta property="og:description" content="Vérifie en un clic ton installation StreamBox et envoie de faux événements à tes overlays.">
+<meta property="og:image" content="https://gabinsmd.github.io/StreamBox/img/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400..700&family=Tektur:wght@700&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="css/site.css">
+<script src="js/i18n.js"></script>
+<script src="js/icons.js"></script>
+</head>
+<body>
+<main class="wrap">
+  <div class="acc-head" style="margin-top:36px">
+    <h1 class="sec"><svg class="ic ic-circle-check" aria-hidden="true" focusable="false"><use href="img/icons.svg#circle-check"/></svg>Vérifier mon installation</h1>
+    <button class="btn ghost small" id="again" type="button"><svg class="ic ic-rotate-cw" aria-hidden="true" focusable="false"><use href="img/icons.svg#rotate-cw"/></svg>Relancer</button>
+  </div>
+  <p class="sec">Avant un live, ou quand quelque chose ne marche pas : StreamBox contrôle le relais, ta connexion Twitch, les abonnements aux événements et les overlays ouverts dans OBS. Ouvre OBS avant de lancer la vérification.</p>
+
+  <section class="box dg-box">
+    <h2>Diagnostic</h2>
+    <p class="dg-sum" id="sum" role="status" aria-live="polite">Vérification…</p>
+    <ul class="dg-list" id="checks"></ul>
+  </section>
+
+  <section class="box dg-box">
+    <h2>Connexion à OBS (facultatif)</h2>
+    <p class="bt-help">Teste le serveur WebSocket d’OBS (Outils, Paramètres du serveur WebSocket) depuis ce navigateur, sur cet ordinateur. Le mot de passe n’est ni enregistré ni envoyé ailleurs.</p>
+    <div class="dg-obs">
+      <div class="field"><label for="obsurl">Adresse</label><input type="text" id="obsurl" value="ws://127.0.0.1:4455" spellcheck="false"></div>
+      <div class="field"><label for="obspass">Mot de passe</label><input type="password" id="obspass" autocomplete="off"></div>
+      <button class="btn ghost small" id="obstest" type="button">Tester OBS</button>
+    </div>
+    <p class="bt-help" id="obsres" role="status" aria-live="polite"></p>
+  </section>
+
+  <section class="box dg-box" id="simBox">
+    <h2>Simulateur d’événements</h2>
+    <p class="bt-help">Envoie un faux événement à tes overlays ouverts dans OBS : ils réagissent comme en live. Pratique pour régler la mise en page sans attendre un vrai abo. Rien n’est envoyé à Twitch ni au chat.</p>
+    <div class="dg-sim-ovs" id="simOvs"></div>
+    <div class="dg-sim-f">
+      <div class="field"><label for="simName">Pseudo</label><input type="text" id="simName" value="Viewer_Test" maxlength="25" spellcheck="false"></div>
+      <div class="field"><label for="simMsg">Message (facultatif)</label><input type="text" id="simMsg" maxlength="200" placeholder="Trop bien ce stream !"></div>
+    </div>
+    <div class="dg-sim-btns" id="simBtns"></div>
+    <p class="bt-help" id="simRes" role="status" aria-live="polite"></p>
+    <p class="bt-help">Les overlays qui comptent (objectifs, étiquettes, générique, compteurs) comptent aussi les tests : remets-les à zéro depuis le panneau de contrôle si besoin. Le subathon et les statistiques, gérés par le relais, ne sont pas touchés.</p>
+  </section>
+</main>
+<script src="js/config.js"></script>
+<script src="js/tools.js"></script>
+<script src="js/account.js"></script>
+<script src="js/site.js"></script>
+<script src="js/obs.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+const relay = () => ((window.SB_CONFIG && SB_CONFIG.relayUrl) || '').replace(/\/$/, '');
+const BASE = ['clips:edit', 'moderator:read:followers', 'channel:read:redemptions', 'channel:read:subscriptions', 'channel:read:hype_train'];
+const toolName = (id) => { const t = [...SB_TOOLS, ...SB_PAGES].find((x) => x.id === id); return t ? SB.t(t.name) : id; };
+let diag = null;
+
+/* Une ligne du diagnostic : état (ok, warn, err, info), titre, détail, action éventuelle */
+function row(state, title, detail, action) {
+  const li = el('li', 'dg-' + state);
+  const ic = { ok: 'circle-check', warn: 'triangle-alert', err: 'x', info: 'circle-help' }[state];
+  li.appendChild(SB.icon(ic));
+  const txt = el('div'); txt.append(el('b', null, SB.t(title)));
+  if (detail) txt.append(el('span', null, detail));
+  if (action) { const a = el('a', 'btn ghost small', SB.t(action[0])); a.href = action[1]; txt.append(a); }
+  li.appendChild(txt);
+  $('checks').appendChild(li);
+  return state;
+}
+
+async function run() {
+  $('checks').replaceChildren(); $('sum').textContent = SB.t('Vérification…');
+  const states = [];
+  const add = (...a) => states.push(row(...a));
+  // 1. Site
+  if (!window.SBA || !SBA.enabled()) { add('err', 'Site sans relais', SB.t('relayUrl et twitchClientId manquent dans js/config.js (voir relay/README.md).')); return done(states); }
+  // 2. Relais joignable
+  const t0 = performance.now();
+  const reach = await fetch(relay() + '/', { cache: 'no-store' }).then((r) => r.json().then(() => true)).catch(() => false);
+  if (!reach) { add('err', 'Relais injoignable', relay(), null); return done(states); }
+  add('ok', 'Relais joignable', SB.t('Réponse en {0} ms', [Math.round(performance.now() - t0)]));
+  // 3. Compte
+  if (!SBA.loggedIn()) { add('warn', 'Pas connecté à StreamBox', SB.t('Connecte-toi pour vérifier ton compte, tes abonnements et tes overlays.'), ['Se connecter avec Twitch', 'connexion.html?compte=1&retour=diagnostic.html']); simUi(); return done(states); }
+  try { diag = await SBA.api('GET', '/me/diag'); }
+  catch (e) { add(e.auth ? 'warn' : 'err', e.auth ? 'Session expirée' : 'Relais à mettre à jour', e.auth ? SB.t('Reconnecte-toi.') : SB.t('Le relais ne connaît pas encore la vérification : redéploie-le (npx wrangler deploy).'), e.auth ? ['Se connecter avec Twitch', 'connexion.html?compte=1&retour=diagnostic.html'] : null); simUi(); return done(states); }
+  const R = diag.relay;
+  add(R.twitch ? 'ok' : 'err', 'Identifiants Twitch du relais', R.twitch ? SB.t('Présents.') : SB.t('TWITCH_CLIENT_ID ou TWITCH_CLIENT_SECRET manquant sur le relais.'));
+  add(R.encryption ? 'ok' : 'warn', 'Chiffrement des jetons', R.encryption ? SB.t('Les jetons sont chiffrés sur le relais.') : SB.t('ENCRYPTION_KEY manquant : les jetons sont stockés en clair.'));
+  // 4. Jeton Twitch et permissions
+  if (!diag.token.ok) add('err', 'Connexion Twitch', SB.t('Twitch refuse ton jeton (accès révoqué ou expiré).'), ['Se reconnecter', 'connexion.html?compte=1&retour=diagnostic.html']);
+  else {
+    const miss = BASE.filter((s) => !diag.token.scopes.includes(s));
+    add(miss.length ? 'warn' : 'ok', 'Connexion Twitch', miss.length ? SB.t('Permissions à accorder : {0}', [miss.join(', ')]) : SB.t('Connecté en tant que {0}, toutes les permissions de base sont accordées.', [diag.login]), miss.length ? ['Se reconnecter', 'connexion.html?compte=1&retour=diagnostic.html'] : null);
+  }
+  // 5. Fonctions qui tournent sur le relais
+  const F = diag.features, on = Object.keys(F).filter((k) => F[k]);
+  const NAMES = { bot: 'bot', subathon: 'subathon', sr: 'demandes de musique', jeux: 'mini-jeux', stats: 'statistiques', page: 'page publique' };
+  add('info', 'Fonctions actives', on.length ? on.map((k) => SB.t(NAMES[k])).join(', ') : SB.t('Aucune pour l’instant (bot, subathon, statistiques…).'));
+  const needHooks = F.bot || F.subathon || F.sr || F.jeux || F.stats;
+  if (needHooks && !R.eventsub) add('err', 'Événements Twitch (webhooks)', SB.t('EVENTSUB_SECRET manque sur le relais : le bot, le subathon et les statistiques ne reçoivent rien.'));
+  else if (needHooks) {
+    const S = diag.subs, list = S.list || [];
+    const bad = list.filter((x) => x.status !== 'enabled');
+    if (S.list === null) add('warn', 'Événements Twitch (webhooks)', SB.t('Impossible de lire tes abonnements chez Twitch pour le moment.'));
+    else if (!S.expected) add('err', 'Événements Twitch (webhooks)', SB.t('Aucun abonnement enregistré : enregistre à nouveau les réglages du bot ou du subathon.'), ['Ouvrir le bot', 'bot.html']);
+    else if (bad.length) add('err', 'Événements Twitch (webhooks)', bad.map((x) => `${x.type} : ${x.status}`).join(' ; '), ['Ouvrir le bot', 'bot.html']);
+    else if (list.length < S.expected) add('warn', 'Événements Twitch (webhooks)', SB.t('{0} abonnements sur {1} actifs chez Twitch : enregistre à nouveau les réglages du bot.', [list.length, S.expected]), ['Ouvrir le bot', 'bot.html']);
+    else add('ok', 'Événements Twitch (webhooks)', SB.t('{0} abonnements actifs chez Twitch.', [list.length]));
+  }
+  if (diag.bot) {
+    const B = diag.bot;
+    if (B.missing.length) add('warn', 'Bot de chat', SB.t('Permissions à accorder : {0}', [B.missing.join(', ')]), ['Ouvrir le bot', 'bot.html']);
+    else if (B.sender === 'bot' && !B.botAccount.connected) add('err', 'Bot de chat', SB.t('Le compte bot du site n’est pas connecté.'));
+    else if (B.lastError) add('warn', 'Bot de chat', SB.t('Dernière erreur : {0}', [B.lastError]), ['Ouvrir le bot', 'bot.html']);
+    else add('ok', 'Bot de chat', SB.t('Prêt à répondre dans le chat.'));
+  }
+  // 6. Overlays
+  const ovs = diag.overlays || [];
+  if (!ovs.length) add('info', 'Overlays', SB.t('Aucun overlay enregistré dans ton compte.'), ['Mes overlays', 'compte.html']);
+  else {
+    const open = ovs.filter((o) => o.open);
+    add(open.length ? 'ok' : 'warn', 'Overlays ouverts dans OBS', open.length ? SB.t('{0} sur {1} : {2}', [open.length, ovs.length, open.map((o) => o.name).join(', ')]) : SB.t('Aucun de tes overlays n’est ouvert en ce moment (enregistrés : {0}) : lance OBS, ou vérifie que le lien collé est bien celui de ton compte.', [ovs.length]));
+    if (ovs.some((o) => o.tool === 'hypetrain') && diag.token.ok && !diag.token.scopes.includes('channel:read:hype_train')) add('warn', 'Hype Train', SB.t('La permission channel:read:hype_train manque.'), ['Se reconnecter', 'connexion.html?compte=1&retour=diagnostic.html']);
+    const needObs = ovs.some((o) => ['automatisations', 'rewind'].includes(o.tool));
+    if (needObs && !diag.secrets.obspass) add('info', 'Mot de passe OBS', SB.t('Tes automatisations ou ton Rewind pilotent OBS : renseigne le mot de passe du serveur WebSocket dans Intégrations s’il en a un.'), ['Intégrations', 'compte.html#integrations']);
+  }
+  simUi();
+  done(states);
+}
+function done(states) {
+  const err = states.filter((s) => s === 'err').length, warn = states.filter((s) => s === 'warn').length;
+  $('sum').textContent = err ? SB.t('{0} problème(s) à corriger, {1} point(s) à surveiller.', [err, warn]) : warn ? SB.t('Tout fonctionne, avec {0} point(s) à surveiller.', [warn]) : SB.t('Tout est prêt pour le live.');
+  $('sum').className = 'dg-sum ' + (err ? 'dg-err' : warn ? 'dg-warn' : 'dg-ok');
+}
+
+/* ---------- Test OBS (dans ce navigateur) ---------- */
+$('obstest').onclick = () => busy(async () => {
+  $('obsres').textContent = SB.t('Connexion à OBS…');
+  const obs = new SB.OBS($('obsurl').value.trim(), $('obspass').value);
+  const st = await new Promise((resolve) => { obs.on('status', resolve); obs.connect(); setTimeout(() => resolve('délai'), 5000); });
+  if (st === 'connecté') { const v = await obs.call('GetVersion').catch(() => ({})); $('obsres').textContent = SB.t('OBS répond : version {0}, obs-websocket {1}.', [v.obsVersion || '?', v.obsWebSocketVersion || '?']); }
+  else if (st === 'mot de passe incorrect') $('obsres').textContent = SB.t('OBS répond, mais le mot de passe est incorrect.');
+  else $('obsres').textContent = SB.t('OBS ne répond pas : est-il ouvert, avec le serveur WebSocket activé (Outils, Paramètres du serveur WebSocket) ?');
+  obs.connect = () => obs; if (obs.ws) { obs.ws.onclose = null; obs.ws.close(); } // pas de reconnexion
+});
+
+/* ---------- Simulateur ---------- */
+const SIM = [
+  ['follow', '💜', 'Follow'], ['sub', '⭐', 'Abo'], ['resub', '⭐', 'Réabo (14 mois)', { months: 14 }], ['gift', '🎁', '5 abos offerts', { count: 5 }],
+  ['raid', '🚀', 'Raid de 42', { viewers: 42 }], ['bits', '💎', '500 bits', { bits: 500 }], ['don', '💸', 'Don de 5 €', { amount: 5, currency: 'EUR' }],
+  ['points', '✨', 'Points de chaîne', { reward: 'Hydrate-toi', cost: 500 }], ['hype', '🚂', 'Hype Train', { level: 2 }], ['chat', '💬', 'Message du chat'],
+];
+function simUi() {
+  const box = $('simOvs');
+  if (!SBA.loggedIn() || !diag) { box.replaceChildren(el('p', 'bt-help', SB.t('Le simulateur passe par ton compte : connecte-toi, puis colle dans OBS les liens de tes overlays enregistrés.'))); $('simBtns').hidden = true; return; }
+  const ovs = (diag.overlays || []).filter((o) => o.open);
+  $('simBtns').hidden = !ovs.length;
+  if (!ovs.length) { box.replaceChildren(el('p', 'bt-help', SB.t('Aucun overlay de ton compte n’est ouvert dans OBS. Ouvre OBS, puis clique sur « Relancer ».'))); return; }
+  box.replaceChildren(el('span', 'dg-lbl', SB.t('Envoyer à')), ...ovs.map((o) => {
+    const l = el('label'), c = el('input'); c.type = 'checkbox'; c.value = o.id; c.checked = true; l.append(c, ' ' + o.name); if (o.name !== toolName(o.tool)) l.append(' ', el('small', null, toolName(o.tool))); return l;
+  }));
+}
+$('simBtns').append(...SIM.map(([kind, emoji, label, extra]) => {
+  const b = el('button', 'btn ghost small'); b.type = 'button';
+  const n = SB.iconOf && SB.iconOf(emoji); if (n) b.appendChild(SB.icon(n));
+  b.append(SB.t(label));
+  b.onclick = () => busy(async () => {
+    const ids = [...document.querySelectorAll('#simOvs input:checked')].map((c) => c.value);
+    if (!ids.length) { $('simRes').textContent = SB.t('Coche au moins un overlay.'); return; }
+    const ev = Object.assign({ kind, name: $('simName').value.trim() || 'Viewer_Test', message: $('simMsg').value.trim() }, extra || {});
+    try { const r = await SBA.api('POST', '/me/sim', { ids, ev }); $('simRes').textContent = r.sent ? SB.t('« {0} » envoyé à {1} overlay(s).', [SB.t(label), r.sent]) : SB.t('Aucun overlay n’a reçu le test : il a peut-être été fermé. Clique sur « Relancer ».'); }
+    catch (e) { $('simRes').textContent = SB.t('Erreur : {0}', [e.message]); }
+  });
+  return b;
+}));
+$('again').onclick = () => busy(run);
+run();
+</script>
+</body>
+</html>

@@ -33,7 +33,7 @@
       let retry = 0;
       const live = () => {
         const ws = new WebSocket(relay.replace(/^http/, 'ws') + '/o/' + ovId + '/ws');
-        ws.onmessage = (e) => { try { const m = JSON.parse(e.data); if (m.type === 'update' || m.type === 'deleted') location.reload(); } catch (err) { /* ignore */ } };
+        ws.onmessage = (e) => { try { const m = JSON.parse(e.data); if (m.type === 'update' || m.type === 'deleted') location.reload(); else if (m.type === 'sim' && SB.simulate) SB.simulate(m.ev); } catch (err) { /* ignore */ } };
         ws.onopen = () => { retry = 0; };
         ws.onclose = () => setTimeout(live, Math.min(60000, 3000 * 2 ** retry++));
       };
@@ -182,9 +182,42 @@
     });
   }
 
+  /* ---------- Simulateur (page « Vérifier mon installation ») ----------
+   * Chaque source d'événements de l'overlay (chat, EventSub, dons) s'inscrit ici ; un faux événement envoyé
+   * par le relais y est injecté, exactement comme un vrai : l'overlay réagit comme en live. */
+  SB.sources = (kind) => { SB._src = SB._src || { chat: [], events: [], dons: [] }; return SB._src[kind]; };
+  SB.simulate = function (ev) {
+    if (!ev || !ev.kind) return;
+    const login = String(ev.name || 'viewer_test').toLowerCase(), user = { login: ev.name || 'Viewer_Test', color: '#9b5cff', sub: true };
+    const notice = (type, extra) => Object.assign(SB.fake({ user, text: ev.message || '' }), { type, months: 1, giftCount: 0, viewers: 0, recipient: '', isCommunityGift: false, systemMsg: '' }, extra);
+    const chat = SB.sources('chat'), events = SB.sources('events'), dons = SB.sources('dons');
+    switch (ev.kind) {
+      case 'chat': chat.forEach((c) => c.inject(SB.fake({ user, text: ev.message || 'Message de test' }))); break;
+      case 'bits': chat.forEach((c) => c.inject(SB.fake({ user, text: ('Cheer' + ev.bits + ' ' + (ev.message || '')).trim(), bits: ev.bits }))); break;
+      case 'sub': chat.forEach((c) => c.emit('usernotice', notice('sub', { plan: '1000' }))); break;
+      case 'resub': chat.forEach((c) => c.emit('usernotice', notice('resub', { months: ev.months, plan: '1000' }))); break;
+      case 'gift': chat.forEach((c) => c.emit('usernotice', notice('submysterygift', { giftCount: ev.count, plan: '1000' }))); break;
+      case 'raid': chat.forEach((c) => c.emit('usernotice', notice('raid', { viewers: ev.viewers }))); break;
+      case 'follow': events.forEach((e) => e.emit('follow', { login, name: ev.name })); break;
+      case 'points': events.forEach((e) => e.emit('points', { login, name: ev.name, reward: ev.reward, cost: ev.cost, input: ev.message || '' })); break;
+      case 'don': dons.forEach((d) => d.don({ id: 'sim-' + Date.now(), source: 'Test', name: ev.name, amount: ev.amount, currency: ev.currency, message: ev.message || '' })); break;
+      case 'hype': { // un petit Hype Train : départ, montée d'un niveau, fin
+        const id = 'sim-' + Date.now(), lvl = ev.level || 2, exp = () => new Date(Date.now() + 5 * 60000).toISOString();
+        const tops = [{ user_name: ev.name, user_login: login, type: 'bits', total: 500 }];
+        const base = { id, type: 'regular', goal: 1800, top_contributions: tops, all_time_high_level: lvl + 1 };
+        events.forEach((e) => e.emit('hypeBegin', Object.assign({}, base, { level: lvl, progress: 400, total: 400, expires_at: exp() })));
+        setTimeout(() => events.forEach((e) => e.emit('hypeProgress', Object.assign({}, base, { level: lvl, progress: 1300, total: 1300, expires_at: exp() }))), 3000);
+        setTimeout(() => events.forEach((e) => e.emit('hypeProgress', Object.assign({}, base, { level: lvl + 1, progress: 200, total: 2000, expires_at: exp() }))), 6000);
+        setTimeout(() => events.forEach((e) => e.emit('hypeEnd', Object.assign({}, base, { level: lvl + 1, total: 2000, ended_at: new Date().toISOString() }))), 10000);
+        break;
+      }
+    }
+  };
+
   /* ---------- Client chat ---------- */
   SB.TwitchChat = class {
     constructor(channel) {
+      SB.sources('chat').push(this);
       this.channel = (channel || '').toLowerCase().replace(/^#/, '').trim();
       this.handlers = {};
       this.roomId = null;
