@@ -1,6 +1,6 @@
 # StreamBox
 
-[![Licence : AGPL-3.0](https://img.shields.io/badge/licence-AGPL--3.0-9b5cff)](LICENSE) [![Site](https://img.shields.io/badge/site-gabinsmd.github.io%2FStreamBox-ff5ca8)](https://gabinsmd.github.io/StreamBox/)
+[![Licence : AGPL-3.0](https://img.shields.io/badge/licence-AGPL--3.0-9b5cff)](LICENSE) [![Site](https://img.shields.io/badge/site-streambox.gabin--simond.fr-ff5ca8)](https://streambox.gabin-simond.fr/)
 
 **Fait par Igatax, inspiré par PiRDub.** Projet open source : toute contribution est la bienvenue (voir [CONTRIBUTING.md](CONTRIBUTING.md)). Une suggestion ou une contribution au projet principal vaut mieux qu'un fork.
 
