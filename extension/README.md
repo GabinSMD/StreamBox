@@ -22,6 +22,7 @@ Le mode synchro a besoin de la permission de lire youtube.com (pour trouver le m
      -H "Authorization: Bearer <ton jeton Twitch>" -H "Content-Type: application/json" \
      -d '{"channelId":"UCxxxx"}'
    ```
+   La première fois, le relais répond avec un code `streambox-…` : ajoute-le dans la description de ta chaîne YouTube, relance la commande, puis tu peux l'enlever. Cela prouve que la chaîne est à toi (sans ça, n'importe qui pourrait y relier sa propre liste de musiques).
 
 ## Installer l'extension
 

@@ -3,7 +3,29 @@
 import en from '../js/i18n/en.json';
 import es from '../js/i18n/es.json';
 
-const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+/* Reconnaît un modèle « littéral {a} littéral {b} … » dans le texte : chaque valeur est la plus courte possible
+ * (comme une expression régulière paresseuse), mais avec un nombre d'essais borné : un message de viewer ne peut
+ * pas faire tourner le relais pendant des secondes (retour arrière catastrophique). */
+const BUDGET = 2000;
+function matchTpl(lits, k) {
+  const n = lits.length - 1;
+  if (!k.startsWith(lits[0]) || !k.endsWith(lits[n]) || k.length < lits[0].length + lits[n].length + n) return null;
+  const end = k.length - lits[n].length, vals = new Array(n);
+  let budget = BUDGET;
+  const rec = (i, pos) => {
+    if (i === n - 1) { if (end - pos < 1) return false; vals[i] = k.slice(pos, end); return true; }
+    const L = lits[i + 1];
+    for (let j = pos + 1; j <= end; j++) {
+      if (L) { j = k.indexOf(L, j); if (j < 0 || j + L.length > end) return false; }
+      if (--budget < 0) return false;
+      vals[i] = k.slice(pos, j);
+      if (rec(i + 1, j + L.length)) return true;
+      if (budget < 0) return false;
+    }
+    return false;
+  };
+  return rec(0, lits[0].length) ? vals : null;
+}
 function compile(dict) {
   const exact = new Map(), patterns = [];
   for (const [fr, tr] of Object.entries(dict)) {
@@ -11,9 +33,9 @@ function compile(dict) {
     exact.set(fr, tr);
     if (!/\{\w+\}/.test(fr)) continue;
     if ((fr.replace(/\{\w+\}/g, '').match(/\p{L}/gu) || []).length < 4) continue; // modèle trop vague
-    const names = [];
-    const re = new RegExp('^' + fr.split(/(\{\w+\})/).map((p) => { const m = p.match(/^\{(\w+)\}$/); if (m) { names.push(m[1]); return '([\\s\\S]+?)'; } return esc(p); }).join('') + '$');
-    patterns.push({ re, names, tr, chunk: fr.split(/\{\w+\}/).sort((a, b) => b.length - a.length)[0], len: fr.length });
+    const parts = fr.split(/(\{\w+\})/), lits = [], names = [];
+    parts.forEach((x, i) => (i % 2 ? names.push(x.slice(1, -1)) : lits.push(x)));
+    patterns.push({ lits, names, tr, chunk: lits.slice().sort((a, b) => b.length - a.length)[0], len: fr.length });
   }
   patterns.sort((a, b) => b.len - a.len);
   return { exact, patterns };
@@ -27,9 +49,9 @@ function translate(D, s, depth) {
   if (depth > 2) return null;
   for (const p of D.patterns) {
     if (p.chunk && !k.includes(p.chunk)) continue;
-    const m = k.match(p.re);
+    const m = matchTpl(p.lits, k);
     if (!m) continue;
-    const vals = {}; p.names.forEach((n, i) => { vals[n] = translate(D, m[i + 1], depth + 1) || m[i + 1]; });
+    const vals = {}; p.names.forEach((n, i) => { vals[n] = translate(D, m[i], depth + 1) || m[i]; });
     return p.tr.replace(/\{(\w+)\}/g, (all, n) => (n in vals ? vals[n] : all));
   }
   return null;

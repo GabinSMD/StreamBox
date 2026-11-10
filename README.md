@@ -87,7 +87,7 @@ Avec le relais (voir `relay/README.md`), chaque streamer se connecte avec **son 
 - le lien à coller dans OBS est court (`overlays/chat.html?o=…`) et **ne contient aucun jeton** ;
 - quand il modifie un réglage sur le site, l'overlay dans OBS se recharge tout seul ;
 - les jetons (Twitch, Spotify, StreamElements, Streamlabs, Ko-fi, Discord, OBS) sont **chiffrés** sur le relais. Chaque overlay ne reçoit que ceux dont son outil a besoin, et l'accès Twitch est renouvelé automatiquement. Les overlays pubs, sondages et prédictions, Hype Train et Musique ne reçoivent plus du tout le jeton Twitch : le relais lit Twitch à leur place ;
-- s'il a montré un lien par erreur, il peut le régénérer : l'ancien cesse de marcher, et les overlays encore ouverts avec ce lien sont déconnectés.
+- s'il a montré un lien par erreur, il peut le régénérer : l'ancien cesse de marcher, et les overlays encore ouverts avec ce lien sont déconnectés. **Se déconnecter partout** (Mon compte) coupe toutes ses sessions, sur tous les appareils ; supprimer le compte le fait aussi.
 - il peut **sauvegarder sa configuration** dans un fichier (overlays, bot, automatisations, subathon, demandes de musique, mini-jeux, page publique) et la réimporter, sur le même compte ou un autre. Le fichier ne contient jamais de jeton, de clé ni de lien d'overlay ; à l'import, seuls les réglages proposés par chaque outil sont repris.
 
 Sans compte, tout fonctionne comme avant, avec les réglages dans le lien.

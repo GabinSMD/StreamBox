@@ -81,7 +81,10 @@
       <h1 class="sec"><svg class="ic ic-user" aria-hidden="true" focusable="false"><use href="img/icons.svg#user"/></svg>Mon compte</h1>
       <div class="acc-head">
         <p class="sec">Connecté avec le compte Twitch <b id="who"></b>.</p>
-        <button class="btn ghost small" id="logout" type="button">Se déconnecter</button>
+        <div class="pn-row">
+          <button class="btn ghost small" id="logout" type="button">Se déconnecter</button>
+          <button class="btn ghost small" id="logoutAll" type="button" title="Utile si tu t’es connecté sur un PC qui n’est pas le tien">Se déconnecter partout</button>
+        </div>
       </div>
     <section class="box bk-box" id="bkBox">
       <h2><svg class="ic ic-save" aria-hidden="true" focusable="false"><use href="img/icons.svg#save"/></svg>Sauvegarde de ta configuration</h2>
@@ -120,6 +123,7 @@ const SECRETS = [
   { key: 'spotifycid', icon: '🟢', name: 'Client ID Spotify personnel (facultatif)', help: 'Seulement si l’application Spotify du site est pleine (25 utilisateurs maximum en mode développement).', plain: true },
   { key: 'lastfm', icon: '🎧', name: 'Pseudo Last.fm', help: 'Pour Deezer, YouTube Music et Apple Music dans l’overlay Musique.', plain: true },
   { key: 'kofi', icon: '☕', name: 'Clé Ko-fi', help: 'Une clé secrète de ton choix (12 caractères minimum). Colle ensuite l’adresse affichée dans Ko-fi → Paramètres → API → Webhook URL.', generate: true },
+  { key: 'kofiv', icon: '☕', name: 'Jeton de vérification Ko-fi', help: 'Ko-fi → Paramètres → API → Advanced → Verification Token. Le relais refuse alors tout don qui ne vient pas de Ko-fi, même avec ta clé.' },
   { key: 'sltoken', icon: '🔷', name: 'Jeton Socket API Streamlabs', help: 'Streamlabs → Paramètres → Clés API → Socket API Token.' },
   { key: 'sejwt', icon: '⚡', name: 'Jeton JWT StreamElements', help: 'StreamElements → Mon compte → Chaînes → Afficher les secrets.' },
 ];
@@ -232,7 +236,7 @@ function renderSecrets() {
       if (sec.generate) {
         const g = el('button', 'btn ghost small', 'Générer'); g.type = 'button';
         g.onclick = () => { const k = [...crypto.getRandomValues(new Uint8Array(16))].map((x) => x.toString(16).padStart(2, '0')).join(''); input.type = 'text'; input.value = k;
-          const hint = el('small', null, `Adresse à coller dans Ko-fi : ${SBA.relay()}/kofi/${k}?v=<ton jeton de vérification Ko-fi>`); hint.style.display = 'block'; hint.style.wordBreak = 'break-all'; card.appendChild(hint); };
+          const hint = el('small', null, `Adresse à coller dans Ko-fi : ${SBA.relay()}/kofi/${k} (puis enregistre ton jeton de vérification Ko-fi ci-dessous)`); hint.style.display = 'block'; hint.style.wordBreak = 'break-all'; card.appendChild(hint); };
         row.appendChild(g);
       }
     }
@@ -321,6 +325,7 @@ showSection();
 
 $('login').onclick = () => SBA.login('compte.html');
 $('logout').onclick = () => SBA.logout();
+$('logoutAll').onclick = () => { if (confirm(SB.t('Se déconnecter de StreamBox sur tous les appareils ? Les overlays dans OBS continuent de marcher.'))) SBA.logout(true); };
 load();
 </script>
 </body>
