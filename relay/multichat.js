@@ -8,7 +8,7 @@
  */
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36';
-const YT_HEADERS = { 'User-Agent': UA, 'Accept-Language': 'fr-FR,fr;q=0.9', Cookie: 'CONSENT=YES+1; SOCS=CAI' }; // évite la page de consentement (UE)
+export const YT_HEADERS = { 'User-Agent': UA, 'Accept-Language': 'fr-FR,fr;q=0.9', Cookie: 'CONSENT=YES+1; SOCS=CAI' }; // évite la page de consentement (UE)
 export const KICK_SLUG = /^[a-z0-9_-]{2,40}$/i;
 export const YT_VIDEO = /^[\w-]{11}$/;
 export const YT_CHANNEL = /^(@[\w.\-]{2,40}|UC[\w-]{22})$/;

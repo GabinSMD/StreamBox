@@ -93,10 +93,11 @@ Rien à configurer en plus du bot (EVENTSUB_SECRET) : les points, duels, prédic
 ## Brancher Ko-fi
 
 1. Choisis une **clé secrète** de 12 à 64 caractères (lettres, chiffres, `-` ou `_`), par exemple avec `openssl rand -hex 16`.
-2. Ko-fi → Settings → API → Webhook URL : `https://<relais>/kofi/<ta-clé>?v=<ton jeton de vérification Ko-fi>`.
-3. Dans StreamBox (alertes, subathon ou objectifs), mets la même clé dans le champ « Clé Ko-fi ».
+2. Ko-fi → Settings → API → Webhook URL : `https://<relais>/kofi/<ta-clé>`.
+3. Avec un compte StreamBox : enregistre la clé et le **jeton de vérification Ko-fi** (Ko-fi → API → Advanced → Verification Token) dans **Mon compte**. Le relais refuse alors tout don qui ne porte pas ce jeton, même envoyé avec ta clé, et le webhook générique ci-dessous doit le fournir aussi (`?v=<jeton>` ou en-tête `X-StreamBox-Token`). Une clé ne peut être reliée qu'à un seul compte.
+4. Sans compte : mets la même clé dans le champ « Clé Ko-fi » des alertes, du subathon ou des objectifs, et ajoute `?v=<ton jeton de vérification Ko-fi>` à l'adresse du webhook pour que le relais vérifie chaque don.
 
-Le paramètre `?v=` fait vérifier au relais que chaque webhook vient bien de Ko-fi.
+La clé sert aussi aux overlays pour recevoir les dons : traite-la comme un mot de passe.
 
 ## Webhook générique
 

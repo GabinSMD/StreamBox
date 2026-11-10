@@ -13,9 +13,9 @@
     set(s) { try { localStorage.setItem(KEY, JSON.stringify(s)); } catch (e) { /* ignore */ } },
     clear() { try { localStorage.removeItem(KEY); } catch (e) { /* ignore */ } },
     login(retour) { location.href = 'connexion.html?compte=1&retour=' + encodeURIComponent(retour || (location.pathname.split('/').pop() + location.search)); },
-    async logout() {
+    async logout(everywhere) { // everywhere : toutes les sessions du compte (les liens d'overlay continuent de marcher)
       const s = read();
-      if (s) await fetch(relay() + '/auth/logout', { method: 'POST', headers: { Authorization: 'Bearer ' + s.session } }).catch(() => {});
+      if (s) await fetch(relay() + (everywhere ? '/me/logout-all' : '/auth/logout'), { method: 'POST', headers: { Authorization: 'Bearer ' + s.session } }).catch(() => {});
       this.clear(); location.href = 'index.html';
     },
     async api(method, path, body) {
@@ -32,5 +32,5 @@
   };
 
   // Jetons et identifiants gérés dans « Mon compte » (jamais dans le lien de l'overlay)
-  SBA.SECRET_FIELDS = ['token', 'spotify', 'spotifycid', 'lastfm', 'lfmkey', 'sejwt', 'sltoken', 'kofi', 'webhook', 'obspass'];
+  SBA.SECRET_FIELDS = ['token', 'spotify', 'spotifycid', 'lastfm', 'lfmkey', 'sejwt', 'sltoken', 'kofi', 'kofiv', 'webhook', 'obspass'];
 })();

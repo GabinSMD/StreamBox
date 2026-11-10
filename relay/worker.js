@@ -29,7 +29,9 @@
  *   PUT    /me/overlays/:id             { name?, settings? } → les overlays ouverts dans OBS se rechargent
  *   POST   /me/overlays/:id/rotate      nouveau lien (l'ancien ne marche plus)
  *   DELETE /me/overlays/:id
- *   DELETE /me                          supprime le compte (réglages, jetons, liens, abonnements Twitch, accès révoqué)
+ *   DELETE /me                          supprime le compte (réglages, jetons, liens, abonnements Twitch, accès révoqué,
+ *                                       toutes les sessions)
+ *   POST   /me/logout-all               déconnecte tous les appareils (les sessions déjà émises ne marchent plus)
  *   GET    /me/twitch-token             jeton Twitch du compte connecté, pour le panneau de modération (gardé en mémoire
  *                                       par la page, jamais dans une URL ni dans le stockage du navigateur)
  *   GET    /o/:id                       réglages + jetons utiles à cet outil seulement (lu par l'overlay)
@@ -104,8 +106,9 @@ export default {
       if (req.method === 'POST' && p[0] === 'kofi' && KEY_RE.test(p[1] || '')) {
         const d = await parseKofi(req);
         if (!d) return json({ error: 'données Ko-fi illisibles' }, 400);
-        const v = url.searchParams.get('v');
-        if (v && d.verification_token !== v) return json({ error: 'jeton de vérification incorrect' }, 403);
+        const k = await keyIndex(env, p[1]);
+        const v = (k && k.v) || url.searchParams.get('v'); // jeton enregistré dans Mon compte : toujours vérifié
+        if (v && !same(String(d.verification_token || ''), v)) return json({ error: 'jeton de vérification incorrect' }, 403);
         if (d.is_public === false) d.from_name = 'Anonyme';
         const don = { kind: 'don', source: 'Ko-fi', id: 'kofi-' + clean(d.kofi_transaction_id || d.message_id, 80), name: clean(d.from_name, 60), amount: parseFloat(d.amount) || 0, currency: clean(d.currency || 'EUR', 5), message: d.is_public === false ? '' : clean(d.message), type: clean(d.type, 30) };
         await room('key:' + p[1]).fetch('https://room/broadcast', { method: 'POST', body: JSON.stringify(don) });
@@ -115,6 +118,8 @@ export default {
       if (req.method === 'POST' && p[0] === 'hook' && KEY_RE.test(p[1] || '')) {
         const d = await req.json().catch(() => null);
         if (!d) return json({ error: 'JSON attendu' }, 400);
+        const k = await keyIndex(env, p[1]); // avec un jeton Ko-fi enregistré, le webhook générique doit le fournir aussi
+        if (k && k.v && !same(url.searchParams.get('v') || req.headers.get('X-StreamBox-Token') || '', k.v)) return json({ error: 'jeton de vérification manquant ou incorrect' }, 403);
         const don = { kind: 'don', source: clean(d.source || 'Webhook', 30), id: d.id ? 'hook-' + clean(d.id, 80) : undefined, name: clean(d.name, 60), amount: parseFloat(d.amount) || 0, currency: clean(d.currency || 'EUR', 5), message: clean(d.message) };
         await room('key:' + p[1]).fetch('https://room/broadcast', { method: 'POST', body: JSON.stringify(don) });
         await donToOwner(env, p[1], don);
@@ -140,6 +145,12 @@ export default {
           if (p[2] === 'youtube') {
             const ch = clean(body.channelId, 40);
             if (!/^UC[\w-]{20,}$/.test(ch)) return json({ error: 'identifiant de chaîne YouTube invalide (UC…)' }, 400);
+            const cur = await room('yt:' + ch).fetch('https://room/alias').then((r) => (r.ok ? r.json() : {})).catch(() => ({}));
+            if (cur.login !== login) { // preuve que la chaîne YouTube est à toi : un code dans sa description
+              const code = await ytCode(env, login, ch);
+              const html = await fetch('https://www.youtube.com/channel/' + ch + '/about', { headers: MC.YT_HEADERS }).then((r) => (r.ok ? r.text() : '')).catch(() => '');
+              if (!html.includes(code)) return json({ error: `Pour prouver que cette chaîne YouTube est à toi, ajoute ${code} dans sa description, puis recommence (tu pourras l'enlever ensuite).`, code }, 403);
+            }
             await room('yt:' + ch).fetch('https://room/alias', { method: 'POST', body: JSON.stringify({ login }) });
             return json({ ok: true });
           }
@@ -197,11 +208,21 @@ async function cached(name, secs, fn) {
 }
 
 /* Un don arrivé par la clé Ko-fi / webhook d'un streamer va aussi dans son subathon (si la clé est enregistrée dans son compte) */
+async function keyIndex(env, key) {
+  if (!env.ACCOUNT) return null;
+  const r = await env.ACCOUNT.get(env.ACCOUNT.idFromName('kofikey:' + key)).fetch('https://acc/index-full', { method: 'POST', body: '{}' });
+  return r.ok ? r.json() : null;
+}
+// Code à mettre dans la description d'une chaîne YouTube pour la relier à un login Twitch (stable, propre au relais)
+async function ytCode(env, login, ch) {
+  const h = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(login + ':' + ch + ':' + (env.EVENTSUB_SECRET || env.TWITCH_CLIENT_ID || 'streambox')));
+  return 'streambox-' + [...new Uint8Array(h)].slice(0, 5).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+// comparaison en temps constant (jetons)
+function same(a, b) { if (a.length !== b.length) return false; let x = 0; for (let i = 0; i < a.length; i++) x |= a.charCodeAt(i) ^ b.charCodeAt(i); return x === 0; }
 async function donToOwner(env, key, don) {
-  if (!env.ACCOUNT) return;
-  const r = await env.ACCOUNT.get(env.ACCOUNT.idFromName('kofikey:' + key)).fetch('https://acc/index', { method: 'POST', body: '{}' });
-  if (!r.ok) return;
-  const { user_id } = await r.json();
+  const k = await keyIndex(env, key);
+  const user_id = k && k.user_id;
   if (user_id) await env.ACCOUNT.get(env.ACCOUNT.idFromName('user:' + user_id)).fetch('https://acc/don', { method: 'POST', body: JSON.stringify({ don }) });
 }
 
@@ -256,7 +277,7 @@ async function twitchVideo(id, env) {
   const tok = await appAccess(env.TWITCH_CLIENT_ID, env.TWITCH_CLIENT_SECRET);
   const r = await fetch('https://api.twitch.tv/helix/videos?id=' + id, { headers: { 'Client-Id': env.TWITCH_CLIENT_ID, Authorization: 'Bearer ' + tok } });
   const v = ((await r.json()).data || [])[0];
-  if (!v) return json({ error: 'VOD introuvable' }, 404);
+  if (!v) { const miss = json({ error: 'VOD introuvable' }, 404, { 'Cache-Control': 'public, max-age=600' }); await cache.put(key, miss.clone()); return miss; } // absente : gardée 10 min
   const res = json({ login: v.user_login, start: Date.parse(v.created_at), duration: v.duration, title: v.title }, 200, { 'Cache-Control': 'public, max-age=86400' });
   await cache.put(key, res.clone());
   return res;
@@ -331,7 +352,7 @@ const OV_TWITCH = {
 const OV_EV = Object.fromEntries(Object.entries(OV_TWITCH).flatMap(([tool, x]) => x.subs.map(([type, , ev]) => [type, { tool, ev }])));
 const LOCAL_WS = /^wss?:\/\/(localhost|127\.\d+\.\d+\.\d+|\[::1\]|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)(:\d+)?\/?$/i;
 const DISCORD_HOOK = /^https:\/\/(?:\w+\.)?discord(?:app)?\.com\/api\/webhooks\/\d+\/[\w-]+$/;
-const SECRET_KEYS = ['spotify', 'spotifycid', 'lastfm', 'lfmkey', 'sejwt', 'sltoken', 'kofi', 'webhook', 'obspass'];
+const SECRET_KEYS = ['spotify', 'spotifycid', 'lastfm', 'lfmkey', 'sejwt', 'sltoken', 'kofi', 'kofiv', 'webhook', 'obspass']; // kofiv : jeton de vérification Ko-fi (jamais envoyé à un overlay)
 const TEAM_SCOPES = ['channel:manage:polls', 'channel:manage:predictions', 'channel:manage:redemptions', 'moderation:read'];
 const SCOPES = 'clips:edit moderator:read:followers channel:read:redemptions channel:read:subscriptions channel:read:hype_train channel:read:ads channel:read:polls channel:read:predictions';
 const rand = (n = 24) => [...crypto.getRandomValues(new Uint8Array(n))].map((b) => b.toString(36).padStart(2, '0')).join('').slice(0, Math.ceil(n * 1.4));
@@ -347,6 +368,14 @@ async function logTrack(env, login, body) {
 
 async function accountRoutes(req, env, url, p) {
   const stub = (name) => env.ACCOUNT.get(env.ACCOUNT.idFromName(name));
+  // Session valide : non expirée, et émise depuis la dernière « déconnexion partout » ou suppression du compte
+  const sessionOf = async (sid) => {
+    if (!/^[a-z0-9]{20,64}$/.test(sid || '')) return null;
+    const [st1, s] = await call('sess:' + sid, '/session-get');
+    if (st1 !== 200 || !s.user_id) return null;
+    const [, g] = await call('sessgen:' + s.user_id, '/gen-get', {});
+    return (s.gen || 0) === (g.gen || 0) ? s : null;
+  };
   const call = (name, path, body) => stub(name).fetch('https://acc' + path, body === undefined ? undefined : { method: 'POST', body: JSON.stringify(body) }).then((r) => r.json().then((d) => [r.status, d]));
 
   // ---- Connexion : échange du code OAuth (le secret Twitch ne quitte jamais le relais) ----
@@ -369,7 +398,8 @@ async function accountRoutes(req, env, url, p) {
     // « viewer » : simple connexion pour voter (aucune permission) ; ne touche jamais aux jetons d'un streamer
     await call('user:' + v.user_id, mode === 'viewer' ? '/viewer-login' : '/login', tokens);
     await call('login:' + v.login, '/index-set', { user_id: v.user_id });
-    await call('sess:' + session, '/session', { user_id: v.user_id, login: v.login, exp: Date.now() + 90 * 86400000 });
+    const [, g] = await call('sessgen:' + v.user_id, '/gen-get', {});
+    await call('sess:' + session, '/session', { user_id: v.user_id, login: v.login, gen: g.gen || 0, exp: Date.now() + 90 * 86400000 });
     return json({ session, login: v.login });
   }
 
@@ -393,7 +423,7 @@ async function accountRoutes(req, env, url, p) {
     if (ist !== 200 || !idx.user_id) return json({ error: 'chaîne inconnue sur StreamBox' }, 404);
     const sid = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
     let viewer = null;
-    if (/^[a-z0-9]{20,64}$/.test(sid)) { const [vs, s] = await call('sess:' + sid, '/session-get'); if (vs === 200) viewer = s; }
+    viewer = await sessionOf(sid);
     const owner = stub('user:' + idx.user_id);
     const go = (path, body) => owner.fetch('https://acc' + path, { method: 'POST', headers: { 'X-Env': JSON.stringify({ cid: env.TWITCH_CLIENT_ID, secret: env.TWITCH_CLIENT_SECRET, key: env.ENCRYPTION_KEY || '' }) }, body: JSON.stringify(body) }).then((r) => withCors(new Response(r.body, { status: r.status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } })));
     if (req.method === 'GET' && p[2] === 'subathon') return go('/public-sub', { viewerId: viewer && viewer.user_id });
@@ -468,8 +498,8 @@ async function accountRoutes(req, env, url, p) {
   if (p[0] !== 'me') return null;
   const sid = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
   if (!/^[a-z0-9]{20,64}$/.test(sid)) return json({ error: 'non connecté' }, 401);
-  const [sst, sess] = await call('sess:' + sid, '/session-get');
-  if (sst !== 200 || !sess.user_id) return json({ error: 'session expirée : reconnecte-toi' }, 401);
+  const sess = await sessionOf(sid);
+  if (!sess) return json({ error: 'session expirée : reconnecte-toi' }, 401);
   const user = 'user:' + sess.user_id;
   const envHdr = { 'X-Env': JSON.stringify({ cid: env.TWITCH_CLIENT_ID, secret: env.TWITCH_CLIENT_SECRET, key: env.ENCRYPTION_KEY || '' }), 'X-Origin': url.origin };
   const fwd = (path, method, body) => stub(user).fetch('https://acc' + path, { method, headers: envHdr, body: body == null ? undefined : JSON.stringify(body) }).then((r) => withCors(new Response(r.body, { status: r.status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } })));
@@ -478,8 +508,12 @@ async function accountRoutes(req, env, url, p) {
   if (p.length === 1 && req.method === 'GET') return fwd('/me', 'POST', {});
   if (p.length === 1 && req.method === 'DELETE') { // RGPD : suppression complète du compte
     const r = await fwd('/delete-account', 'POST', {});
-    if (r.status === 200) await call('sess:' + sid, '/session-delete', {});
+    if (r.status === 200) { await call('sessgen:' + sess.user_id, '/gen-bump', {}); await call('sess:' + sid, '/session-delete', {}); } // toutes les sessions du compte
     return r;
+  }
+  if (p[1] === 'logout-all' && req.method === 'POST') { // se déconnecter de tous les appareils
+    await call('sessgen:' + sess.user_id, '/gen-bump', {}); await call('sess:' + sid, '/session-delete', {});
+    return json({ ok: true });
   }
   if (p[1] === 'secrets' && req.method === 'PUT') return fwd('/secrets', 'POST', body);
   if (p[1] === 'lang' && req.method === 'PUT') return fwd('/lang', 'POST', body);
@@ -565,7 +599,8 @@ async function accountRoutes(req, env, url, p) {
 
 async function verifyEventsub(req, env, raw) {
   const id = req.headers.get('Twitch-Eventsub-Message-Id'), ts = req.headers.get('Twitch-Eventsub-Message-Timestamp'), sig = req.headers.get('Twitch-Eventsub-Message-Signature') || '';
-  if (!id || !ts || !env.EVENTSUB_SECRET || Math.abs(Date.now() - Date.parse(ts)) > 10 * 60000) return false;
+  const t = Date.parse(ts || '');
+  if (!id || !Number.isFinite(t) || !env.EVENTSUB_SECRET || Math.abs(Date.now() - t) > 10 * 60000) return false; // horodatage illisible : refusé
   const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(env.EVENTSUB_SECRET), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
   const mac = new Uint8Array(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(id + ts + raw)));
   const expected = 'sha256=' + [...mac].map((b) => b.toString(16).padStart(2, '0')).join('');
@@ -606,9 +641,18 @@ export class Account {
 
     // --- index d'un lien d'overlay / session ---
     if (path === '/index') return (await st.get('user_id')) ? ok({ user_id: await st.get('user_id') }) : err('?', 404);
-    if (path === '/index-set') { await st.put('user_id', body.user_id); return ok({ ok: true }); }
+    if (path === '/index-full') return (await st.get('user_id')) ? ok({ user_id: await st.get('user_id'), v: (await st.get('v')) || '' }) : err('?', 404);
+    if (path === '/index-set') {
+      const cur = await st.get('user_id');
+      if (body.owned && cur && String(cur) !== String(body.user_id)) return err('déjà utilisé par un autre compte', 409); // clé Ko-fi : premier compte qui l'enregistre
+      await st.put('user_id', body.user_id);
+      if ('v' in body) { if (body.v) await st.put('v', body.v); else await st.delete('v'); }
+      return ok({ ok: true });
+    }
     if (path === '/index-delete' || path === '/session-delete') { await st.deleteAll(); return ok({ ok: true }); }
     if (path === '/session') { await st.put('s', body); return ok({ ok: true }); }
+    if (path === '/gen-get') return ok({ gen: (await st.get('gen')) || 0 }); // sessgen:<id> : génération des sessions du compte
+    if (path === '/gen-bump') { const g = ((await st.get('gen')) || 0) + 1; await st.put('gen', g); return ok({ gen: g }); }
     if (path === '/session-get') { const s = await st.get('s'); return s && s.exp > Date.now() ? ok(s) : err('expirée', 401); }
 
     // --- compte ---
@@ -909,12 +953,19 @@ export class Account {
       const s = await secrets();
       const oldKofi = s.kofi;
       for (const [k, v] of Object.entries(body)) { if (!SECRET_KEYS.includes(k)) continue; if (v == null || v === '') delete s[k]; else s[k] = clean(v, 2000); }
-      await saveSecrets(s);
-      if ('kofi' in body && this.env.ACCOUNT && oldKofi !== s.kofi) { // relie la clé Ko-fi à ce compte (dons → subathon)
+      if (('kofi' in body || 'kofiv' in body) && this.env.ACCOUNT) { // relie la clé Ko-fi à ce compte (dons → subathon) avec son jeton de vérification
         const idx = (k) => this.env.ACCOUNT.get(this.env.ACCOUNT.idFromName('kofikey:' + k));
-        if (oldKofi) await idx(oldKofi).fetch('https://acc/index-delete', { method: 'POST', body: '{}' });
-        if (s.kofi) await idx(s.kofi).fetch('https://acc/index-set', { method: 'POST', body: JSON.stringify({ user_id: profile.user_id }) });
+        if (s.kofi) {
+          const r = await idx(s.kofi).fetch('https://acc/index-set', { method: 'POST', body: JSON.stringify({ user_id: profile.user_id, owned: true, v: s.kofiv || '' }) });
+          if (r.status === 409) return err('cette clé Ko-fi est déjà utilisée par un autre compte : génère-en une autre', 409);
+        }
+        if (oldKofi && oldKofi !== s.kofi) {
+          const r = await idx(oldKofi).fetch('https://acc/index-full', { method: 'POST', body: '{}' });
+          const cur = r.ok ? await r.json() : null;
+          if (cur && String(cur.user_id) === String(profile.user_id)) await idx(oldKofi).fetch('https://acc/index-delete', { method: 'POST', body: '{}' }); // seulement si elle est encore à ce compte
+        }
       }
+      await saveSecrets(s);
       if ('sejwt' in body) { const sub = await st.get('sub'); if (sub && sub.enabled) await this.armAlarm(); }
       this.broadcastAll();
       return ok({ ok: true, secrets: Object.fromEntries(SECRET_KEYS.map((k) => [k, !!s[k]])) });
@@ -1004,9 +1055,13 @@ export class Account {
     const team = (await st.get('team')) || {};
     if (!isOwner && !team.mods) return { error: `${profile.login} n’a pas autorisé ses modos à gérer sondages, prédictions, récompenses et messages en vedette depuis StreamBox` };
     const now = Date.now();
-    this._team = (this._team || []).filter((t) => now - t < 60000);
-    if (this._team.length >= 90) return { error: 'trop d’actions, réessaie dans un instant', status: 429 };
-    this._team.push(now);
+    const hit0 = !isOwner && this._mods && this._mods.get(body.caller);
+    if (hit0 && !hit0.ok && now - hit0.at <= 300000) return { error: `tu n’es pas modo de ${profile.login}` }; // refusé récemment : rien à vérifier
+    if (!isOwner && !(hit0 && now - hit0.at <= 300000)) { // vérifications de modo : limite à part, pour ne pas épuiser celle de l'équipe
+      this._lookups = (this._lookups || []).filter((t) => now - t < 60000);
+      if (this._lookups.length >= 30) return { error: 'trop d’actions, réessaie dans un instant', status: 429 };
+      this._lookups.push(now);
+    }
     const access = await this.twitchAccess(await secrets(), E);
     if (!access) return { error: `la connexion Twitch de ${profile.login} a expiré : il ou elle doit se reconnecter à StreamBox` };
     const H = { 'Client-Id': E.cid, Authorization: 'Bearer ' + access, 'Content-Type': 'application/json' };
@@ -1021,6 +1076,10 @@ export class Account {
       }
       if (!this._mods.get(body.caller).ok) return { error: `tu n’es pas modo de ${profile.login}` };
     }
+    // limite de l'équipe : comptée seulement pour le streamer et les modos vérifiés
+    this._team = (this._team || []).filter((t) => now - t < 60000);
+    if (this._team.length >= 90) return { error: 'trop d’actions, réessaie dans un instant', status: 429 };
+    this._team.push(now);
     return { isOwner, H };
   }
 
@@ -1312,6 +1371,7 @@ export class Account {
         const no = SR.canRequest(cfg, Q, user, level, now);
         if (no) reply = `@${name} ${no}`;
         else {
+          if (level < 3) Q.cd[user.id] = now; // le délai compte dès la recherche, même ratée (quota YouTube partagé)
           const track = await this.resolve(cfg, SR.parseRequest(args), secrets, E);
           if (track.error) reply = `@${name} ${track.error}`;
           else {
@@ -1490,12 +1550,16 @@ export class Account {
   /* ================= Mini-jeux du chat ================= */
   // Points par viewer : pt:<id> = { id, n, name, login, seen, last } ; ptn:<login> = id (pour !duel @pseudo, !give)
   pointsStore() {
-    const st = this.ctx.storage;
+    const st = this.ctx.storage, acc = this;
     const P = {
       async get(id) { return (await st.get('pt:' + id)) || { id: String(id), n: 0, name: '', login: '' }; },
       async put(id, p) { p.id = String(id); await st.put('pt:' + id, p); if (p.login) await st.put('ptn:' + p.login, String(id)); },
       async findByName(login) { const id = await st.get('ptn:' + String(login).toLowerCase()); return id ? P.get(id) : null; },
-      async top(n) { return [...(await st.list({ prefix: 'pt:', limit: 5000 })).values()].filter((x) => x.n > 0).sort((a, b) => b.n - a.n).slice(0, n).map((x) => ({ name: x.name || x.login, n: x.n })); },
+      async top(n) { // classement gardé 15 s : !top répété ne relit pas 5000 joueurs à chaque fois
+        const now = Date.now();
+        if (!acc._top || now - acc._top.at > 15000) acc._top = { at: now, list: [...(await st.list({ prefix: 'pt:', limit: 5000 })).values()].filter((x) => x.n > 0).sort((a, b) => b.n - a.n).slice(0, 10).map((x) => ({ name: x.name || x.login, n: x.n })) };
+        return acc._top.list.slice(0, n);
+      },
     };
     return P;
   }
