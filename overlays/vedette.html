@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>StreamBox · Message en vedette</title>
+<link rel="stylesheet" href="../css/overlay.css">
+<script src="../js/i18n.js"></script>
+</head>
+<body>
+<div class="ve" id="card" aria-live="polite">
+  <div class="ve-who"><span class="ve-b" id="badge"></span><span class="ve-name" id="name"></span></div>
+  <div class="ve-text" id="text"></div>
+</div>
+<script src="../js/config.js"></script>
+<script src="../js/sb.js"></script>
+<script>
+/* Message en vedette : un modo clique sur un message dans le panneau de modération, il s'affiche ici en grand.
+ * Il passe par le relais (compte StreamBox) ; il reste affiché `duration` secondes (0 = jusqu'à ce qu'on le retire). */
+const c = SB.params({ channel: '', duration: 15, position: 'bas', size: 30, font: 'Inter', accent: '#9b5cff', demo: false });
+SB.loadFont(c.font); SB.setAccent(c.accent);
+document.documentElement.style.setProperty('--size', c.size + 'px');
+document.body.classList.add('ve-' + (c.position === 'haut' ? 'haut' : c.position === 'centre' ? 'centre' : 'bas'));
+const $ = (id) => document.getElementById(id);
+const card = $('card');
+const emotes = new SB.EmoteStore();
+let timer = null;
+
+function show(m) {
+  clearTimeout(timer);
+  if (!m) { card.classList.remove('on'); return; }
+  const go = () => {
+    $('name').textContent = m.name; $('name').style.color = SB.nameColor(m);
+    $('badge').textContent = m.isBroadcaster ? SB.t('Streamer') : m.isMod ? SB.t('Modo') : m.isVip ? 'VIP' : m.isSub ? SB.t('Abonné') : '';
+    $('badge').hidden = !$('badge').textContent;
+    $('text').replaceChildren(...SB.messageNodes(m, emotes));
+    $('text').classList.toggle('ve-action', !!m.action);
+    card.classList.add('on');
+    if (c.duration > 0) timer = setTimeout(() => card.classList.remove('on'), c.duration * 1000);
+  };
+  if (card.classList.contains('on')) { card.classList.remove('on'); setTimeout(go, 350); } else go();
+}
+SB.onRelay = (m) => { if (m.type === 'feature') show(m.msg); };
+
+if (c.demo) {
+  const lines = ['Premier live ici, je découvre la chaîne et je kiffe déjà HeyGuys', 'GG pour le clutch, j’ai crié devant mon écran Kreygasm', 'Quelle est ta config pour la musique ?'];
+  let i = 0; const step = () => show(SB.fake({ user: SB.demoUsers[i % SB.demoUsers.length], text: lines[i++ % lines.length] }));
+  c.duration = 0; step(); setInterval(step, 5000);
+} else {
+  if (c.channel) new SB.TwitchChat(c.channel).on('room', (id) => emotes.load(id, c)).connect(); // emotes 7TV, BTTV et FFZ de la chaîne
+  if (!new URLSearchParams(location.search).get('o') && !SB._cfgError) document.body.appendChild(SB.el('div', 'sb-hint', 'StreamBox : ' + SB.t('cet overlay passe par ton compte StreamBox : enregistre-le dans ton compte et colle son lien court dans OBS.')));
+  else SB.hintIfNoChannel(c);
+}
+</script>
+</body>
+</html>

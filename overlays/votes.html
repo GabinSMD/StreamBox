@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>StreamBox · Sondages et prédictions Twitch</title>
+<link rel="stylesheet" href="../css/overlay.css">
+<script src="../js/i18n.js"></script>
+</head>
+<body>
+<div class="vt" id="card" aria-live="polite">
+  <div class="vt-top"><span class="vt-kind" id="kind"></span><span class="vt-time" id="time"></span></div>
+  <div class="vt-q" id="q"></div>
+  <div class="vt-list" id="list"></div>
+  <div class="vt-foot" id="foot"></div>
+</div>
+<script src="../js/config.js"></script>
+<script src="../js/sb.js"></script>
+<script src="../js/eventsub.js"></script>
+<script>
+/* Sondages et prédictions lancés sur Twitch (ou depuis le panneau de modération), avec leurs résultats en direct.
+ * Permissions : channel:read:polls et channel:read:predictions. Caché quand rien n'est en cours. */
+const c = SB.params({ channel: '', token: '', polls: true, predictions: true, hold: 15, showtop: true, size: 22, font: 'Inter', accent: '#9b5cff', demo: false });
+SB.loadFont(c.font); SB.setAccent(c.accent);
+document.documentElement.style.setProperty('--size', c.size + 'px');
+const $ = (id) => document.getElementById(id);
+const card = $('card');
+const n = (x) => Number(x || 0).toLocaleString(SB_LANG_TAG);
+const fmt = (ms) => { const s = Math.max(0, Math.ceil(ms / 1000)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+let cur = null, hideT = null; // { kind: 'poll'|'pred', ...événement Twitch }
+
+function bar(label, pct, right, cls) {
+  const r = SB.el('div', 'vt-row' + (cls ? ' ' + cls : ''));
+  const f = SB.el('div', 'vt-fill'); f.style.width = Math.round(pct) + '%';
+  const t = SB.el('div', 'vt-line'); t.append(SB.el('span', 'vt-lbl', label), SB.el('span', 'vt-val', right));
+  r.append(f, t); return r;
+}
+function draw() {
+  if (!cur) { card.classList.remove('on'); return; }
+  const ended = !!cur.ended_at || /^(completed|terminated|archived|resolved|canceled)$/i.test(cur.status || '');
+  $('q').textContent = cur.title || '';
+  if (cur.kind === 'poll') {
+    $('kind').textContent = SB.t('Sondage');
+    const ch = cur.choices || [], total = ch.reduce((a, x) => a + (x.votes || 0), 0), max = Math.max(0, ...ch.map((x) => x.votes || 0));
+    $('list').replaceChildren(...ch.map((x) => { const p = total ? (x.votes || 0) / total * 100 : 0; return bar(x.title, p, `${Math.round(p)} % · ${n(x.votes)}`, ended && max && x.votes === max ? 'win' : ''); }));
+    $('foot').textContent = SB.t('{0} votes', [n(total)]);
+    $('time').textContent = ended ? SB.t('Terminé') : cur.ends_at ? fmt(Date.parse(cur.ends_at) - Date.now()) : '';
+  } else {
+    $('kind').textContent = SB.t('Prédiction');
+    const oc = cur.outcomes || [], total = oc.reduce((a, x) => a + (x.channel_points || 0), 0);
+    const canceled = /canceled/i.test(cur.status || '');
+    $('list').replaceChildren(...oc.map((x, i) => {
+      const p = total ? (x.channel_points || 0) / total * 100 : 0;
+      const ratio = x.channel_points ? (total / x.channel_points).toFixed(2).replace('.', SB_LANG_TAG.startsWith('en') ? '.' : ',') : '–';
+      const cls = (String(x.color).toLowerCase() === 'pink' || (oc.length === 2 && i === 1) ? 'pink' : 'blue') + (ended && cur.winning_outcome_id === x.id ? ' win' : ended && cur.winning_outcome_id ? ' lose' : '');
+      const row = bar(x.title, p, `${Math.round(p)} % · 1:${ratio}`, cls);
+      const top = (x.top_predictors || [])[0];
+      const sub = SB.el('div', 'vt-meta', SB.t('{0} points · {1} parieurs', [n(x.channel_points), n(x.users)]) + (c.showtop && top ? ' · ' + SB.t('top : {0} ({1})', [top.user_name, n(top.channel_points_used)]) : ''));
+      row.appendChild(sub); return row;
+    }));
+    $('foot').textContent = canceled ? SB.t('Annulée : les points sont rendus') : SB.t('{0} points en jeu', [n(total)]);
+    $('time').textContent = ended ? (canceled ? SB.t('Annulée') : SB.t('Terminée')) : cur.locked_at || /locked/i.test(cur.status || '') ? SB.t('Paris fermés') : cur.locks_at ? fmt(Date.parse(cur.locks_at) - Date.now()) : '';
+  }
+  card.classList.toggle('ended', ended);
+  card.classList.add('on');
+}
+function set(kind, ev, ended) {
+  if ((kind === 'poll' && !c.polls) || (kind === 'pred' && !c.predictions)) return;
+  clearTimeout(hideT);
+  cur = Object.assign({}, cur && cur.id === ev.id ? cur : {}, ev, { kind });
+  if (ended) { cur.ended_at = cur.ended_at || new Date().toISOString(); hideT = setTimeout(() => { cur = null; draw(); }, Math.max(3, c.hold) * 1000); }
+  draw();
+}
+setInterval(() => { if (cur && !cur.ended_at) draw(); }, 1000);
+
+/* Sondage ou prédiction déjà en cours au démarrage (lu sur Twitch) */
+async function current() {
+  try {
+    const u = await SB.helix('users?login=' + encodeURIComponent(c.channel), c.token); const id = u.data[0] && u.data[0].id; if (!id) return;
+    if (c.predictions) {
+      const p = ((await SB.helix('predictions?first=1&broadcaster_id=' + id, c.token)).data || [])[0];
+      if (p && /ACTIVE|LOCKED/.test(p.status)) { set('pred', { id: p.id, title: p.title, outcomes: p.outcomes, status: p.status, locks_at: new Date(Date.parse(p.created_at) + p.prediction_window * 1000).toISOString() }); return; }
+    }
+    if (c.polls) {
+      const p = ((await SB.helix('polls?first=1&broadcaster_id=' + id, c.token)).data || [])[0];
+      if (p && p.status === 'ACTIVE') set('poll', { id: p.id, title: p.title, choices: p.choices, ends_at: new Date(Date.parse(p.started_at) + p.duration * 1000).toISOString() });
+    }
+  } catch (e) { /* permission manquante ou rien en cours */ }
+}
+
+if (c.demo) {
+  const t0 = () => new Date(Date.now() + 45000).toISOString();
+  const poll = (v) => ({ id: 'dp', title: SB.t('On joue à quoi après ?'), choices: [{ id: 'a', title: 'Minecraft', votes: v[0] }, { id: 'b', title: 'Valorant', votes: v[1] }, { id: 'c', title: SB.t('Un jeu indé'), votes: v[2] }], ends_at: t0() });
+  const pred = (a, b, extra) => Object.assign({ id: 'dq', title: SB.t('Je gagne cette partie ?'), outcomes: [
+    { id: 'o1', title: SB.t('Oui'), color: 'blue', channel_points: a, users: Math.round(a / 900), top_predictors: [{ user_name: 'pixelmaud', channel_points_used: 5000 }] },
+    { id: 'o2', title: SB.t('Non'), color: 'pink', channel_points: b, users: Math.round(b / 700), top_predictors: [{ user_name: 'kevin_le_roux', channel_points_used: 2500 }] }], locks_at: t0() }, extra || {});
+  const run = () => {
+    set('poll', poll([12, 8, 3])); setTimeout(() => set('poll', poll([34, 21, 9])), 2500); setTimeout(() => set('poll', poll([41, 25, 11]), true), 5000);
+    setTimeout(() => set('pred', pred(42000, 18500)), 8500); setTimeout(() => set('pred', pred(61000, 37500, { locked_at: new Date().toISOString() })), 11000);
+    setTimeout(() => set('pred', pred(61000, 37500, { winning_outcome_id: 'o1', status: 'resolved' }), true), 13500);
+  };
+  c.hold = 3; run(); setInterval(run, 18000);
+} else if (!c.channel || !(c.token || SB.ovLink)) {
+  SB.hintIfNoChannel(c);
+  if (c.channel && !SB._cfgError) document.body.appendChild(SB.el('div', 'sb-hint', 'StreamBox : ' + SB.t('connecte ton compte Twitch dans les réglages de l’overlay pour afficher les sondages et prédictions.')));
+} else {
+  const es = SB.twitchEvents(c, ['pollBegin', 'pollProgress', 'pollEnd', 'predBegin', 'predProgress', 'predLock', 'predEnd']);
+  es.on('pollBegin', (e) => set('poll', e)).on('pollProgress', (e) => set('poll', e)).on('pollEnd', (e) => set('poll', e, true))
+    .on('predBegin', (e) => set('pred', e)).on('predProgress', (e) => set('pred', e)).on('predLock', (e) => set('pred', e)).on('predEnd', (e) => set('pred', e, true))
+    .on('status', (s) => { if (/refusé|expirée|introuvable/.test(s)) { document.querySelectorAll('.sb-hint').forEach((x) => x.remove()); document.body.appendChild(SB.el('div', 'sb-hint', 'StreamBox : ' + s)); } });
+  current();
+}
+</script>
+</body>
+</html>

@@ -136,7 +136,7 @@ const isDefault = (f, v) => v === f.default || (f.type === 'checkbox' && !!v ===
   let more = null, styleBox = null; const groups = {};
   function place(wrap, f, i) {
     if (f.group) {
-      const GROUPS = { textes: '✏️ Textes des étiquettes', multi: '🌐 Kick et YouTube (chat multiplateforme)', dons: '💸 Dons (StreamElements, Streamlabs, Ko-fi)', remote: '🎛️ Panneau de contrôle', style: '🎨 Personnaliser l’apparence' };
+      const GROUPS = { textes: '✏️ Textes et commandes', multi: '🌐 Kick et YouTube (chat multiplateforme)', dons: '💸 Dons (StreamElements, Streamlabs, Ko-fi)', remote: '🎛️ Panneau de contrôle', style: '🎨 Personnaliser l’apparence' };
       groups[f.group] = groups[f.group] || (() => { const d = document.createElement('details'); d.className = 'more style'; d.innerHTML = '<summary></summary>'; d.firstChild.textContent = GROUPS[f.group] || f.group; form.appendChild(d); return d; })();
       groups[f.group].appendChild(wrap);
       if (f.group === 'style') styleBox = groups.style;

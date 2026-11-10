@@ -189,8 +189,9 @@
     if (i < 0) return;
     const t = ctx.tracks[i], q = encodeURIComponent(`${t.title} ${t.artist}`);
     ui.t.textContent = t.title; ui.a.textContent = t.artist;
-    if (t.art) ui.img.src = t.art; else ui.img.removeAttribute('src'); // pas de pochette : dégradé
-    ui.sp.href = t.url && t.url.includes('spotify.com') ? t.url : 'https://open.spotify.com/search/' + q;
+    if (t.art && /^https:\/\//.test(t.art)) ui.img.src = t.art; else ui.img.removeAttribute('src'); // pas de pochette : dégradé
+    const sp = (() => { try { const u = new URL(t.url); return u.protocol === 'https:' && /(^|\.)spotify\.com$/.test(u.hostname) ? u.href : ''; } catch (e) { return ''; } })();
+    ui.sp.href = sp || 'https://open.spotify.com/search/' + q; // seulement un vrai lien https vers Spotify
     ui.dz.href = 'https://www.deezer.com/search/' + q;
     ui.yt.href = 'https://music.youtube.com/search?q=' + q;
   }

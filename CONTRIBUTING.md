@@ -40,7 +40,8 @@ Pour le relais (comptes, bot, subathon, demandes de musique), voir [`relay/READM
 - **Le français d'abord** pour l'interface et les commentaires. Écris des phrases simples, comme pour un streamer qui n'est pas développeur.
 - **Pas de `innerHTML` avec des données venant du chat ou des viewers** : utilise `textContent`.
 - **Sécurité** : ne mets jamais un jeton dans le code. Les jetons des streamers restent chiffrés sur le relais, et chaque overlay ne reçoit que ceux dont il a besoin (`NEEDS` dans `relay/worker.js`).
-- **Un nouvel outil** s'ajoute dans `js/tools.js` (champs du configurateur), avec un overlay dans `overlays/` qui sait tourner en `?demo=1`.
+- **Un nouvel outil** s'ajoute dans `js/tools.js` (champs du configurateur), avec un overlay dans `overlays/` qui sait tourner en `?demo=1`. Après avoir ajouté ou renommé un champ, lance `node tools/relay/tool-keys.mjs` : le relais n'enregistre que les champs listés dans `relay/tool-keys.js`.
+- **Un overlay qui lit Twitch** ne reçoit pas le jeton du streamer s'il peut s'en passer : le relais s'abonne aux événements et fait les lectures pour lui (`OV_TWITCH` dans `relay/worker.js`).
 - Teste ta modification (mode démo, et vrai chat si possible), et décris ce que tu as testé dans la pull request.
 
 ## Traductions

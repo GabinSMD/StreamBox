@@ -55,9 +55,9 @@ if (q.get('code') && q.get('state')) {
   }
 } else if (hash.get('access_token')) {
   let expected = null;
-  try { expected = sessionStorage.getItem('sb-oauth-state'); } catch (e) { /* ignore */ }
+  try { expected = sessionStorage.getItem('sb-oauth-state'); sessionStorage.removeItem('sb-oauth-state'); } catch (e) { /* ignore */ }
   const [nonce, ...ret] = (hash.get('state') || '').split('|');
-  if (expected && nonce !== expected) say('Connexion refusée', 'La réponse de Twitch ne correspond pas à la demande. Réessaie.');
+  if (!expected || nonce !== expected) // la demande doit venir de cet onglet (sinon : jeton imposé par un lien piégé) say('Connexion refusée', 'La réponse de Twitch ne correspond pas à la demande. Réessaie.');
   else {
     try { localStorage.setItem(KEY, hash.get('access_token')); } catch (e) { /* ignore */ }
     say('Connecté !', 'Retour à l’outil…');
@@ -68,7 +68,7 @@ if (q.get('code') && q.get('state')) {
 } else if (!SB_CONFIG.twitchClientId) {
   say('Connexion Twitch non configurée', 'Le propriétaire du site doit renseigner twitchClientId dans js/config.js (voir le README).');
 } else {
-  const nonce = Math.random().toString(36).slice(2);
+  const nonce = Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, '0')).join('');
   try { sessionStorage.setItem('sb-oauth-state', nonce); } catch (e) { /* ignore */ }
   const u = new URL('https://id.twitch.tv/oauth2/authorize');
   u.searchParams.set('client_id', SB_CONFIG.twitchClientId);
@@ -76,10 +76,10 @@ if (q.get('code') && q.get('state')) {
   // Avec un relais : vrai compte (code + jeton renouvelé par le relais). Sans relais : jeton direct dans le navigateur.
   u.searchParams.set('response_type', SBA.enabled() ? 'code' : 'token');
   // Une seule connexion pour tous les outils StreamBox, avec uniquement ces permissions :
-  const base = 'clips:edit moderator:read:followers channel:read:redemptions channel:read:subscriptions channel:read:hype_train';
+  const base = 'clips:edit moderator:read:followers channel:read:redemptions channel:read:subscriptions channel:read:hype_train channel:read:ads channel:read:polls channel:read:predictions';
   // Bot de chat : permissions en plus, demandées seulement quand le streamer active le bot
-  const BOT = 'user:read:chat user:write:chat user:bot channel:bot moderator:manage:chat_messages moderator:manage:banned_users moderator:manage:shoutouts bits:read';
-  const BOT_ACCOUNT = 'user:read:chat user:write:chat user:bot moderator:manage:chat_messages moderator:manage:banned_users moderator:manage:shoutouts';
+  const BOT = 'user:read:chat user:write:chat user:bot channel:bot moderator:manage:chat_messages moderator:manage:banned_users moderator:manage:shoutouts bits:read moderator:manage:chat_settings moderator:manage:shield_mode';
+  const BOT_ACCOUNT = 'user:read:chat user:write:chat user:bot moderator:manage:chat_messages moderator:manage:banned_users moderator:manage:shoutouts moderator:manage:chat_settings moderator:manage:shield_mode';
   // Modération : pour les modos (et le streamer) qui utilisent le panneau de modération
   const MOD = 'user:read:moderated_channels moderator:manage:banned_users moderator:manage:chat_messages moderator:manage:chat_settings moderator:manage:automod moderator:manage:shield_mode moderator:manage:announcements moderator:manage:warnings moderator:manage:unban_requests moderator:manage:blocked_terms moderator:read:moderators moderator:read:vips moderator:read:chatters';
   // Gestion du live (streamer seulement) : titre, jeu, raid

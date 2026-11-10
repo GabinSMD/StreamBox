@@ -61,10 +61,8 @@ const rtKey = 'sb-spotify-rt-' + (c.spotify || '').slice(-12);
 async function spToken() {
   if (spAccess && Date.now() < spExp) return spAccess;
   // Avec un compte StreamBox, c'est le relais qui garde la connexion Spotify et fournit un jeton à jour
-  const ovId = new URLSearchParams(location.search).get('o');
-  const relay = ((window.SB_CONFIG && SB_CONFIG.relayUrl) || '').replace(/\/$/, '');
-  if (ovId && relay && !c.spotify) {
-    const r = await fetch(`${relay}/o/${ovId}/spotify-token`, { cache: 'no-store' });
+  if (SB.ovLink && !c.spotify) {
+    const r = await fetch(`${SB.ovLink.relay}/o/${SB.ovLink.id}/spotify-token`, { cache: 'no-store' });
     const d = await r.json();
     if (!d.access) throw new Error(d.error || 'Spotify indisponible');
     spAccess = d.access; spExp = d.exp - 30000;
@@ -108,10 +106,13 @@ async function pollLastfm() {
 
 /* ---------- Journal des musiques (pour l'extension « Musiques des redifs ») ---------- */
 async function logTrack(t) {
-  const relay = c.relay || SB_CONFIG.relayUrl;
-  if (!c.log || !relay || !c.token || !c.channel || c.demo) return;
-  fetch(relay.replace(/\/$/, '') + '/tracks/' + encodeURIComponent(c.channel.toLowerCase()), {
-    method: 'POST', headers: { Authorization: 'Bearer ' + c.token, 'Content-Type': 'application/json' },
+  if (!c.log || !c.channel || c.demo) return;
+  const relay = (c.relay || SB_CONFIG.relayUrl || '').replace(/\/$/, '');
+  // Overlay du compte : le relais sait déjà de quelle chaîne il s'agit (aucun jeton dans l'overlay)
+  const target = SB.ovLink ? SB.ovLink.relay + '/o/' + SB.ovLink.id + '/track' : relay && c.token ? relay + '/tracks/' + encodeURIComponent(c.channel.toLowerCase()) : '';
+  if (!target) return;
+  fetch(target, {
+    method: 'POST', headers: Object.assign({ 'Content-Type': 'application/json' }, SB.ovLink ? {} : { Authorization: 'Bearer ' + c.token }),
     body: JSON.stringify({ at: Date.now() - (t.progress || 0), title: t.title, artist: t.artist, album: t.album, art: t.art, url: t.url, source: t.source, duration: t.duration || 0 }), // at = début réel du morceau (synchro de l'extension)
   }).catch((e) => console.warn('journal des musiques :', e.message));
 }

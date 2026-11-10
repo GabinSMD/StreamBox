@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>StreamBox · Pubs Twitch</title>
+<link rel="stylesheet" href="../css/overlay.css">
+<script src="../js/i18n.js"></script>
+</head>
+<body>
+<div class="ad" id="card" aria-live="polite">
+  <div class="ad-top"><span class="ad-title" id="title"></span><span class="ad-time" id="time"></span></div>
+  <div class="ad-bar"><div class="ad-fill" id="fill"></div></div>
+  <div class="ad-sub" id="sub"></div>
+</div>
+<script src="../js/config.js"></script>
+<script src="../js/sb.js"></script>
+<script src="../js/eventsub.js"></script>
+<script>
+/* Pubs Twitch : compte à rebours avant la prochaine pub, pause pub en cours, puis « merci d'être resté ».
+ * Prochaine pub lue toutes les minutes (channels/ads) ; début de pub reçu en direct (EventSub). Permission : channel:read:ads.
+ * Avec un compte StreamBox, le bot peut prévenir le chat avant la pub et le remercier après. */
+const c = SB.params({
+  channel: '', token: '', before: 60, saybefore: true, sayafter: true, thanks: 8,
+  tbefore: 'Pub dans', tduring: 'Pause pub', tafter: 'De retour, merci d’être resté !', tsub: 'Le temps d’aller boire un verre',
+  size: 22, font: 'Inter', accent: '#9b5cff', demo: false,
+});
+SB.loadFont(c.font); SB.setAccent(c.accent);
+document.documentElement.style.setProperty('--size', c.size + 'px');
+const $ = (id) => document.getElementById(id);
+const card = $('card');
+const relay = ((window.SB_CONFIG && SB_CONFIG.relayUrl) || '').replace(/\/$/, '');
+const ovId = new URLSearchParams(location.search).get('o');
+const fmt = (ms) => { const s = Math.max(0, Math.ceil(ms / 1000)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+const at = (v) => { if (v == null || v === '') return 0; const n = Number(v); return Number.isFinite(n) ? (n < 1e12 ? n * 1000 : n) : Date.parse(v) || 0; }; // horodatage Unix ou RFC 3339
+
+let nextAd = 0, adEnd = 0, adLen = 0, thanksUntil = 0, warned = 0;
+function say(which) { // message du bot (relais) : seulement les deux textes enregistrés dans les réglages de l'overlay
+  if (!ovId || !relay || c.demo) return;
+  fetch(`${relay}/o/${ovId}/say`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ which }) }).catch(() => {});
+}
+function tick() {
+  const now = Date.now();
+  if (adEnd > now) { // pub en cours
+    card.className = 'ad on during';
+    $('title').textContent = c.tduring; $('time').textContent = fmt(adEnd - now);
+    $('fill').style.width = (adLen ? Math.min(100, (1 - (adEnd - now) / adLen) * 100) : 0) + '%';
+    $('sub').textContent = c.tsub; return;
+  }
+  if (adEnd && adEnd <= now) { adEnd = 0; thanksUntil = now + c.thanks * 1000; if (c.sayafter) say('apres'); setTimeout(refresh, 15000); }
+  if (thanksUntil > now) { card.className = 'ad on after'; $('title').textContent = c.tafter; $('time').textContent = ''; $('sub').textContent = ''; $('fill').style.width = '100%'; return; }
+  const left = nextAd - now;
+  if (nextAd && left > 0 && left <= c.before * 1000) {
+    card.className = 'ad on soon';
+    $('title').textContent = c.tbefore; $('time').textContent = fmt(left); $('sub').textContent = c.tsub;
+    $('fill').style.width = (100 - (left / (c.before * 1000)) * 100) + '%';
+    if (c.saybefore && warned !== nextAd && left <= 60000) { warned = nextAd; say('avant'); }
+    return;
+  }
+  card.className = 'ad';
+}
+function adBegin(e) { adLen = Math.max(1, +e.duration_seconds || 30) * 1000; adEnd = (Date.parse(e.started_at) || Date.now()) + adLen; nextAd = 0; tick(); }
+setInterval(tick, 250);
+
+let bid = null;
+async function refresh() {
+  try {
+    if (!bid) { const u = await SB.helix('users?login=' + encodeURIComponent(c.channel), c.token); bid = u.data[0] && u.data[0].id; }
+    if (!bid) return;
+    const d = ((await SB.helix('channels/ads?broadcaster_id=' + bid, c.token)).data || [])[0] || {};
+    nextAd = at(d.next_ad_at);
+  } catch (e) { /* pas de live, ou permission manquante : on réessaie à la prochaine minute */ }
+}
+
+if (c.demo) {
+  const loop = () => { nextAd = Date.now() + 8000; adEnd = 0; thanksUntil = 0; setTimeout(() => adBegin({ duration_seconds: 10, started_at: new Date().toISOString() }), 8000); };
+  c.before = 10; loop(); setInterval(loop, 8000 + 10000 + c.thanks * 1000 + 3000);
+} else if (!c.channel || !(c.token || SB.ovLink)) {
+  SB.hintIfNoChannel(c);
+  if (c.channel && !SB._cfgError) document.body.appendChild(SB.el('div', 'sb-hint', 'StreamBox : ' + SB.t('connecte ton compte Twitch dans les réglages de l’overlay pour suivre les pubs.')));
+} else {
+  SB.twitchEvents(c, ['adBreak']).on('adBreak', adBegin)
+    .on('status', (s) => { if (/refusé|expirée|introuvable/.test(s)) { document.querySelectorAll('.sb-hint').forEach((x) => x.remove()); document.body.appendChild(SB.el('div', 'sb-hint', 'StreamBox : ' + s)); } });
+  refresh(); setInterval(refresh, 60000);
+}
+</script>
+</body>
+</html>

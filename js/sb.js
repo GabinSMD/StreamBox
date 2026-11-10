@@ -30,10 +30,11 @@
     } catch (e) { SB._cfgError = 'Relais StreamBox injoignable.'; }
     if (SB._cfgError) setTimeout(() => location.reload(), 15000);
     else {
+      SB.ovLink = { relay, id: ovId }; // overlay lié au compte : le relais peut lire Twitch à sa place (pubs, votes, Hype Train)
       let retry = 0;
       const live = () => {
         const ws = new WebSocket(relay.replace(/^http/, 'ws') + '/o/' + ovId + '/ws');
-        ws.onmessage = (e) => { try { const m = JSON.parse(e.data); if (m.type === 'update' || m.type === 'deleted') location.reload(); else if (m.type === 'sim' && SB.simulate) SB.simulate(m.ev); } catch (err) { /* ignore */ } };
+        ws.onmessage = (e) => { try { const m = JSON.parse(e.data); if (m.type === 'update' || m.type === 'deleted') location.reload(); else if (m.type === 'sim' && SB.simulate) SB.simulate(m.ev); else if (m.type === 'twitch') (SB._twitchRelay || []).forEach((f) => f(m.ev, m.data)); else if (SB.onRelay) SB.onRelay(m); } catch (err) { /* ignore */ } };
         ws.onopen = () => { retry = 0; };
         ws.onclose = () => setTimeout(live, Math.min(60000, 3000 * 2 ** retry++));
       };
@@ -201,6 +202,27 @@
       case 'follow': events.forEach((e) => e.emit('follow', { login, name: ev.name })); break;
       case 'points': events.forEach((e) => e.emit('points', { login, name: ev.name, reward: ev.reward, cost: ev.cost, input: ev.message || '' })); break;
       case 'don': dons.forEach((d) => d.don({ id: 'sim-' + Date.now(), source: 'Test', name: ev.name, amount: ev.amount, currency: ev.currency, message: ev.message || '' })); break;
+      case 'ad': events.forEach((e) => e.emit('adBreak', { duration_seconds: ev.duration || 30, started_at: new Date().toISOString(), is_automatic: false })); break;
+      case 'feature': if (SB.onRelay) SB.onRelay({ type: 'feature', msg: SB.fake({ user, text: ev.message || 'Message de test en vedette' }) }); break;
+      case 'poll': { // un sondage de 20 s dont les votes montent
+        const id = 'sim-' + Date.now(), ends = new Date(Date.now() + 20000).toISOString();
+        const poll = (v) => ({ id, title: 'Sondage de test', ends_at: ends, choices: [{ id: 'a', title: 'Oui', votes: v[0] }, { id: 'b', title: 'Non', votes: v[1] }] });
+        events.forEach((e) => e.emit('pollBegin', poll([0, 0])));
+        setTimeout(() => events.forEach((e) => e.emit('pollProgress', poll([12, 5]))), 3000);
+        setTimeout(() => events.forEach((e) => e.emit('pollEnd', Object.assign(poll([21, 9]), { status: 'completed', ended_at: new Date().toISOString() }))), 8000);
+        break;
+      }
+      case 'pred': { // une prédiction : paris, fermeture, résultat
+        const id = 'sim-' + Date.now(), locks = new Date(Date.now() + 20000).toISOString();
+        const pred = (a, b, extra) => Object.assign({ id, title: 'Prédiction de test', locks_at: locks, outcomes: [
+          { id: 'o1', title: 'Oui', color: 'blue', channel_points: a, users: Math.round(a / 800), top_predictors: [{ user_name: ev.name, channel_points_used: Math.round(a / 3) }] },
+          { id: 'o2', title: 'Non', color: 'pink', channel_points: b, users: Math.round(b / 600), top_predictors: [] }] }, extra);
+        events.forEach((e) => e.emit('predBegin', pred(0, 0)));
+        setTimeout(() => events.forEach((e) => e.emit('predProgress', pred(24000, 9000))), 3000);
+        setTimeout(() => events.forEach((e) => e.emit('predLock', pred(31000, 15000, { locked_at: new Date().toISOString() }))), 6000);
+        setTimeout(() => events.forEach((e) => e.emit('predEnd', pred(31000, 15000, { winning_outcome_id: 'o1', status: 'resolved', ended_at: new Date().toISOString() }))), 9000);
+        break;
+      }
       case 'hype': { // un petit Hype Train : départ, montée d'un niveau, fin
         const id = 'sim-' + Date.now(), lvl = ev.level || 2, exp = () => new Date(Date.now() + 5 * 60000).toISOString();
         const tops = [{ user_name: ev.name, user_login: login, type: 'bits', total: 500 }];
@@ -400,6 +422,11 @@
    * des données publiques (clips, VODs). Il est obtenu via connexion.html.
    */
   SB.helix = async function (path, token) {
+    if (!token && SB.ovLink) { // overlay du compte sans jeton : le relais fait la lecture (points d'accès autorisés pour cet overlay)
+      const r = await fetch(SB.ovLink.relay + '/o/' + SB.ovLink.id + '/twitch?path=' + encodeURIComponent(path));
+      if (!r.ok) throw new Error('API Twitch : erreur ' + r.status);
+      return r.json();
+    }
     const cid = window.SB_CONFIG && SB_CONFIG.twitchClientId;
     if (!cid || !token) throw new Error('Connexion Twitch non configurée');
     const r = await fetch('https://api.twitch.tv/helix/' + path, { headers: { 'Client-Id': cid, Authorization: 'Bearer ' + token } });

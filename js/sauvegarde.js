@@ -1,6 +1,7 @@
 /* Sauvegarde et import de la configuration d'un compte StreamBox.
  * Tout passe par les routes habituelles du relais : l'import est donc validé exactement comme une modification faite à la main.
- * Les jetons et les clés (Twitch, Spotify, dons, webhook, OBS) ne sont jamais dans le fichier. */
+ * Les jetons et les clés (Twitch, Spotify, dons, webhook, OBS) ne sont jamais dans le fichier, ni les liens des overlays
+ * (un lien d'overlay suffit à lire ses secrets) : à l'import, un overlay existant est retrouvé par son outil et son nom. */
 (function () {
   'use strict';
   const SB = (window.SB = window.SB || {});
@@ -15,7 +16,18 @@
     ['team', '/me/team', (d) => ({ mods: !!d.mods })],
     ['stats', '/me/stats', (d) => d.cfg],
   ];
-  const noSecrets = (settings) => { const o = Object.assign({}, settings || {}); (window.SBA ? SBA.SECRET_FIELDS : []).forEach((k) => delete o[k]); return o; };
+  const noSecrets = (settings) => {
+    const o = Object.assign({}, settings || {});
+    (window.SBA ? SBA.SECRET_FIELDS : []).forEach((k) => delete o[k]);
+    if (o.discord && o.discord !== 'compte') delete o.discord; // webhook Discord saisi directement dans l'overlay (giveaway)
+    return o;
+  };
+  // Seulement les champs que le configurateur propose pour cet outil (le relais applique la même règle)
+  const knownOnly = (tool, settings) => {
+    const t = (window.SB_TOOLS || []).find((x) => x.id === tool);
+    const keys = new Set(t ? t.fields.map((f) => f.key) : tool === 'automatisations' ? ['rules'] : []);
+    return Object.fromEntries(Object.entries(noSecrets(settings)).filter(([k]) => keys.has(k) && k !== 'token'));
+  };
   const isObj = (x) => x && typeof x === 'object' && !Array.isArray(x);
 
   SB.backup = {
@@ -23,7 +35,7 @@
       const me = await SBA.api('GET', '/me');
       const overlays = [];
       for (const o of me.overlays || []) {
-        try { const d = await SBA.api('GET', '/me/overlays/' + o.id); overlays.push({ id: o.id, tool: d.tool, name: d.name, settings: noSecrets(d.settings) }); } catch (e) { /* overlay supprimé entre-temps */ }
+        try { const d = await SBA.api('GET', '/me/overlays/' + o.id); overlays.push({ tool: d.tool, name: d.name, settings: noSecrets(d.settings) }); } catch (e) { /* overlay supprimé entre-temps */ }
       }
       const out = { streambox: VERSION, exportedAt: new Date().toISOString(), login: me.login, overlays };
       for (const [k, path, pick] of PARTS) { try { const v = pick(await SBA.api('GET', path)); if (v) out[k] = v; } catch (e) { /* fonction absente de ce relais */ } }
@@ -33,20 +45,22 @@
     parse(text) {
       let d; try { d = JSON.parse(text); } catch (e) { throw new Error(SB.t('ce fichier n’est pas une sauvegarde StreamBox')); }
       if (!isObj(d) || d.streambox !== VERSION || !Array.isArray(d.overlays)) throw new Error(SB.t('ce fichier n’est pas une sauvegarde StreamBox'));
-      const tools = new Set((window.SB_TOOLS || []).map((t) => t.id));
+      const tools = new Set((window.SB_TOOLS || []).map((t) => t.id).concat('automatisations'));
       d.overlays = d.overlays.filter((o) => isObj(o) && tools.has(o.tool) && isObj(o.settings || {})).slice(0, 50);
       const parts = PARTS.map(([k]) => k).filter((k) => isObj(d[k]));
       return { data: d, summary: { overlays: d.overlays.length, parts, login: String(d.login || ''), date: d.exportedAt } };
     },
-    /* Applique la sauvegarde : un overlay déjà présent (même identifiant) est mis à jour et garde son lien ; les autres sont créés */
+    /* Applique la sauvegarde : un overlay déjà présent (même outil et même nom) est mis à jour et garde son lien ; les autres sont créés */
     async apply(d, onStep) {
       const me = await SBA.api('GET', '/me');
-      const mine = new Set((me.overlays || []).map((o) => o.id));
+      const free = (me.overlays || []).slice(); // chaque overlay existant ne sert qu'une fois
       const r = { updated: 0, created: 0, parts: [], errors: [] };
       for (const o of d.overlays) {
-        const body = { name: String(o.name || o.tool).slice(0, 80), settings: noSecrets(o.settings) };
+        const body = { name: String(o.name || o.tool).slice(0, 80), settings: knownOnly(o.tool, o.settings) };
+        const i = free.findIndex((x) => x.tool === o.tool && x.name === body.name);
+        const match = i >= 0 ? free.splice(i, 1)[0] : null;
         try {
-          if (o.id && mine.has(o.id)) { await SBA.api('PUT', '/me/overlays/' + o.id, body); r.updated++; }
+          if (match) { await SBA.api('PUT', '/me/overlays/' + match.id, body); r.updated++; }
           else { await SBA.api('POST', '/me/overlays', Object.assign({ tool: o.tool }, body)); r.created++; }
         } catch (e) { r.errors.push(`${body.name} : ${e.message}`); }
         if (onStep) onStep(r);

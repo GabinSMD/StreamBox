@@ -30,9 +30,11 @@
       <span class="flag" id="live"></span>
       <span class="md-st" id="stChat" title="Chat"><svg class="ic ic-message-square" aria-hidden="true" focusable="false"><use href="img/icons.svg#message-square"/></svg>…</span>
       <span class="md-st" id="stEs" title="Événements de modération"><svg class="ic ic-shield" aria-hidden="true" focusable="false"><use href="img/icons.svg#shield"/></svg>…</span>
+      <button class="btn ghost small wd-edit-btn" id="wdEdit" type="button" aria-pressed="false"><svg class="ic ic-layout-dashboard" aria-hidden="true" focusable="false"><use href="img/icons.svg#layout-dashboard"/></svg><span>Personnaliser</span></button>
       <label class="md-quick" title="Durée du bouton ⏱ dans le chat"><svg class="ic ic-timer" aria-hidden="true" focusable="false"><use href="img/icons.svg#timer"/></svg>rapide <select id="quickT"><option value="60">1 min</option><option value="600" selected>10 min</option><option value="3600">1 h</option><option value="86400">24 h</option></select></label>
     </header>
     <div class="note" id="scopeWarn" hidden></div>
+    <div class="wd-bar" id="wdBar" hidden></div>
 
     <div class="md-grid">
       <section class="md-chat box">
@@ -42,6 +44,7 @@
           <label><input type="checkbox" id="fLinks"> Liens</label>
           <label><input type="checkbox" id="fHide"> Masquer les messages supprimés</label>
         </div>
+        <div class="md-feat" id="featBar" hidden><span>En vedette à l’écran : <b id="featWho"></b></span><button class="btn ghost small" id="featClear" type="button">Retirer de l’écran</button></div>
         <div class="md-feed" id="feed" aria-live="off"></div>
         <button class="btn small md-more" id="more" type="button" hidden></button>
       </section>
@@ -132,7 +135,7 @@
           </div>
           <div id="teamBox" hidden>
             <h2 class="bt-h" style="margin-top:18px"><svg class="ic ic-handshake" aria-hidden="true" focusable="false"><use href="img/icons.svg#handshake"/></svg>Équipe</h2>
-            <label class="bt-toggle"><input type="checkbox" id="teamMods"><b>Mes modos peuvent gérer sondages, prédictions et file des récompenses</b></label>
+            <label class="bt-toggle"><input type="checkbox" id="teamMods"><b>Mes modos peuvent gérer sondages, prédictions, file des récompenses et messages en vedette</b></label>
             <p class="bt-help">Twitch réserve ces actions au compte du streamer : StreamBox les fait pour tes modos, après avoir vérifié auprès de Twitch qu’ils sont bien modos. Créer ou supprimer une récompense reste réservé à toi.</p>
           </div>
         </section>
@@ -168,6 +171,7 @@
 <script src="js/eventsub.js"></script>
 <script src="js/account.js"></script>
 <script src="js/site.js"></script>
+<script src="js/mod-widgets.js"></script>
 <script>
 /* Panneau de modération : chaque modo se connecte avec SON compte Twitch. Les actions partent directement
  * de son navigateur vers Twitch ; le jeton est gardé en mémoire (jamais dans l'URL ni dans le stockage). */
@@ -227,8 +231,9 @@ function addMessage(m) {
   const row = el('div', 'md-msg' + (m.first ? ' first' : '') + (LINK.test(m.text) ? ' link' : ''));
   row.dataset.id = m.id; row.dataset.login = m.login; row.dataset.text = m.text.toLowerCase();
   const acts = el('span', 'md-a');
+  const b = (label, title, fn) => { const x = el('button', null, label); x.type = 'button'; x.title = title; x.setAttribute('aria-label', title); x.onclick = (e) => { e.stopPropagation(); fn(); }; acts.appendChild(x); };
+  if (DEMO || viaRelay()) b('📌', 'Mettre en vedette à l’écran', () => feature(m, row));
   if (!m.isBroadcaster && !m.isMod) { // Twitch ne permet pas de sanctionner un modo
-    const b = (label, title, fn) => { const x = el('button', null, label); x.type = 'button'; x.title = title; x.onclick = (e) => { e.stopPropagation(); fn(); }; acts.appendChild(x); };
     b('🗑', 'Supprimer le message', () => del(m.id));
     b('⏱', 'Timeout (durée choisie en haut)', () => timeout(u.id, +$('quickT').value));
     b('🔨', 'Bannir', () => { if (confirm(`Bannir ${m.name} ?`)) ban(u.id); });
@@ -244,6 +249,23 @@ function addMessage(m) {
   if (atBottom) feed.scrollTop = feed.scrollHeight; else { unseen++; $('more').hidden = false; $('more').textContent = `⬇ ${unseen} nouveau(x) message(s)`; }
   if (cardUser === m.login) renderHist();
 }
+/* Message en vedette : affiché en grand par l'overlay « Message en vedette » (via le relais) */
+let featured = null;
+function feature(m, row) {
+  const msg = { name: m.name, login: m.login, text: m.text, emotes: m.emotes || [], color: m.color || null, isBroadcaster: m.isBroadcaster, isMod: m.isMod, isVip: m.isVip, isSub: m.isSub, action: m.action };
+  const done = (r) => {
+    document.querySelectorAll('.md-msg.feat').forEach((x) => x.classList.remove('feat'));
+    row.classList.add('feat'); featured = m.id; $('featWho').textContent = m.name; $('featBar').hidden = false;
+    if (r && r.sent === 0) toast('Aucun overlay « Message en vedette » n’est ouvert dans OBS');
+  };
+  if (DEMO) { done(); toast('Message en vedette (démo)'); return; }
+  act('Message en vedette', async () => done(await SBA.api('POST', `/me/team/${ch.id}/feature`, { msg })));
+}
+$('featClear').onclick = () => {
+  const off = () => { document.querySelectorAll('.md-msg.feat').forEach((x) => x.classList.remove('feat')); featured = null; $('featBar').hidden = true; };
+  if (DEMO) { off(); return; }
+  act('Retiré de l’écran', async () => { await SBA.api('POST', `/me/team/${ch.id}/feature`, { clear: true }); off(); });
+};
 function markGone(sel, by) { document.querySelectorAll(sel).forEach((r) => { r.classList.add('gone'); if (by && !r.querySelector('.md-by')) r.appendChild(el('small', 'md-by', by)); applyFilter(r); }); }
 function applyFilter(r) {
   const q = $('filter').value.trim().toLowerCase();
@@ -638,7 +660,7 @@ $('tabs').onclick = (e) => {
   document.querySelectorAll('#tabs button').forEach((x) => { x.classList.toggle('on', x === b); x.setAttribute('aria-selected', String(x === b)); });
   history.replaceState(null, '', location.pathname + location.search + (b.dataset.t === 'automod' ? '' : '#' + b.dataset.t)); // onglet gardé dans l'adresse
   b.scrollIntoView({ block: 'nearest', inline: 'nearest' }); // onglet actif toujours visible si la barre défile
-  document.querySelectorAll('.md-pane').forEach((p) => { p.hidden = p.id !== 'p-' + b.dataset.t; });
+  document.querySelectorAll('#wd-tabs .md-pane').forEach((p) => { p.hidden = p.id !== 'p-' + b.dataset.t; }); // les blocs sortis des onglets restent visibles
   if (b.dataset.t === 'modes') loadModes();
   if (b.dataset.t === 'livetab') { loadLive().catch((err) => toast(err.message)); loadTeam(); }
   if (b.dataset.t === 'votes') { renderRecent(); loadVotes(); }
@@ -656,17 +678,17 @@ function select(c) {
   if (chat) chat.stop(); if (es) es.stop();
   ch = c; me.isBroadcasterOf = ch.id === me.id;
   users.clear(); $('feed').replaceChildren(); $('automod').replaceChildren(); $('journal').replaceChildren(); $('unban').replaceChildren(); count(); countUnban();
-  $('tabLive').hidden = !me.isBroadcasterOf;
-  $('tabVotes').hidden = $('tabPoints').hidden = !(me.isBroadcasterOf || viaRelay() || DEMO); // modos : seulement via le relais
+  MDW.setOff('livetab', !me.isBroadcasterOf);
+  MDW.setOff('votes', !(me.isBroadcasterOf || viaRelay() || DEMO)); MDW.setOff('points', !(me.isBroadcasterOf || viaRelay() || DEMO)); // modos : seulement via le relais
   clearTimeout(votesTimer); clearTimeout(queueTimer); rewards = []; $('nPoints').textContent = ''; votesLoaded = pointsLoaded = false;
+  MDW.refresh(); // blocs affichés seuls : chargés tout de suite
   const cur = $('tabs').querySelector('button.on');
-  if (cur && cur.hidden) $('tabs').querySelector('[data-t="automod"]').click();
-  else if (cur && cur.dataset.t === 'votes') loadVotes();
-  else if (cur && cur.dataset.t === 'points') loadPoints();
+  if (cur && !cur.hidden && cur.dataset.t === 'votes') loadVotes();
+  else if (cur && !cur.hidden && cur.dataset.t === 'points') loadPoints();
   $('feed').appendChild(el('p', 'bt-help', `Chat de ${ch.name} : les nouveaux messages s’affichent ici.`));
   try { localStorage.setItem('sb-mod-chan', ch.login); } catch (e) { /* ignore */ }
   stream();
-  if (!$('tabPoints').hidden && (!me.isBroadcasterOf || BX_NEED.every((s) => T.scopes.includes(s)))) loadPoints(); // pastille : demandes en attente
+  if (MDW.shown('points') && !MDW.standalone('points') && (!me.isBroadcasterOf || BX_NEED.every((s) => T.scopes.includes(s)))) loadPoints(); // pastille : demandes en attente
   if (DEMO) return demoStart();
   emotes = new SB.EmoteStore();
   chat = new SB.TwitchChat(ch.login);
@@ -710,6 +732,10 @@ function need(text, label, href) {
   const pick = (!DEMO && chans.find((c) => c.login === last)) || chans[list.length && !DEMO ? 1 : 0]; // par défaut : la première chaîne modérée
   $('chan').value = JSON.stringify(pick);
   $('app').hidden = false;
+  MDW.init({ loaders: { // blocs affichés seuls (hors onglets) : chargés comme à l'ouverture de leur onglet
+    modes: () => loadModes(), livetab: () => { loadLive().catch((err) => toast(err.message)); loadTeam(); },
+    votes: () => { clearTimeout(votesTimer); renderRecent(); loadVotes(); }, points: () => { clearTimeout(queueTimer); loadPoints(); },
+  } });
   select(pick);
   const want = location.hash.slice(1), tb = want && $('tabs').querySelector(`[data-t="${CSS.escape(want)}"]`);
   if (tb && !tb.hidden) tb.click(); // onglet demandé dans l'adresse (#votes, #points…)

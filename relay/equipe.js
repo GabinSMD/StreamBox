@@ -82,7 +82,7 @@ export function pageUrl(page, login) {
 }
 
 /* Simulateur : faux événement nettoyé avant d'être envoyé aux overlays (texte borné, nombres plafonnés) */
-const SIM_KINDS = ['follow', 'sub', 'resub', 'gift', 'raid', 'bits', 'don', 'points', 'hype', 'chat'];
+const SIM_KINDS = ['follow', 'sub', 'resub', 'gift', 'raid', 'bits', 'don', 'points', 'hype', 'chat', 'ad', 'poll', 'pred', 'feature'];
 export function simEvent(input) {
   const e = input && typeof input === 'object' ? input : {};
   if (!SIM_KINDS.includes(e.kind)) return null;
@@ -96,6 +96,24 @@ export function simEvent(input) {
   if (e.kind === 'don') { out.amount = Math.min(10000, Math.max(0.5, Math.round((+e.amount || 5) * 100) / 100)); out.currency = /^[A-Z]{3}$/.test(e.currency) ? e.currency : 'EUR'; }
   if (e.kind === 'points') { out.reward = String(e.reward || 'Hydrate-toi').slice(0, 45); out.cost = int(e.cost, 1, 1000000, 500); }
   if (e.kind === 'hype') out.level = int(e.level, 1, 25, 2);
-  if (['resub', 'bits', 'don', 'points', 'chat'].includes(e.kind)) out.message = String(e.message || '').replace(/[\u0000-\u001f]/g, ' ').slice(0, 200);
+  if (e.kind === 'ad') out.duration = int(e.duration, 5, 180, 30);
+  if (['resub', 'bits', 'don', 'points', 'chat', 'feature'].includes(e.kind)) out.message = String(e.message || '').replace(/[\u0000-\u001f]/g, ' ').slice(0, 200);
   return out;
+}
+
+/* Message en vedette : un message du chat, nettoyé (texte borné, couleur et emotes vérifiées) */
+export function featureMsg(input) {
+  const m = input && typeof input === 'object' ? input : null;
+  if (!m) return null;
+  const text = String(m.text || '').replace(/[\u0000-\u001f]/g, ' ').slice(0, 500);
+  const name = String(m.name || '').slice(0, 25);
+  if (!text.trim() || !/^[\p{L}\p{N}_]{1,25}$/u.test(name)) return null;
+  const emotes = (Array.isArray(m.emotes) ? m.emotes : []).slice(0, 80)
+    .filter((e) => e && /^[\w-]{1,64}$/.test(String(e.id)) && Number.isInteger(e.start) && Number.isInteger(e.end) && e.start >= 0 && e.end >= e.start && e.end < 500)
+    .map((e) => ({ id: String(e.id), start: e.start, end: e.end }));
+  return {
+    name, login: String(m.login || name).toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 25), text, emotes,
+    color: /^#[0-9a-f]{6}$/i.test(m.color || '') ? m.color : null,
+    isBroadcaster: !!m.isBroadcaster, isMod: !!m.isMod, isVip: !!m.isVip, isSub: !!m.isSub, action: !!m.action,
+  };
 }

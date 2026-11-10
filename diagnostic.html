@@ -66,7 +66,7 @@
 const $ = (id) => document.getElementById(id);
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
 const relay = () => ((window.SB_CONFIG && SB_CONFIG.relayUrl) || '').replace(/\/$/, '');
-const BASE = ['clips:edit', 'moderator:read:followers', 'channel:read:redemptions', 'channel:read:subscriptions', 'channel:read:hype_train'];
+const BASE = ['clips:edit', 'moderator:read:followers', 'channel:read:redemptions', 'channel:read:subscriptions', 'channel:read:hype_train', 'channel:read:ads', 'channel:read:polls', 'channel:read:predictions'];
 const toolName = (id) => { const t = [...SB_TOOLS, ...SB_PAGES].find((x) => x.id === id); return t ? SB.t(t.name) : id; };
 let diag = null;
 
@@ -164,6 +164,7 @@ const SIM = [
   ['follow', '💜', 'Follow'], ['sub', '⭐', 'Abo'], ['resub', '⭐', 'Réabo (14 mois)', { months: 14 }], ['gift', '🎁', '5 abos offerts', { count: 5 }],
   ['raid', '🚀', 'Raid de 42', { viewers: 42 }], ['bits', '💎', '500 bits', { bits: 500 }], ['don', '💸', 'Don de 5 €', { amount: 5, currency: 'EUR' }],
   ['points', '✨', 'Points de chaîne', { reward: 'Hydrate-toi', cost: 500 }], ['hype', '🚂', 'Hype Train', { level: 2 }], ['chat', '💬', 'Message du chat'],
+  ['feature', '📌', 'Message en vedette'], ['ad', '⏳', 'Pub de 30 s', { duration: 30 }], ['poll', '📊', 'Sondage Twitch'], ['pred', '🔮', 'Prédiction'],
 ];
 function simUi() {
   const box = $('simOvs');

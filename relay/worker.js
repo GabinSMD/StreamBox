@@ -24,7 +24,7 @@
  *   GET    /me                          profil, overlays, intégrations renseignées (jamais les valeurs)
  *   PUT    /me/lang                     { lang: fr | en | es } : langue des réponses du bot et des jeux
  *   PUT    /me/secrets                  { cle: valeur | null }  (jetons chiffrés au repos)
- *   POST   /me/overlays                 { tool, name, settings } → { id }
+ *   POST   /me/overlays                 { tool, name, settings } → { id } (réglages limités aux champs de l'outil : tool-keys.js)
  *   GET    /me/overlays/:id             réglages d'un overlay (pour le configurateur)
  *   PUT    /me/overlays/:id             { name?, settings? } → les overlays ouverts dans OBS se rechargent
  *   POST   /me/overlays/:id/rotate      nouveau lien (l'ancien ne marche plus)
@@ -33,7 +33,10 @@
  *   GET    /me/twitch-token             jeton Twitch du compte connecté, pour le panneau de modération (gardé en mémoire
  *                                       par la page, jamais dans une URL ni dans le stockage du navigateur)
  *   GET    /o/:id                       réglages + jetons utiles à cet outil seulement (lu par l'overlay)
- *   GET    /o/:id/ws                    WebSocket : « update » quand le streamer modifie l'overlay
+ *   GET    /o/:id/ws                    WebSocket : « update » quand le streamer modifie l'overlay ; « twitch » (pubs, votes,
+ *                                       Hype Train : événements reçus par le relais) ; fermée quand le lien est régénéré ou supprimé
+ *   GET    /o/:id/twitch?path=…         pubs, votes, Hype Train : lecture Twitch faite par le relais (l'overlay n'a pas de jeton)
+ *   POST   /o/:id/track                 overlay Musique : journal des musiques pour l'extension (sans jeton Twitch)
  *
  * Bot de chat :
  *   GET/PUT /me/bot · POST /me/bot/test (console de test, n'écrit rien sur Twitch)
@@ -70,7 +73,7 @@
  *   EVENTSUB_SECRET (10 à 100 caractères, pour signer les webhooks), BOT_LOGIN (facultatif : compte bot du site).
  */
 
-import { DEFAULT_BOT, sanitizeBot, onChat, onEvent, onTick, wantedSubs, userLevel, BOT_SCOPES, BOT_ACCOUNT_SCOPES } from './bot.js';
+import { DEFAULT_BOT, sanitizeBot, onChat, onEvent, onTick, wantedSubs, userLevel, BOT_SCOPES, BOT_ACCOUNT_SCOPES, SHIELD_SCOPES } from './bot.js';
 import * as SUBA from './subathon.js';
 import * as SR from './sr.js';
 import * as JEUX from './jeux.js';
@@ -78,6 +81,7 @@ import * as STATS from './stats.js';
 import * as MC from './multichat.js';
 import { tr, LANGS } from './i18n.js';
 import * as EQ from './equipe.js';
+import { TOOL_KEYS } from './tool-keys.js';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -139,9 +143,7 @@ export default {
             await room('yt:' + ch).fetch('https://room/alias', { method: 'POST', body: JSON.stringify({ login }) });
             return json({ ok: true });
           }
-          const t = { at: +body.at || Date.now(), title: clean(body.title, 200), artist: clean(body.artist, 200), album: clean(body.album, 200), art: clean(body.art, 400), url: clean(body.url, 400), source: clean(body.source, 20), duration: Math.max(0, Math.min(3600000, +body.duration || 0)) };
-          if (!t.title) return json({ error: 'titre manquant' }, 400);
-          return room('chan:' + login).fetch('https://room/tracks', { method: 'POST', body: JSON.stringify(t) }).then(withCors);
+          return logTrack(env, login, body);
         }
       }
       /* ---- Images du compte (publiques, adresse impossible à deviner) ---- */
@@ -151,7 +153,7 @@ export default {
       /* ---- Sous-titres : WebSocket de la page Sous-titres (ticket à usage unique) ---- */
       if (p[0] === 'captions' && /^\d{1,20}$/.test(p[1] || '')) {
         if (req.headers.get('Upgrade') !== 'websocket') return json({ error: 'WebSocket attendu' }, 426);
-        return env.ACCOUNT.get(env.ACCOUNT.idFromName('user:' + p[1])).fetch('https://acc/cap-ws?t=' + encodeURIComponent(url.searchParams.get('t') || ''), req);
+        return env.ACCOUNT.get(env.ACCOUNT.idFromName('user:' + p[1])).fetch('https://acc/cap-ws?t=' + encodeURIComponent(url.searchParams.get('t') || ''), { headers: { Upgrade: 'websocket' } }); // jamais les en-têtes du client
       }
       /* ---- Chat multiplateforme (Kick, YouTube) ---- */
       if (req.method === 'GET' && p[0] === 'kick' && MC.KICK_SLUG.test(p[1] || '')) return cached('kick:' + p[1].toLowerCase(), 3600, () => MC.kickChannel(p[1]));
@@ -312,17 +314,36 @@ const NEEDS = {
   objectifs: ['token', 'sejwt', 'sltoken', 'kofi', 'obspass'],
   sondage: ['obspass'], minuteur: ['obspass'], roue: ['obspass'], giveaway: ['obspass', 'webhook'],
   rewind: ['token', 'obspass'],
-  musique: ['token', 'spotifycid', 'lastfm', 'lfmkey'], // Spotify : jeton à jour fourni par /o/:id/spotify-token
+  musique: ['spotifycid', 'lastfm', 'lfmkey'], // Spotify : jeton à jour fourni par /o/:id/spotify-token ; journal des musiques : /o/:id/track
   lecteur: [], jeux: [], generique: [], soustitres: [], pngtuber: ['obspass'], shoutout: ['token', 'obspass'], clips: ['token', 'obspass'], etiquettes: ['token', 'sejwt', 'sltoken', 'kofi', 'obspass'], automatisations: ['token', 'sejwt', 'sltoken', 'kofi', 'obspass'], qrdons: [], compteurs: ['obspass'], sons: ['token', 'obspass'],
   tts: ['token', 'sejwt', 'sltoken', 'kofi', 'obspass'],
-  planning: [], hypetrain: ['token'],
+  planning: [], hypetrain: [], vedette: [], pubs: [], votes: [], score: ['obspass'], // pubs, votes, Hype Train : le relais lit Twitch pour eux (OV_TWITCH)
   discord: ['token', 'webhook'],
 };
+// Overlays qui suivent Twitch SANS recevoir le jeton du streamer : le relais s'abonne aux événements
+// (webhooks EventSub) et les leur pousse par /o/:id/ws ; il fait aussi pour eux quelques lectures Helix précises.
+const OV_TWITCH = {
+  pubs: { subs: [['channel.ad_break.begin', '1', 'adBreak']], helix: ['channels/ads'] },
+  votes: { subs: [['channel.poll.begin', '1', 'pollBegin'], ['channel.poll.progress', '1', 'pollProgress'], ['channel.poll.end', '1', 'pollEnd'],
+    ['channel.prediction.begin', '1', 'predBegin'], ['channel.prediction.progress', '1', 'predProgress'], ['channel.prediction.lock', '1', 'predLock'], ['channel.prediction.end', '1', 'predEnd']], helix: ['polls', 'predictions'] },
+  hypetrain: { subs: [['channel.hype_train.begin', '2', 'hypeBegin'], ['channel.hype_train.progress', '2', 'hypeProgress'], ['channel.hype_train.end', '2', 'hypeEnd']], helix: ['hypetrain/status'] },
+};
+const OV_EV = Object.fromEntries(Object.entries(OV_TWITCH).flatMap(([tool, x]) => x.subs.map(([type, , ev]) => [type, { tool, ev }])));
+const LOCAL_WS = /^wss?:\/\/(localhost|127\.\d+\.\d+\.\d+|\[::1\]|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)(:\d+)?\/?$/i;
+const DISCORD_HOOK = /^https:\/\/(?:\w+\.)?discord(?:app)?\.com\/api\/webhooks\/\d+\/[\w-]+$/;
 const SECRET_KEYS = ['spotify', 'spotifycid', 'lastfm', 'lfmkey', 'sejwt', 'sltoken', 'kofi', 'webhook', 'obspass'];
 const TEAM_SCOPES = ['channel:manage:polls', 'channel:manage:predictions', 'channel:manage:redemptions', 'moderation:read'];
-const SCOPES = 'clips:edit moderator:read:followers channel:read:redemptions channel:read:subscriptions channel:read:hype_train';
+const SCOPES = 'clips:edit moderator:read:followers channel:read:redemptions channel:read:subscriptions channel:read:hype_train channel:read:ads channel:read:polls channel:read:predictions';
 const rand = (n = 24) => [...crypto.getRandomValues(new Uint8Array(n))].map((b) => b.toString(36).padStart(2, '0')).join('').slice(0, Math.ceil(n * 1.4));
 const OV_RE = /^[a-z0-9]{20,48}$/;
+
+/* Journal des musiques : un morceau pour la chaîne (adresses en https uniquement : l'extension en fait un lien et une image) */
+const httpsOnly = (s, n) => { const v = clean(s, n); try { return new URL(v).protocol === 'https:' ? v : ''; } catch (e) { return ''; } };
+async function logTrack(env, login, body) {
+  const t = { at: +body.at || Date.now(), title: clean(body.title, 200), artist: clean(body.artist, 200), album: clean(body.album, 200), art: httpsOnly(body.art, 400), url: httpsOnly(body.url, 400), source: clean(body.source, 20), duration: Math.max(0, Math.min(3600000, +body.duration || 0)) };
+  if (!t.title) return json({ error: 'titre manquant' }, 400);
+  return env.ROOM.get(env.ROOM.idFromName('chan:' + login)).fetch('https://room/tracks', { method: 'POST', body: JSON.stringify(t) }).then(withCors);
+}
 
 async function accountRoutes(req, env, url, p) {
   const stub = (name) => env.ACCOUNT.get(env.ACCOUNT.idFromName(name));
@@ -393,7 +414,7 @@ async function accountRoutes(req, env, url, p) {
     if (st !== 200 || !idx.user_id) return json({ error: 'overlay introuvable (lien supprimé ou régénéré)' }, 404);
     if (p[2] === 'ws') {
       if (req.headers.get('Upgrade') !== 'websocket') return json({ error: 'WebSocket attendu' }, 426);
-      return stub('user:' + idx.user_id).fetch('https://acc/ws?ov=' + p[1], req);
+      return stub('user:' + idx.user_id).fetch('https://acc/ws?ov=' + p[1], { headers: { Upgrade: 'websocket' } }); // jamais les en-têtes du client (X-Env, X-Origin…)
     }
     if (p[2] === 'tts' && req.method === 'POST') { // overlay Lecture à voix haute : voix du relais
       const d = await req.json().catch(() => ({}));
@@ -402,7 +423,7 @@ async function accountRoutes(req, env, url, p) {
     }
     if (p[2] === 'say' && req.method === 'POST') { // overlay Automatisations : message du chat ou Discord envoyé par le relais
       const d = await req.json().catch(() => ({}));
-      const r = await stub('user:' + idx.user_id).fetch('https://acc/ov-say', { method: 'POST', headers: { 'X-Env': JSON.stringify({ cid: env.TWITCH_CLIENT_ID, secret: env.TWITCH_CLIENT_SECRET, key: env.ENCRYPTION_KEY || '' }) }, body: JSON.stringify({ ov: p[1], text: d.text, to: d.to }) });
+      const r = await stub('user:' + idx.user_id).fetch('https://acc/ov-say', { method: 'POST', headers: { 'X-Env': JSON.stringify({ cid: env.TWITCH_CLIENT_ID, secret: env.TWITCH_CLIENT_SECRET, key: env.ENCRYPTION_KEY || '' }) }, body: JSON.stringify({ ov: p[1], text: d.text, to: d.to, which: d.which }) });
       return withCors(new Response(r.body, { status: r.status, headers: { 'Content-Type': 'application/json' } }));
     }
     if ((p[2] === 'credits' || p[2] === 'recap') && req.method === 'GET') { // overlay Générique de fin (et son résumé par l'IA)
@@ -416,6 +437,17 @@ async function accountRoutes(req, env, url, p) {
     if (p[2] === 'sr' || p[2] === 'spotify-token') { // overlay Lecteur (file YouTube) / overlay Musique (Spotify)
       const d = req.method === 'POST' ? await req.json().catch(() => ({})) : {};
       const r = await stub('user:' + idx.user_id).fetch('https://acc/' + (p[2] === 'sr' ? 'ov-sr' : 'ov-spotify-token'), { method: 'POST', body: JSON.stringify(Object.assign({ action: 'state' }, d, { ov: p[1] })) });
+      return withCors(new Response(r.body, { status: r.status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } }));
+    }
+    if (p[2] === 'track' && req.method === 'POST') { // overlay Musique : journal des musiques, sans jeton Twitch dans l'overlay
+      const d = await req.json().catch(() => null);
+      if (!d) return json({ error: 'JSON attendu' }, 400);
+      const [s2, o] = await call('user:' + idx.user_id, '/ov-track', { ov: p[1] });
+      if (s2 !== 200) return json(o, s2);
+      return logTrack(env, o.login, d);
+    }
+    if (p[2] === 'twitch' && req.method === 'GET') { // pubs, votes, Hype Train : lecture Twitch faite par le relais (l'overlay n'a pas le jeton)
+      const r = await stub('user:' + idx.user_id).fetch('https://acc/ov-twitch', { method: 'POST', headers: { 'X-Env': JSON.stringify({ cid: env.TWITCH_CLIENT_ID, secret: env.TWITCH_CLIENT_SECRET, key: env.ENCRYPTION_KEY || '' }) }, body: JSON.stringify({ ov: p[1], path: url.searchParams.get('path') || '' }) });
       return withCors(new Response(r.body, { status: r.status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } }));
     }
     if (p[2] === 'don' && req.method === 'POST') { // l'overlay transmet un don Streamlabs reçu en direct
@@ -462,6 +494,11 @@ async function accountRoutes(req, env, url, p) {
   if (p[1] === 'team') {
     if (p.length === 2 && req.method === 'GET') return fwd('/team-get', 'POST', {});
     if (p.length === 2 && req.method === 'PUT') return fwd('/team-save', 'POST', body);
+    if (/^\d{1,15}$/.test(p[2] || '') && p[3] === 'feature' && p.length === 4 && req.method === 'POST') { // message en vedette sur la chaîne p[2]
+      const r = await stub('user:' + p[2]).fetch('https://acc/team-feature', { method: 'POST', headers: { 'X-Env': envHdr['X-Env'] }, body: JSON.stringify({ caller: sess.user_id, msg: body.msg, clear: !!body.clear }) });
+      if (r.status === 404 && (await r.clone().json().catch(() => ({}))).error === 'compte inconnu') return json({ error: 'cette chaîne n’utilise pas de compte StreamBox' }, 404);
+      return withCors(new Response(r.body, { status: r.status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } }));
+    }
     if (/^\d{1,15}$/.test(p[2] || '') && p.length === 3 && req.method === 'POST') { // action pour la chaîne p[2] (la sienne, ou une chaîne où l'on est modo)
       const r = await stub('user:' + p[2]).fetch('https://acc/team-helix', { method: 'POST', headers: { 'X-Env': envHdr['X-Env'] }, body: JSON.stringify({ caller: sess.user_id, req: body }) });
       if (r.status === 404 && (await r.clone().json().catch(() => ({}))).error === 'compte inconnu') return json({ error: 'cette chaîne n’utilise pas de compte StreamBox : son streamer doit se connecter à StreamBox et autoriser ses modos' }, 404);
@@ -481,6 +518,7 @@ async function accountRoutes(req, env, url, p) {
   if (p[1] === 'stats') {
     if (p.length === 2 && req.method === 'GET') return fwd('/stats-get', 'POST', {});
     if (p.length === 2 && req.method === 'PUT') return fwd('/stats-save', 'POST', body);
+    if (p[2] === 'recap' && p.length === 3 && req.method === 'POST') return fwd('/stats-recap', 'POST', {});
     if (/^\d{10,15}$/.test(p[2] || '') && p.length === 3 && req.method === 'GET') return fwd('/stats-one', 'POST', { key: p[2] });
     if (/^\d{10,15}$/.test(p[2] || '') && p.length === 3 && req.method === 'DELETE') return fwd('/stats-del', 'POST', { key: p[2] });
   }
@@ -634,6 +672,35 @@ export class Account {
       return new Response(JSON.stringify({ access, login: profile.login, user_id: profile.user_id, scopes: v.scopes || profile.scopes || [], expires_in: v.expires_in || 0 }), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
     }
     if (path === '/don') return ok(await this.subDon(body.don || {}, profile, await secrets(), E));
+    if (path === '/ov-track') {
+      const o = ((await st.get('overlays')) || {})[body.ov];
+      if (!o || o.tool !== 'musique' || !(o.settings || {}).log) return err('overlay non autorisé', 403);
+      const now = Date.now(); // 30 morceaux par minute et par compte
+      this._trk = (this._trk || []).filter((t) => now - t < 60000);
+      if (this._trk.length >= 30) return err('trop de morceaux, réessaie dans un instant', 429);
+      this._trk.push(now);
+      return ok({ login: profile.login });
+    }
+    if (path === '/ov-twitch') { // lecture Helix pour un overlay OV_TWITCH : point d'accès autorisé pour son outil, chaîne du compte uniquement
+      const o = ((await st.get('overlays')) || {})[body.ov];
+      const allow = o && OV_TWITCH[o.tool];
+      if (!allow) return err('overlay non autorisé', 403);
+      const [ep, qs] = String(body.path || '').split('?');
+      if (ep === 'users') return ok({ data: [{ id: profile.user_id, login: profile.login }] });
+      if (!allow.helix.includes(ep)) return err('lecture non autorisée pour cet overlay', 403);
+      const now = Date.now(); // 60 lectures par minute et par compte
+      this._ovtw = (this._ovtw || []).filter((t) => now - t < 60000);
+      if (this._ovtw.length >= 60) return err('trop de lectures, réessaie dans un instant', 429);
+      this._ovtw.push(now);
+      const access = await this.twitchAccess(await secrets(), E);
+      if (!access) return err('connexion Twitch expirée : reconnecte-toi sur StreamBox', 401);
+      const q = new URLSearchParams({ broadcaster_id: profile.user_id });
+      const first = new URLSearchParams(qs || '').get('first');
+      if (first && /^\d{1,2}$/.test(first)) q.set('first', first);
+      const r = await fetch('https://api.twitch.tv/helix/' + ep + '?' + q, { headers: { 'Client-Id': E.cid, Authorization: 'Bearer ' + access } }).catch(() => null);
+      if (!r) return err('Twitch injoignable', 502);
+      return new Response(JSON.stringify(await r.json().catch(() => ({}))), { status: r.status, headers: { 'Content-Type': 'application/json' } });
+    }
     if (path === '/ov-tts') {
       const o = ((await st.get('overlays')) || {})[body.ov];
       if (!o || !['tts', 'generique'].includes(o.tool)) return err('overlay non autorisé', 403); // générique : lecture du résumé
@@ -660,8 +727,12 @@ export class Account {
     }
     if (path === '/ov-say') {
       const o = ((await st.get('overlays')) || {})[body.ov];
-      if (!o || o.tool !== 'automatisations') return err('overlay non autorisé', 403);
-      const text = clean(body.text, 450).trim();
+      if (!o || !['automatisations', 'pubs'].includes(o.tool)) return err('overlay non autorisé', 403);
+      // Pubs : seulement les deux messages enregistrés dans ses réglages (un lien d'overlay ne peut pas écrire n'importe quoi)
+      const PUB = { avant: ['msgbefore', 'Petite pub dans une minute : le temps d’aller boire un verre !'], apres: ['msgafter', 'La pub est finie, merci d’être resté !'] };
+      if (o.tool === 'pubs' && !PUB[body.which]) return err('message inconnu');
+      const text = clean(o.tool === 'pubs' ? (o.settings[PUB[body.which][0]] != null ? o.settings[PUB[body.which][0]] : tr(PUB[body.which][1], profile.lang)) : body.text, 450).trim();
+      if (o.tool === 'pubs') body.to = 'chat';
       if (!text) return err('message vide');
       const now = Date.now(); // 20 messages par minute au plus (évite qu'une boucle inonde le chat)
       this._say = (this._say || []).filter((t) => now - t < 60000);
@@ -716,33 +787,23 @@ export class Account {
     if (path === '/team-get') return ok(Object.assign({ mods: false }, await st.get('team'), { scopes: TEAM_SCOPES.filter((s) => !(profile.scopes || []).includes(s)) }));
     if (path === '/team-save') { const t = { mods: !!body.mods }; await st.put('team', t); this._mods = new Map(); return ok(t); }
     if (path === '/team-helix') {
-      const isOwner = String(body.caller) === String(profile.user_id);
-      const team = (await st.get('team')) || {};
-      if (!isOwner && !team.mods) return err(`${profile.login} n’a pas autorisé ses modos à gérer sondages, prédictions et récompenses depuis StreamBox`, 403);
-      const rq = EQ.teamRequest(body.req || {}, profile.user_id, isOwner);
+      const g = await this.teamGuard(body, profile, E, secrets);
+      if (g.error) return err(g.error, g.status || 403);
+      const rq = EQ.teamRequest(body.req || {}, profile.user_id, g.isOwner);
       if (rq.error) return err(rq.error, 403);
-      const now = Date.now(); // 90 actions par minute au plus pour toute l'équipe
-      this._team = (this._team || []).filter((t) => now - t < 60000);
-      if (this._team.length >= 90) return err('trop d’actions, réessaie dans un instant', 429);
-      this._team.push(now);
-      const s = await secrets();
-      const access = await this.twitchAccess(s, E);
-      if (!access) return err(`la connexion Twitch de ${profile.login} a expiré : il ou elle doit se reconnecter à StreamBox`, 403);
-      const H = { 'Client-Id': E.cid, Authorization: 'Bearer ' + access, 'Content-Type': 'application/json' };
-      if (!isOwner) { // modo vérifié auprès de Twitch (gardé 5 minutes)
-        this._mods = this._mods || new Map();
-        const hit = this._mods.get(body.caller);
-        if (!hit || now - hit.at > 300000) {
-          const r = await fetch(`https://api.twitch.tv/helix/moderation/moderators?broadcaster_id=${profile.user_id}&user_id=${encodeURIComponent(body.caller)}`, { headers: H });
-          if (r.status === 401 || r.status === 403) return err(`${profile.login} doit se reconnecter à StreamBox pour autoriser cette fonction`, 403);
-          const d = await r.json().catch(() => ({}));
-          this._mods.set(body.caller, { ok: r.ok && (d.data || []).length > 0, at: now });
-        }
-        if (!this._mods.get(body.caller).ok) return err(`tu n’es pas modo de ${profile.login}`, 403);
-      }
+      const H = g.H;
       const r = await fetch(rq.url, { method: rq.method, headers: H, body: rq.body ? JSON.stringify(rq.body) : undefined });
       const txt = r.status === 204 ? '{}' : await r.text();
       return new Response(txt || '{}', { status: r.status, headers: { 'Content-Type': 'application/json' } });
+    }
+    if (path === '/team-feature') { // message mis en vedette depuis le panneau de modération → overlays « Message en vedette »
+      const g = await this.teamGuard(body, profile, E, secrets);
+      if (g.error) return err(g.error, g.status || 403);
+      const msg = body.clear ? null : EQ.featureMsg(body.msg);
+      if (!body.clear && !msg) return err('message invalide');
+      let sent = 0;
+      this.ctx.getWebSockets('tool:vedette').forEach((ws) => { try { ws.send(JSON.stringify({ type: 'feature', msg })); sent++; } catch (e) { /* parti */ } });
+      return ok({ sent });
     }
     /* ---- Page publique de la chaîne ---- */
     if (path === '/page-get') return ok(Object.assign(EQ.sanitizePage(await st.get('page')), { url: EQ.pageUrl(await st.get('page'), profile.login) }));
@@ -769,6 +830,11 @@ export class Account {
       const bot = await st.get('bot');
       return ok(EQ.publicPage(pg, bot && sanitizeBot(bot, null), profile, { profile: this._pub.profile, live: this._pub.live, schedule: pg.sections.schedule ? this._pub.schedule : undefined, vacation: pg.sections.schedule ? this._pub.vacation : undefined }));
     }
+    if (path === '/stats-recap') { // récap de la semaine : aperçu envoyé tout de suite sur Discord
+      const s = await secrets().catch(() => ({}));
+      if (!s.webhook) return err('aucun webhook Discord enregistré dans Mon compte → Intégrations');
+      return ok({ sent: true, text: await this.statWeekly(profile, s) });
+    }
     if (path.startsWith('/stats-')) return this.statsRoute(path, body, profile, ok, err);
     if (path.startsWith('/jeux-') || path === '/ov-jeux') return this.jeuxRoute(path, body, profile, await secrets(), E, ok, err);
     if (path.startsWith('/bot-')) return this.botRoute(path, body, profile, await secrets(), E, ok, err);
@@ -787,7 +853,7 @@ export class Account {
       // 2. index : pseudo, clé Ko-fi, liens d'overlays
       await idx('login:' + profile.login);
       if (s.kofi) await idx('kofikey:' + s.kofi);
-      for (const id of Object.keys((await st.get('overlays')) || {})) await idx('ov:' + id);
+      for (const id of Object.keys((await st.get('overlays')) || {})) { this.revoke(id); await idx('ov:' + id); }
       // 3. accès Twitch révoqué, puis tout est effacé
       if (s.twitch && s.twitch.access && E.cid) await fetch('https://id.twitch.tv/oauth2/revoke', { method: 'POST', body: new URLSearchParams({ client_id: E.cid, token: s.twitch.access }) }).catch(() => {});
       await st.deleteAlarm().catch(() => {});
@@ -796,6 +862,8 @@ export class Account {
     }
     if (path === '/me') {
       const s = await secrets(); const ov = await overlays();
+      // overlays pubs / votes / Hype Train créés avant que le relais ne s'abonne pour eux : abonnements faits une fois
+      if (!(await st.get('ovsubs')) && Object.values(ov).some((o) => OV_TWITCH[o.tool])) { await this.syncOvSubs(profile, E); await st.put('ovsubs', 1); }
       return ok({ login: profile.login, lang: profile.lang || 'fr', scopes: profile.scopes, secrets: Object.fromEntries(SECRET_KEYS.map((k) => [k, !!s[k]])),
         overlays: Object.values(ov).map(({ id, tool, name, updatedAt }) => ({ id, tool, name, updatedAt })).sort((a, b) => b.updatedAt - a.updatedAt) });
     }
@@ -851,13 +919,24 @@ export class Account {
       this.broadcastAll();
       return ok({ ok: true, secrets: Object.fromEntries(SECRET_KEYS.map((k) => [k, !!s[k]])) });
     }
-    const checkSettings = (o) => { const j = JSON.stringify(o || {}); if (j.length > 20000) throw new Error('réglages trop volumineux'); return JSON.parse(j); };
+    // Réglages d'un overlay : seulement les champs que le configurateur propose pour cet outil (TOOL_KEYS),
+    // jamais un jeton ni une adresse qui détournerait les secrets fournis par le relais (relay, token…).
+    const checkSettings = (tool, o) => {
+      const j = JSON.stringify(o || {}); if (j.length > 20000) throw new Error('réglages trop volumineux');
+      const s = JSON.parse(j), keys = TOOL_KEYS[tool] || [], out = {};
+      if (!s || typeof s !== 'object' || Array.isArray(s)) return out;
+      for (const k of keys) if (k in s && !SECRET_KEYS.includes(k)) out[k] = s[k];
+      if ('obsurl' in out && !LOCAL_WS.test(String(out.obsurl))) delete out.obsurl; // OBS : seulement ce PC ou le réseau local
+      if (out.discord && out.discord !== 'compte' && !DISCORD_HOOK.test(String(out.discord))) delete out.discord;
+      return out;
+    };
     if (path === '/overlay-create') {
       const ov = await overlays();
       if (Object.keys(ov).length >= 50) return err('50 overlays maximum par compte');
       if (!NEEDS[body.tool]) return err('outil inconnu');
-      ov[body.id] = { id: body.id, tool: body.tool, name: clean(body.name || body.tool, 80), settings: checkSettings(body.settings), updatedAt: Date.now() };
+      ov[body.id] = { id: body.id, tool: body.tool, name: clean(body.name || body.tool, 80), settings: checkSettings(body.tool, body.settings), updatedAt: Date.now() };
       await st.put('overlays', ov);
+      if (OV_TWITCH[body.tool]) await this.syncOvSubs(profile, E);
       return ok({ id: body.id });
     }
     const ov = await overlays(); const o = ov[body.id || url.searchParams.get('ov')];
@@ -870,14 +949,14 @@ export class Account {
     if (path === '/overlay-get') return ok(o);
     if (path === '/overlay-update') {
       if (body.name != null) o.name = clean(body.name, 80);
-      if (body.settings) o.settings = checkSettings(body.settings);
+      if (body.settings) o.settings = checkSettings(o.tool, body.settings);
       o.updatedAt = Date.now(); await st.put('overlays', ov);
       this.broadcast(o.id);
       return ok({ ok: true });
     }
-    if (path === '/overlay-delete') { this.broadcast(o.id, 'deleted'); delete ov[o.id]; await st.put('overlays', ov); return ok({ ok: true }); }
+    if (path === '/overlay-delete') { this.revoke(o.id); delete ov[o.id]; await st.put('overlays', ov); if (OV_TWITCH[o.tool]) await this.syncOvSubs(profile, E); return ok({ ok: true }); }
     if (path === '/overlay-rotate') {
-      this.broadcast(o.id, 'deleted');
+      this.revoke(o.id);
       delete ov[o.id]; o.id = body.nid; o.updatedAt = Date.now(); ov[o.id] = o; await st.put('overlays', ov);
       return ok({ id: o.id });
     }
@@ -918,10 +997,37 @@ export class Account {
     return d.access ? d : null;
   }
 
+  /* Le streamer, ou un modo qu'il a autorisé (vérifié auprès de Twitch, gardé 5 minutes). 90 actions par minute pour toute l'équipe. */
+  async teamGuard(body, profile, E, secrets) {
+    const st = this.ctx.storage;
+    const isOwner = String(body.caller) === String(profile.user_id);
+    const team = (await st.get('team')) || {};
+    if (!isOwner && !team.mods) return { error: `${profile.login} n’a pas autorisé ses modos à gérer sondages, prédictions, récompenses et messages en vedette depuis StreamBox` };
+    const now = Date.now();
+    this._team = (this._team || []).filter((t) => now - t < 60000);
+    if (this._team.length >= 90) return { error: 'trop d’actions, réessaie dans un instant', status: 429 };
+    this._team.push(now);
+    const access = await this.twitchAccess(await secrets(), E);
+    if (!access) return { error: `la connexion Twitch de ${profile.login} a expiré : il ou elle doit se reconnecter à StreamBox` };
+    const H = { 'Client-Id': E.cid, Authorization: 'Bearer ' + access, 'Content-Type': 'application/json' };
+    if (!isOwner) {
+      this._mods = this._mods || new Map();
+      const hit = this._mods.get(body.caller);
+      if (!hit || now - hit.at > 300000) {
+        const r = await fetch(`https://api.twitch.tv/helix/moderation/moderators?broadcaster_id=${profile.user_id}&user_id=${encodeURIComponent(body.caller)}`, { headers: H });
+        if (r.status === 401 || r.status === 403) return { error: `${profile.login} doit se reconnecter à StreamBox pour autoriser cette fonction` };
+        const d = await r.json().catch(() => ({}));
+        this._mods.set(body.caller, { ok: r.ok && (d.data || []).length > 0, at: now });
+      }
+      if (!this._mods.get(body.caller).ok) return { error: `tu n’es pas modo de ${profile.login}` };
+    }
+    return { isOwner, H };
+  }
+
   async botStatus(cfg, profile) {
     const st = this.ctx.storage;
     const bot = await this.botAccount().catch(() => null);
-    const need = (cfg.sender === 'bot' ? 'channel:bot moderator:read:followers' : BOT_SCOPES).split(' ');
+    const need = ((cfg.sender === 'bot' ? 'channel:bot moderator:read:followers' : BOT_SCOPES) + (cfg.shield && cfg.shield.on && cfg.sender !== 'bot' ? ' ' + SHIELD_SCOPES : '')).split(' ');
     const missing = need.filter((s) => !(profile.scopes || []).includes(s));
     const state = (await st.get('botstate')) || {};
     return { enabled: cfg.enabled, sender: cfg.sender, missing, live: !!state.live, subs: ((await st.get('botsubs')) || []).length,
@@ -949,6 +1055,10 @@ export class Account {
       async shoutout(to) { const [mid, t] = await modToken(); return helix(`chat/shoutouts?from_broadcaster_id=${bid}&to_broadcaster_id=${to}&moderator_id=${mid}`, { method: 'POST' }, t); },
       async channel(id) { return ((await (await helix('channels?broadcaster_id=' + (id || bid))).json()).data || [])[0]; },
       async user(login) { return ((await (await helix('users?login=' + encodeURIComponent(login))).json()).data || [])[0]; },
+      async userById(id) { return ((await (await helix('users?id=' + encodeURIComponent(id))).json()).data || [])[0]; },
+      async getChatSettings() { const [mid, t] = await modToken(); return ((await (await helix(`chat/settings?broadcaster_id=${bid}&moderator_id=${mid}`, {}, t)).json()).data || [])[0]; },
+      async chatSettings(patch) { const [mid, t] = await modToken(); return fail('modes du chat', await helix(`chat/settings?broadcaster_id=${bid}&moderator_id=${mid}`, { method: 'PATCH', body: JSON.stringify(patch) }, t)); },
+      async shieldMode(on) { const [mid, t] = await modToken(); return fail('mode bouclier', await helix(`moderation/shield_mode?broadcaster_id=${bid}&moderator_id=${mid}`, { method: 'PUT', body: JSON.stringify({ is_active: !!on }) }, t)); },
       async followedAt(uid) { const d = await (await helix(`channels/followers?broadcaster_id=${bid}&user_id=${uid}`, {}, await self.twitchAccess(secrets, E))).json(); return d.data && d.data[0] ? d.data[0].followed_at : null; },
       async clip() { // créé avec le compte du streamer (permission clips:edit)
         const r = await helix('clips?broadcaster_id=' + bid, { method: 'POST' }, await self.twitchAccess(secrets, E));
@@ -973,11 +1083,25 @@ export class Account {
       async timeout(uid, secs) { out.push({ type: 'timeout', secs }); }, async shoutout() { out.push({ type: 'shoutout' }); },
       async channel() { return { game_name: '(jeu en cours)', title: '(titre du live)' }; },
       async user(login) { return { id: '0', login: login.toLowerCase(), display_name: login }; },
+      async userById() { return { id: '0', created_at: new Date(Date.now() - 2 * 86400000).toISOString() }; },
+      async getChatSettings() { return { follower_mode: false, follower_mode_duration: 0 }; },
+      async chatSettings(p) { out.push({ type: 'modes du chat', p }); }, async shieldMode(on) { out.push({ type: 'mode bouclier', on }); },
       async followedAt() { return new Date(Date.now() - 400 * 86400000).toISOString(); },
       async clip() { out.push({ type: 'clip' }); return { id: 'ClipDeTest' }; },
       async discord(text) { out.push({ type: 'discord', text }); },
       changed() {},
     };
+  }
+
+  // Abonnements des overlays pubs / votes / Hype Train (créés ou supprimés avec l'overlay)
+  async syncOvSubs(profile, E) {
+    if (!this.env.EVENTSUB_SECRET || !(await this.ctx.storage.get('origin'))) return [];
+    return this.syncSubs((await this.ctx.storage.get('bot')) || sanitizeBot({}, null), profile, E).catch((e) => [e.message]);
+  }
+
+  // Révoque un lien d'overlay : prévient l'overlay puis ferme ses connexions (l'ancien lien ne reçoit plus rien)
+  revoke(id) {
+    this.ctx.getWebSockets('ov:' + id).forEach((ws) => { try { ws.send(JSON.stringify({ type: 'deleted' })); ws.close(4001, 'lien révoqué'); } catch (e) { /* déjà fermé */ } });
   }
 
   async syncSubs(cfg, profile, E) {
@@ -994,7 +1118,8 @@ export class Account {
     const jeuxOn = !!(jx && jx.enabled);
     const sx = await st.get('stats');
     const statsOn = !!(sx && sx.enabled);
-    if (cfg.enabled || subOn || srOn || jeuxOn || statsOn) {
+    const ovTools = [...new Set(Object.values((await st.get('overlays')) || {}).map((o) => o.tool).filter((t) => OV_TWITCH[t]))];
+    if (cfg.enabled || subOn || srOn || jeuxOn || statsOn || ovTools.length) {
       const origin = await st.get('origin');
       const bot = cfg.sender === 'bot' ? await this.botAccount() : null;
       const bid = profile.user_id;
@@ -1015,6 +1140,8 @@ export class Account {
         if (sc.includes('bits:read')) list.push({ type: 'channel.cheer', version: '1', condition: b });
         if (!cfg.enabled && !subOn && !srOn && !jeuxOn && !(sc.includes('user:read:chat') && sc.includes('channel:bot'))) list = list.filter((x) => x.type !== 'channel.chat.message');
       }
+      if (!cfg.enabled && !subOn && !srOn && !jeuxOn && !statsOn) list = []; // seulement des overlays pubs / votes / Hype Train
+      for (const t of ovTools) for (const [type, version] of OV_TWITCH[t].subs) list.push({ type, version, condition: { broadcaster_user_id: bid } });
       list = list.filter((x, i) => list.findIndex((y) => y.type === x.type) === i);
       if (cfg.sender === 'bot' && !bot) errors.push('compte bot du site non connecté');
       else for (const sub of list) {
@@ -1044,6 +1171,12 @@ export class Account {
       if (!this.env.EVENTSUB_SECRET && cfg.enabled) errors.push('EVENTSUB_SECRET manquant sur le relais');
       return ok({ cfg, status: await this.botStatus(cfg, profile), errors });
     }
+    if (path === '/bot-test' && body.raid) { // faux raid suspect : règles du bouclier telles qu'affichées (non enregistrées), rien n'est envoyé à Twitch
+      const out = [], state = {};
+      const c = sanitizeBot(Object.assign({}, cfg, { shield: (body.cfg || {}).shield || cfg.shield }), cfg);
+      await onEvent(c, state, 'channel.raid', { from_broadcaster_user_id: '0', from_broadcaster_user_login: String(body.user || 'raideur_test').toLowerCase().slice(0, 25), from_broadcaster_user_name: String(body.user || 'Raideur_Test').slice(0, 25), viewers: 30 }, this.dryApi(out, state), profile.login);
+      return ok({ actions: out });
+    }
     if (path === '/bot-test') {
       const out = [];
       const state = Object.assign({ live: true, startedAt: Date.now() - 83 * 60000 }, structuredClone((await st.get('botstate')) || {}), { live: true });
@@ -1054,6 +1187,11 @@ export class Account {
       return ok({ actions: out });
     }
     if (path === '/bot-event') {
+      const ovEv = OV_EV[body.type];
+      if (ovEv) { // pub, sondage, prédiction, Hype Train : poussé aux overlays de cet outil
+        if (body.kind !== 'revocation') this.ctx.getWebSockets('tool:' + ovEv.tool).forEach((ws) => { try { ws.send(JSON.stringify({ type: 'twitch', ev: ovEv.ev, data: body.event || {} })); } catch (e) { /* parti */ } });
+        return ok({ ok: true });
+      }
       const subCfg = await st.get('sub');
       const subOn = !!(subCfg && subCfg.enabled);
       const srCfg = await st.get('sr');
@@ -1252,6 +1390,31 @@ export class Account {
     return err('?', 404);
   }
 
+  /* Récap de la semaine (statistiques des 7 derniers jours, comparées aux 7 précédents), envoyé sur le webhook Discord */
+  async statWeekly(profile, secrets) {
+    const idx = (await this.ctx.storage.get('statidx')) || [];
+    const lang = profile.lang, T = (s, v) => tr(s, lang).replace(/\{(\d)\}/g, (_, i) => v[i]);
+    const loc = { fr: 'fr-FR', en: 'en-US', es: 'es-ES' }[lang] || 'fr-FR';
+    const n = (x) => Number(x || 0).toLocaleString(loc);
+    const t = STATS.trends(idx, Date.now(), 7), a = t.now, b = t.before;
+    const delta = (x, y) => (!y ? (x ? T('nouveau', []) : '=') : (x >= y ? '+' : '') + Math.round((x - y) / y * 100) + ' %');
+    const lines = ['**' + T('Récap de la semaine de {0}', [profile.login]) + '**'];
+    if (!a.lives) lines.push(T('Pas de live cette semaine. À la semaine prochaine !', []));
+    else {
+      lines.push(T('Lives : {0} ({1} h)', [n(a.lives), n(a.hours)]), T('Viewers en moyenne : {0} ({1})', [n(a.avg), delta(a.avg, b.avg)]), T('Pic : {0} viewers', [n(a.peak)]),
+        T('Nouveaux follows : {0} ({1})', [n(a.follows), delta(a.follows, b.follows)]), T('Abonnements : {0} ({1})', [n(a.subs), delta(a.subs, b.subs)]), T('Messages dans le chat : {0}', [n(a.msgs)]));
+      const week = idx.filter((r) => r.startedAt >= Date.now() - 7 * 86400000);
+      const best = week.reduce((m, r) => (!m || r.avg > m.avg ? r : m), null);
+      if (best) lines.push(T('Meilleur live : {0} ({1} viewers en moyenne)', [String(best.title || '').slice(0, 80) || '—', n(best.avg)]));
+    }
+    lines.push('twitch.tv/' + profile.login);
+    const text = lines.join('\n');
+    if (/^https:\/\/(?:\w+\.)?discord(?:app)?\.com\/api\/webhooks\/\d+\/[\w-]+$/.test(secrets.webhook || '')) {
+      await fetch(secrets.webhook, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: text, allowed_mentions: { parse: [] } }) });
+    }
+    return text;
+  }
+
   /* ================= Statistiques ================= */
   async statStart(stream, now) {
     const st = this.ctx.storage;
@@ -1307,7 +1470,7 @@ export class Account {
         can: { chat: sc.includes('user:read:chat') && sc.includes('channel:bot'), bits: sc.includes('bits:read'), webhooks: !!this.env.EVENTSUB_SECRET } });
     }
     if (path === '/stats-save') {
-      const prev = cfg; cfg = { enabled: !!body.enabled };
+      const prev = cfg; cfg = { enabled: !!body.enabled, weekly: body.weekly != null ? !!body.weekly : !!prev.weekly }; // weekly : récap du lundi sur Discord
       await st.put('stats', cfg);
       let errors = [];
       if (cfg.enabled !== prev.enabled && this.env.EVENTSUB_SECRET) errors = await this.syncSubs((await st.get('bot')) || sanitizeBot({}, null), profile, this.E).catch((e) => [e.message]);
@@ -1533,7 +1696,14 @@ export class Account {
     let next = Infinity;
     const stats = await st.get('stats');
     if (stats && stats.enabled) next = Math.min(next, (await this.statPoll(profile).catch(() => false)) ? 60000 : 300000); // en live : chaque minute, sinon toutes les 5 min
-    if (cfg && cfg.enabled && state.live) {
+    if (stats && stats.enabled && stats.weekly && secrets.webhook) { // le lundi matin (UTC), une fois par semaine
+      const d = new Date(), w = (await st.get('weekly')) || {};
+      if (d.getUTCDay() === 1 && d.getUTCHours() >= 8 && (!w.at || Date.now() - w.at > 5 * 86400000)) {
+        await st.put('weekly', { at: Date.now() });
+        await this.statWeekly(profile, secrets).catch(() => {});
+      }
+    }
+    if (cfg && cfg.enabled && (state.live || state.shield)) { // bouclier : levé à l'heure prévue, même après la fin du live
       const ctx = { state, changed: false };
       await onTick(cfg, state, this.makeApi(cfg, profile, secrets, this.E, ctx), profile.login);
       await st.put('botstate', state);
