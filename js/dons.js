@@ -58,6 +58,7 @@
       if (window.io) return start();
       const s = document.createElement('script');
       s.src = 'https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.3.0/socket.io.js';
+      s.integrity = 'sha512-v8ng/uGxkge3d1IJuEo6dJP8JViyvms0cly9pnbfRxT6/31c3dRWxIiwGnMSWwZjHKOuY3EVmijs7k1jz/9bLA=='; s.crossOrigin = 'anonymous'; // fichier vérifié : refusé s'il a été modifié
       s.onload = start; s.onerror = () => this.setStatus('Streamlabs', 'bibliothèque introuvable');
       document.head.appendChild(s);
     }
