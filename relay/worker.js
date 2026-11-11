@@ -289,6 +289,7 @@ export class Room {
   async fetch(req) {
     const url = new URL(req.url);
     if (url.pathname === '/ws') {
+      if (this.ctx.getWebSockets().length >= 200) return new Response('trop de connexions', { status: 429 }); // un salon de dons : quelques overlays, pas plus
       const pair = new WebSocketPair();
       this.ctx.acceptWebSocket(pair[1]);
       return new Response(null, { status: 101, webSocket: pair[0] });
@@ -300,11 +301,18 @@ export class Room {
     }
     if (url.pathname === '/tracks' && req.method === 'POST') {
       const t = await req.json();
+      const now = Date.now(); // 60 morceaux par minute au plus pour une chaîne
+      this._rate = (this._rate || []).filter((x) => now - x < 60000);
+      if (this._rate.length >= 60) return new Response(JSON.stringify({ error: 'trop de morceaux, réessaie dans un instant' }), { status: 429 });
+      this._rate.push(now);
       // pas de doublon si l'overlay renvoie le même morceau (rechargement d'OBS)
       const last = await this.ctx.storage.list({ prefix: 't:', reverse: true, limit: 1 });
       const prev = [...last.values()][0];
       if (prev && prev.title === t.title && prev.artist === t.artist && t.at - prev.at < 15 * 60000) return new Response(JSON.stringify({ ok: true, dup: true }));
       await this.ctx.storage.put('t:' + String(t.at).padStart(15, '0'), t);
+      const n = ((await this.ctx.storage.get('n')) || 0) + 1; // on garde les 20 000 derniers morceaux
+      if (n > 20000) { const old = await this.ctx.storage.list({ prefix: 't:', limit: n - 20000 }); await this.ctx.storage.delete([...old.keys()]); await this.ctx.storage.put('n', 20000); }
+      else await this.ctx.storage.put('n', n);
       return new Response(JSON.stringify({ ok: true }));
     }
     if (url.pathname === '/tracks') {
@@ -512,6 +520,7 @@ async function accountRoutes(req, env, url, p) {
     return r;
   }
   if (p[1] === 'logout-all' && req.method === 'POST') { // se déconnecter de tous les appareils
+    await fwd('/cap-close', 'POST', {});
     await call('sessgen:' + sess.user_id, '/gen-bump', {}); await call('sess:' + sid, '/session-delete', {});
     return json({ ok: true });
   }
@@ -707,6 +716,10 @@ export class Account {
       const pair = new WebSocketPair(); this.ctx.acceptWebSocket(pair[1], ['cap']);
       return new Response(null, { status: 101, webSocket: pair[0] });
     }
+    if (path === '/cap-close') { // déconnexion partout : la page Sous-titres ouverte ailleurs est coupée aussi
+      this.ctx.getWebSockets('cap').forEach((ws) => { try { ws.close(4001, 'session terminée'); } catch (e) { /* déjà fermé */ } });
+      return ok({ ok: true });
+    }
     if (path === '/lang') { if (!LANGS.includes(body.lang)) return err('langue inconnue'); profile.lang = body.lang; await st.put('profile', profile); return ok({ lang: profile.lang }); }
     if (path === '/my-token') { // panneau de modération : le modo agit avec SON compte Twitch, depuis son navigateur
       const s = await secrets();
@@ -900,6 +913,7 @@ export class Account {
       for (const id of Object.keys((await st.get('overlays')) || {})) { this.revoke(id); await idx('ov:' + id); }
       // 3. accès Twitch révoqué, puis tout est effacé
       if (s.twitch && s.twitch.access && E.cid) await fetch('https://id.twitch.tv/oauth2/revoke', { method: 'POST', body: new URLSearchParams({ client_id: E.cid, token: s.twitch.access }) }).catch(() => {});
+      this.ctx.getWebSockets('cap').forEach((ws) => { try { ws.close(4001, 'compte supprimé'); } catch (e) { /* déjà fermé */ } });
       await st.deleteAlarm().catch(() => {});
       await st.deleteAll();
       return ok({ deleted: true });
