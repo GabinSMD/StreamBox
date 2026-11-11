@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>StreamBox · Bienvenue</title>
+<link rel="stylesheet" href="../css/overlay.css">
+<script src="../js/i18n.js"></script>
+</head>
+<body>
+<div class="bv" id="card" aria-live="polite">
+  <div class="bv-kicker" id="kicker"></div>
+  <div class="bv-name" id="name"></div>
+  <div class="bv-text" id="text"></div>
+</div>
+<script src="../js/config.js"></script>
+<script src="../js/sb.js"></script>
+<script>
+/* Bienvenue : une carte pour le tout premier message d'un viewer sur la chaîne, et (en option) pour un viewer
+ * qui revient après une longue absence. C'est Twitch qui le signale (tags first-msg et returning-chatter du chat). */
+const c = SB.params({
+  channel: '', first: true, returning: true, showmsg: true,
+  tfirst: 'Bienvenue {name} !', treturn: 'Content de te revoir, {name} !', kfirst: 'Premier message', kreturn: 'De retour',
+  duration: 8, position: 'bas', ignore: '', size: 28, font: 'Inter', accent: '#9b5cff', demo: false,
+});
+SB.loadFont(c.font); SB.setAccent(c.accent);
+document.documentElement.style.setProperty('--size', c.size + 'px');
+document.body.classList.add('bv-' + (c.position === 'haut' ? 'haut' : c.position === 'centre' ? 'centre' : 'bas'));
+const $ = (id) => document.getElementById(id);
+const card = $('card');
+const emotes = new SB.EmoteStore();
+const BOTS = new Set(['nightbot', 'streamelements', 'streamlabs', 'moobot', 'fossabot', 'wizebot', 'soundalerts', 'sery_bot', 'botrixoficial', 'streamboxbot',
+  ...c.ignore.split(/[\s,]+/).map((x) => x.trim().replace(/^@/, '').toLowerCase()).filter(Boolean)]);
+const queue = [], seen = new Set();
+let busy = false;
+
+function next() {
+  const m = queue.shift();
+  if (!m) { busy = false; return; }
+  busy = true;
+  const back = !m.first;
+  $('kicker').textContent = back ? c.kreturn : c.kfirst;
+  $('name').textContent = (back ? c.treturn : c.tfirst).replace('{name}', m.name);
+  $('name').style.setProperty('--who', SB.nameColor(m));
+  $('text').replaceChildren(...(c.showmsg ? SB.messageNodes(m, emotes) : []));
+  $('text').hidden = !c.showmsg;
+  card.classList.toggle('bv-back', back);
+  card.classList.add('on');
+  setTimeout(() => { card.classList.remove('on'); setTimeout(next, 600); }, Math.max(3, c.duration) * 1000);
+}
+function welcome(m) {
+  if ((!m.first || !c.first) && (!m.returning || !c.returning)) return;
+  if (BOTS.has(m.login) || seen.has(m.login)) return; // une seule carte par viewer et par session
+  seen.add(m.login);
+  if (queue.length < 6) queue.push(m); // chat très actif : on n'accumule pas un retard de dix minutes
+  if (!busy) next();
+}
+
+if (c.demo) {
+  const lines = ['Salut tout le monde, je découvre la chaîne HeyGuys', 'Coucou ! Ça faisait longtemps', 'Premier live que je regarde ici, trop bien'];
+  let i = 0;
+  const step = () => { seen.clear(); const m = SB.fake({ user: SB.demoUsers[i % SB.demoUsers.length], text: lines[i % lines.length] }); m.first = i % 3 !== 1; m.returning = !m.first; i++; welcome(m); };
+  step(); setInterval(step, Math.max(3, c.duration) * 1000 + 1500);
+} else if (c.channel) {
+  const chat = new SB.TwitchChat(c.channel).on('room', (id) => emotes.load(id, c)).on('message', welcome);
+  chat.connect();
+} else SB.hintIfNoChannel(c);
+</script>
+</body>
+</html>

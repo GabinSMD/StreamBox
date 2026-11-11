@@ -163,6 +163,7 @@
       bits: parseInt(t.bits, 10) || 0,
       ts: parseInt(t['tmi-sent-ts'], 10) || Date.now(),
       first: t['first-msg'] === '1', // tout premier message sur cette chaîne
+      returning: t['returning-chatter'] === '1', // revient après une longue absence (selon Twitch)
     });
   }
 
@@ -194,6 +195,7 @@
     const chat = SB.sources('chat'), events = SB.sources('events'), dons = SB.sources('dons');
     switch (ev.kind) {
       case 'chat': chat.forEach((c) => c.inject(SB.fake({ user, text: ev.message || 'Message de test' }))); break;
+      case 'first': chat.forEach((c) => c.inject(Object.assign(SB.fake({ user, text: ev.message || 'Salut, je découvre la chaîne !' }), { first: true }))); break;
       case 'bits': chat.forEach((c) => c.inject(SB.fake({ user, text: ('Cheer' + ev.bits + ' ' + (ev.message || '')).trim(), bits: ev.bits }))); break;
       case 'sub': chat.forEach((c) => c.emit('usernotice', notice('sub', { plan: '1000' }))); break;
       case 'resub': chat.forEach((c) => c.emit('usernotice', notice('resub', { months: ev.months, plan: '1000' }))); break;
