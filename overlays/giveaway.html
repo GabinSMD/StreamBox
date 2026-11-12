@@ -90,7 +90,7 @@ function draw() {
     $('kicker').textContent = 'Gagnant·e !';
     $('hint').textContent = 'Messages du gagnant ci-dessus';
     state = 'won';
-    if (!c.demo && SB.isDiscordWebhook(c.discord)) SB.discordPost(c.discord, { embeds: [{ title: '🎉 Gagnant·e du giveaway', description: `**${winner.name}** remporte « ${c.title} » parmi ${names.length} participant${names.length > 1 ? 's' : ''} !`, color: 0x9b5cff }] }).catch((e) => console.warn(e.message));
+    if (!c.demo && SB.canDiscord(c.discord)) SB.discordPost(c.discord, { embeds: [{ title: '🎉 Gagnant·e du giveaway', description: `**${winner.name}** remporte « ${c.title} » parmi ${names.length} participant${names.length > 1 ? 's' : ''} !`, color: 0x9b5cff }] }).catch((e) => console.warn(e.message));
   };
   step();
 }

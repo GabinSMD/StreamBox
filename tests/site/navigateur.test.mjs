@@ -167,3 +167,19 @@ test('événement Twitch poussé par le relais : même forme qu’en direct, et 
   assert.deepEqual(p.errors, []);
   await p.context().close();
 });
+
+test('lien du compte : les dons poussés par le relais arrivent à l’overlay, Discord passe par le relais', { skip }, async () => {
+  const p = await page();
+  await p.route(/127\.0\.0\.1:9\/o\/.*\/discord$/, (r) => r.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true}' }));
+  await p.goto(`${base}overlays/alertes.html?channel=chaine_test`); await p.waitForTimeout(300);
+  const r = await p.evaluate(async () => {
+    SB.ovLink = { relay: 'http://127.0.0.1:9', id: 'x'.repeat(24) };
+    const got = [];
+    SB.donations({}).on('don', (d) => got.push(d.name));
+    SB._donRelay.at(-1)({ kind: 'don', name: 'Lou', amount: 5, currency: 'EUR' });
+    let posted = true; try { await SB.discordPost('relais', { content: 'x' }); } catch (e) { posted = e.message; }
+    return { got, posted, can: SB.canDiscord('relais') };
+  });
+  assert.deepEqual(r, { got: ['Lou'], posted: true, can: true });
+  await p.context().close();
+});

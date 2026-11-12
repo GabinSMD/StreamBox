@@ -106,7 +106,7 @@ SB.remote('discord', c.cmd, onMessage);
 
 /* ---- Détection du live (connexion Twitch) ---- */
 if (!c.demo) {
-  if (!SB.isDiscordWebhook(c.webhook)) log('ajoute l’adresse du webhook Discord dans les réglages');
+  if (!SB.canDiscord(c.webhook)) log('ajoute l’adresse du webhook Discord dans les réglages');
   if (!SB.canTwitch(c)) log('connecte-toi avec Twitch pour détecter le début et la fin du live');
   SB.twitchEvents(c, ['online', 'offline']).on('online', (e) => onLive(e.start)).on('offline', onOffline).on('status', (s) => log('Twitch : ' + s));
   // OBS lancé alors que le live a déjà commencé : on vérifie une fois

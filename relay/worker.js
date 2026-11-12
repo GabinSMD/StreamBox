@@ -345,16 +345,16 @@ export class Room {
 // Jetons dont chaque outil a besoin : un overlay ne reçoit QUE ceux-là (moindre privilège).
 const NEEDS = {
   chat: [], emotes: [],
-  alertes: ['sejwt', 'sltoken', 'kofi', 'obspass'],
-  subathon: ['sejwt', 'sltoken', 'kofi', 'obspass'],
-  objectifs: ['sejwt', 'sltoken', 'kofi', 'obspass'],
-  sondage: ['obspass'], minuteur: ['obspass'], roue: ['obspass'], giveaway: ['obspass', 'webhook'],
+  alertes: ['sejwt', 'sltoken', 'obspass'],
+  subathon: ['sejwt', 'sltoken', 'obspass'],
+  objectifs: ['sejwt', 'sltoken', 'obspass'],
+  sondage: ['obspass'], minuteur: ['obspass'], roue: ['obspass'], giveaway: ['obspass'],
   rewind: ['obspass'],
   musique: ['spotifycid', 'lastfm', 'lfmkey'], // Spotify : jeton à jour fourni par /o/:id/spotify-token ; journal des musiques : /o/:id/track
-  lecteur: [], jeux: [], generique: [], soustitres: [], pngtuber: ['obspass'], shoutout: ['obspass'], clips: ['obspass'], etiquettes: ['sejwt', 'sltoken', 'kofi', 'obspass'], automatisations: ['sejwt', 'sltoken', 'kofi', 'obspass'], qrdons: [], compteurs: ['obspass'], sons: ['obspass'],
-  tts: ['sejwt', 'sltoken', 'kofi', 'obspass'],
+  lecteur: [], jeux: [], generique: [], soustitres: [], pngtuber: ['obspass'], shoutout: ['obspass'], clips: ['obspass'], etiquettes: ['sejwt', 'sltoken', 'obspass'], automatisations: ['sejwt', 'sltoken', 'obspass'], qrdons: [], compteurs: ['obspass'], sons: ['obspass'],
+  tts: ['sejwt', 'sltoken', 'obspass'],
   planning: [], hypetrain: [], reseaux: [], bienvenue: [], webcam: [], defis: [], classement: [], vedette: [], pubs: [], votes: [], score: ['obspass'], // aucun overlay ne reçoit le jeton Twitch : le relais lit Twitch pour eux (OV_TWITCH)
-  discord: ['webhook'],
+  discord: [],
 };
 // Overlays qui suivent Twitch SANS recevoir le jeton du streamer : le relais s'abonne aux événements
 // (webhooks EventSub) et les leur pousse par /o/:id/ws ; il fait aussi pour eux quelques lectures Helix précises.
@@ -387,6 +387,7 @@ const OV_TWITCH = {
   clips: { ev: [], helix: [], pub: ['users', 'clips'] },
 };
 for (const x of Object.values(OV_TWITCH)) x.subs = x.ev.map((k) => EV[k]);
+const KOFI_TOOLS = ['alertes', 'subathon', 'objectifs', 'etiquettes', 'automatisations', 'tts']; // reçoivent les dons Ko-fi et webhook par /o/:id/ws (sans la clé)
 const LEGACY_TOKEN = new Set(['alertes', 'subathon', 'objectifs', 'rewind', 'shoutout', 'clips', 'etiquettes', 'automatisations', 'sons', 'tts', 'discord']); // recevaient le jeton avant que le relais lise Twitch pour eux
 const OV_EV = {}; // type EventSub → nom de l'événement et outils qui le reçoivent
 for (const [tool, x] of Object.entries(OV_TWITCH)) for (const [type, , ev] of x.subs) (OV_EV[type] = OV_EV[type] || { ev, tools: [] }).tools.push(tool);
@@ -522,6 +523,11 @@ async function accountRoutes(req, env, url, p) {
     if (p[2] === 'twitch' && (req.method === 'GET' || req.method === 'POST')) { // lecture Twitch faite par le relais (l'overlay n'a pas le jeton) ; POST : création de clip (Rewind)
       const r = await stub('user:' + idx.user_id).fetch('https://acc/ov-twitch', { method: 'POST', headers: { 'X-Env': JSON.stringify({ cid: env.TWITCH_CLIENT_ID, secret: env.TWITCH_CLIENT_SECRET, key: env.ENCRYPTION_KEY || '' }) }, body: JSON.stringify({ ov: p[1], path: url.searchParams.get('path') || '', method: req.method }) });
       return withCors(new Response(r.body, { status: r.status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } }));
+    }
+    if (p[2] === 'discord' && req.method === 'POST') { // discord, giveaway : le relais poste sur le webhook enregistré
+      const d = await req.json().catch(() => ({}));
+      const r = await stub('user:' + idx.user_id).fetch('https://acc/ov-discord', { method: 'POST', body: JSON.stringify({ ov: p[1], payload: d }) });
+      return withCors(new Response(r.body, { status: r.status, headers: { 'Content-Type': 'application/json' } }));
     }
     if (p[2] === 'don' && req.method === 'POST') { // l'overlay transmet un don Streamlabs reçu en direct
       const d = await req.json().catch(() => ({}));
@@ -764,7 +770,31 @@ export class Account {
       const v = await (await fetch('https://id.twitch.tv/oauth2/validate', { headers: { Authorization: 'OAuth ' + access } })).json().catch(() => ({}));
       return new Response(JSON.stringify({ access, login: profile.login, user_id: profile.user_id, scopes: v.scopes || profile.scopes || [], expires_in: v.expires_in || 0 }), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
     }
-    if (path === '/don') return ok(await this.subDon(body.don || {}, profile, await secrets(), E));
+    if (path === '/don') { // don Ko-fi ou webhook relié à ce compte : poussé aux overlays de dons (ils n'ont pas la clé)
+      const msg = JSON.stringify({ type: 'don', don: body.don || {} });
+      for (const tool of KOFI_TOOLS) this.ctx.getWebSockets('tool:' + tool).forEach((ws) => { try { ws.send(msg); } catch (e) { /* parti */ } });
+      return ok(await this.subDon(body.don || {}, profile, await secrets(), E));
+    }
+    if (path === '/ov-discord') { // message Discord d'un overlay : posté par le relais (l'overlay n'a pas l'adresse du webhook)
+      const o = ((await st.get('overlays')) || {})[body.ov];
+      if (!o || !['discord', 'giveaway'].includes(o.tool)) return err('overlay non autorisé', 403);
+      const set = o.settings || {}, s = await secrets();
+      const hook = o.tool === 'giveaway' && set.discord !== 'compte' ? set.discord : s.webhook;
+      if (!DISCORD_HOOK.test(hook || '')) return err('aucun webhook Discord enregistré', 404);
+      const now = Date.now(); // 10 messages par minute et par compte
+      this._dsc = (this._dsc || []).filter((t) => now - t < 60000);
+      if (this._dsc.length >= 10) return err('trop de messages, réessaie dans un instant', 429);
+      this._dsc.push(now);
+      const p = body.payload || {};
+      const embeds = (Array.isArray(p.embeds) ? p.embeds : []).slice(0, 3);
+      if (JSON.stringify(embeds).length > 6000) return err('message trop long', 413);
+      // mentions : seulement celle choisie dans les réglages de l'overlay discord (jamais décidée par la page)
+      const m = o.tool === 'discord' && p.allowed_mentions ? set.mention : ''; // demandée par l'annonce du live seulement (pas pour !discord)
+      const allowed = m === 'everyone' || m === 'here' ? { parse: ['everyone'] } : /^\d{5,25}$/.test(m || '') ? { parse: [], roles: [m] } : { parse: [] };
+      const r = await fetch(hook + '?wait=true', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'StreamBox', content: clean(p.content, 2000), embeds, allowed_mentions: allowed }) }).catch(() => null);
+      if (!r) return err('Discord injoignable', 502);
+      return r.ok ? ok({ ok: true }) : err('Discord a refusé le message (' + r.status + ')', 502);
+    }
     if (path === '/ov-track') {
       const o = ((await st.get('overlays')) || {})[body.ov];
       if (!o || o.tool !== 'musique' || !(o.settings || {}).log) return err('overlay non autorisé', 403);
@@ -1086,10 +1116,11 @@ export class Account {
       if (!params.channel) params.channel = profile.login;
       for (const k of NEEDS[o.tool] || []) {
         if (k === 'token') { const t = await this.twitchAccess(s, E); if (t) params.token = t; }
-        else if (k === 'webhook' && o.tool === 'giveaway') { if (params.discord === 'compte' && s.webhook) params.discord = s.webhook; }
         else if (s[k]) params[k] = s[k];
       }
-      if (o.tool === 'giveaway' && params.discord === 'compte') delete params.discord;
+      // Webhooks Discord : jamais dans l'overlay. « relais » : il peut demander au relais de poster (/o/:id/discord)
+      if (o.tool === 'discord') params.webhook = s.webhook ? 'relais' : '';
+      if (o.tool === 'giveaway') params.discord = (params.discord === 'compte' ? s.webhook : DISCORD_HOOK.test(params.discord || '')) ? 'relais' : '';
       return ok({ tool: o.tool, params });
     }
     return err('?', 404);
