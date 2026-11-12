@@ -89,7 +89,9 @@
       return String(text || '').replace(/\{(\w+)\}/g, (all, k) => (k in v ? v[k] : all));
     }
     async run(r, ev) {
-      this.note(`▶ ${r.name || r.trigger.type}${ev.user ? ' · ' + ev.user : ''}`);
+      const test = !!(SB.testing && SB.testing()); // événement de test : on montre ce qui se passerait, sans rien faire pour de vrai
+      this.note(`${test ? '🧪 test · ' : '▶ '}${r.name || r.trigger.type}${ev.user ? ' · ' + ev.user : ''}`);
+      if (test) { r.actions.forEach((a) => this.note(`  ${SB.AUTO.ACTIONS[a.type].label} (non exécuté pendant un test)`)); return; }
       for (const a of r.actions) {
         try { await this.act(a, ev); } catch (e) { this.note(`⚠️ ${SB.AUTO.ACTIONS[a.type].label} : ${e.message}`); }
       }
