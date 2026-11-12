@@ -346,7 +346,7 @@ const NEEDS = {
   musique: ['spotifycid', 'lastfm', 'lfmkey'], // Spotify : jeton à jour fourni par /o/:id/spotify-token ; journal des musiques : /o/:id/track
   lecteur: [], jeux: [], generique: [], soustitres: [], pngtuber: ['obspass'], shoutout: ['token', 'obspass'], clips: ['token', 'obspass'], etiquettes: ['token', 'sejwt', 'sltoken', 'kofi', 'obspass'], automatisations: ['token', 'sejwt', 'sltoken', 'kofi', 'obspass'], qrdons: [], compteurs: ['obspass'], sons: ['token', 'obspass'],
   tts: ['token', 'sejwt', 'sltoken', 'kofi', 'obspass'],
-  planning: [], hypetrain: [], reseaux: [], bienvenue: [], webcam: [], vedette: [], pubs: [], votes: [], score: ['obspass'], // pubs, votes, Hype Train : le relais lit Twitch pour eux (OV_TWITCH)
+  planning: [], hypetrain: [], reseaux: [], bienvenue: [], webcam: [], defis: [], classement: [], vedette: [], pubs: [], votes: [], score: ['obspass'], // pubs, votes, Hype Train : le relais lit Twitch pour eux (OV_TWITCH)
   discord: ['token', 'webhook'],
 };
 // Overlays qui suivent Twitch SANS recevoir le jeton du streamer : le relais s'abonne aux événements
@@ -563,6 +563,7 @@ async function accountRoutes(req, env, url, p) {
     if (p.length === 2 && req.method === 'GET') return fwd('/stats-get', 'POST', {});
     if (p.length === 2 && req.method === 'PUT') return fwd('/stats-save', 'POST', body);
     if (p[2] === 'recap' && p.length === 3 && req.method === 'POST') return fwd('/stats-recap', 'POST', {});
+    if (p[2] === 'clips' && p.length === 3 && req.method === 'POST') return fwd('/stats-clips', 'POST', {});
     if (/^\d{10,15}$/.test(p[2] || '') && p.length === 3 && req.method === 'GET') return fwd('/stats-one', 'POST', { key: p[2] });
     if (/^\d{10,15}$/.test(p[2] || '') && p.length === 3 && req.method === 'DELETE') return fwd('/stats-del', 'POST', { key: p[2] });
   }
@@ -892,6 +893,14 @@ export class Account {
       const s = await secrets().catch(() => ({}));
       if (!s.webhook) return err('aucun webhook Discord enregistré dans Mon compte → Intégrations');
       return ok({ sent: true, text: await this.statWeekly(profile, s) });
+    }
+    if (path === '/stats-clips') { // moments forts du dernier live : envoyés tout de suite sur Discord
+      const s = await secrets().catch(() => ({}));
+      if (!s.webhook) return err('aucun webhook Discord enregistré dans Mon compte → Intégrations');
+      const last = ((await st.get('statidx')) || [])[0];
+      if (!last) return err('aucun live enregistré pour le moment');
+      const text = await this.postClips(profile, s, { start: last.startedAt, end: last.startedAt + (last.duration || 0) });
+      return text ? ok({ sent: true, text }) : err('aucun clip pendant le dernier live');
     }
     if (path.startsWith('/stats-')) return this.statsRoute(path, body, profile, ok, err);
     if (path.startsWith('/jeux-') || path === '/ov-jeux') return this.jeuxRoute(path, body, profile, await secrets(), E, ok, err);
@@ -1513,6 +1522,27 @@ export class Account {
     idx.push(STATS.summary(r)); idx.sort((a, b) => b.startedAt - a.startedAt);
     for (const old of idx.slice(STATS.MAX_LIVES)) await st.delete('stat:' + String(old.startedAt).padStart(15, '0'));
     await st.put('statidx', idx.slice(0, STATS.MAX_LIVES));
+    const cfg = await st.get('stats');
+    if (cfg && cfg.clips && r.duration >= 10 * 60000) { // moments forts : 20 min après la fin, le temps que les derniers clips soient créés
+      await st.put('clippost', { start: r.startedAt, end: now, due: now + 20 * 60000 });
+      const a = await st.getAlarm(); if (!a || a > now + 20 * 60000) await st.setAlarm(now + 20 * 60000);
+    }
+  }
+  /* Moments forts : les clips les plus vus du live, postés sur le webhook Discord du compte */
+  async postClips(profile, secrets, P) {
+    const E = this.E, lang = profile.lang, T = (s, v) => tr(s, lang).replace(/\{(\d)\}/g, (_, i) => v[i]);
+    if (!E.cid || !E.secret || !/^https:\/\/(?:\w+\.)?discord(?:app)?\.com\/api\/webhooks\/\d+\/[\w-]+$/.test(secrets.webhook || '')) return null;
+    const q = new URLSearchParams({ broadcaster_id: profile.user_id, started_at: new Date(P.start).toISOString(), ended_at: new Date(P.end + 20 * 60000).toISOString(), first: '50' });
+    const r = await fetch('https://api.twitch.tv/helix/clips?' + q, { headers: { 'Client-Id': E.cid, Authorization: 'Bearer ' + await appAccess(E.cid, E.secret) } });
+    if (!r.ok) return null;
+    const clips = ((await r.json()).data || []).filter((c) => Date.parse(c.created_at) >= P.start).sort((a, b) => b.view_count - a.view_count).slice(0, 3);
+    if (!clips.length) return null;
+    const loc = { fr: 'fr-FR', en: 'en-US', es: 'es-ES' }[lang] || 'fr-FR';
+    const lines = ['**' + T('🎬 Les moments forts du live de {0}', [profile.login]) + '**'];
+    clips.forEach((c, i) => lines.push(`${i + 1}. [${String(c.title || 'Clip').replace(/[\[\]\n]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 90)}](${c.url}) · ${T('{0} vues', [Number(c.view_count || 0).toLocaleString(loc)])} · ${T('par {0}', [String(c.creator_name || '').slice(0, 30)])}`));
+    const text = lines.join('\n');
+    await fetch(secrets.webhook, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: text, allowed_mentions: { parse: [] } }) });
+    return text;
   }
   /* Relevé de la minute : le live est détecté même si un webhook Twitch se perd */
   async statPoll(profile) {
@@ -1545,7 +1575,8 @@ export class Account {
         can: { chat: sc.includes('user:read:chat') && sc.includes('channel:bot'), bits: sc.includes('bits:read'), webhooks: !!this.env.EVENTSUB_SECRET } });
     }
     if (path === '/stats-save') {
-      const prev = cfg; cfg = { enabled: !!body.enabled, weekly: body.weekly != null ? !!body.weekly : !!prev.weekly }; // weekly : récap du lundi sur Discord
+      const prev = cfg; cfg = { enabled: !!body.enabled, weekly: body.weekly != null ? !!body.weekly : !!prev.weekly, // weekly : récap du lundi sur Discord
+        clips: body.clips != null ? !!body.clips : !!prev.clips }; // clips : moments forts du live sur Discord, à la fin
       await st.put('stats', cfg);
       let errors = [];
       if (cfg.enabled !== prev.enabled && this.env.EVENTSUB_SECRET) errors = await this.syncSubs((await st.get('bot')) || sanitizeBot({}, null), profile, this.E).catch((e) => [e.message]);
@@ -1570,10 +1601,15 @@ export class Account {
       async get(id) { return (await st.get('pt:' + id)) || { id: String(id), n: 0, name: '', login: '' }; },
       async put(id, p) { p.id = String(id); await st.put('pt:' + id, p); if (p.login) await st.put('ptn:' + p.login, String(id)); },
       async findByName(login) { const id = await st.get('ptn:' + String(login).toLowerCase()); return id ? P.get(id) : null; },
-      async top(n) { // classement gardé 15 s : !top répété ne relit pas 5000 joueurs à chaque fois
+      // Classements gardés 15 s (!top répété ne relit pas 5000 joueurs) : points (depuis toujours), messages et présence du mois
+      async top(n, kind = 'points') {
         const now = Date.now();
-        if (!acc._top || now - acc._top.at > 15000) acc._top = { at: now, list: [...(await st.list({ prefix: 'pt:', limit: 5000 })).values()].filter((x) => x.n > 0).sort((a, b) => b.n - a.n).slice(0, 10).map((x) => ({ name: x.name || x.login, n: x.n })) };
-        return acc._top.list.slice(0, n);
+        if (!acc._top || now - acc._top.at > 15000) {
+          const all = [...(await st.list({ prefix: 'pt:', limit: 5000 })).values()], mo = JEUX.month(now);
+          const rank = (val) => all.map((x) => ({ name: x.name || x.login, n: val(x) })).filter((x) => x.n > 0).sort((a, b) => b.n - a.n).slice(0, 10);
+          acc._top = { at: now, points: rank((x) => x.n), messages: rank((x) => (x.mo === mo ? x.mm || 0 : 0)), presence: rank((x) => (x.mo === mo ? x.mt || 0 : 0)) };
+        }
+        return (acc._top[kind] || acc._top.points).slice(0, n);
       },
     };
     return P;
@@ -1595,11 +1631,12 @@ export class Account {
     const st = this.ctx.storage, now = Date.now(), P = this.pointsStore();
     let cfg = (await st.get('jeux')) || JEUX.sanitizeGames({}, null);
     const G = (await st.get('jeuxstate')) || JEUX.freshGames();
-    const full = async () => ({ cfg, state: JEUX.publicGames(cfg, G, await P.top(10), now), quizAnswer: G.quiz && G.quiz.open ? G.quiz.answers.join(' / ') : null, players: (await st.list({ prefix: 'pt:', limit: 5000 })).size });
+    const full = async () => ({ cfg, state: JEUX.publicGames(cfg, G, await P.top(10), now, { messages: await P.top(10, 'messages'), presence: await P.top(10, 'presence') }), quizAnswer: G.quiz && G.quiz.open ? G.quiz.answers.join(' / ') : null, players: (await st.list({ prefix: 'pt:', limit: 5000 })).size });
     if (path === '/ov-jeux') {
       const o = ((await st.get('overlays')) || {})[body.ov];
-      if (!o || o.tool !== 'jeux') return err('overlay non autorisé', 403);
-      return ok(JEUX.publicGames(cfg, G, await P.top(5), now));
+      if (!o || !['jeux', 'defis', 'classement'].includes(o.tool)) return err('overlay non autorisé', 403);
+      const ranks = o.tool === 'classement' ? { points: await P.top(10, 'points'), messages: await P.top(10, 'messages'), presence: await P.top(10, 'presence') } : null;
+      return ok(JEUX.publicGames(cfg, G, await P.top(5), now, ranks));
     }
     if (path === '/jeux-get') return ok(await full());
     if (path === '/jeux-save') {
@@ -1615,7 +1652,7 @@ export class Account {
       if (body.action === 'reset') { // remet tous les points à zéro
         const keys = [...(await st.list({ prefix: 'pt:', limit: 5000 })).keys(), ...(await st.list({ prefix: 'ptn:', limit: 5000 })).keys()];
         for (let i = 0; i < keys.length; i += 128) await st.delete(keys.slice(i, i + 128));
-        Object.assign(G, JEUX.freshGames()); await st.put('jeuxstate', G);
+        Object.assign(G, JEUX.freshGames()); await st.put('jeuxstate', G); this._top = null; // classements recalculés tout de suite
         return ok(await full());
       }
       // Les boutons de la page lancent la même commande que dans le chat, au nom du streamer
@@ -1781,6 +1818,11 @@ export class Account {
         await st.put('weekly', { at: Date.now() });
         await this.statWeekly(profile, secrets).catch(() => {});
       }
+    }
+    const cp = await st.get('clippost');
+    if (cp) {
+      if (Date.now() >= cp.due) { await st.delete('clippost'); await this.postClips(profile, secrets, cp).catch(() => {}); }
+      else next = Math.min(next, cp.due - Date.now());
     }
     if (cfg && cfg.enabled && (state.live || state.shield)) { // bouclier : levé à l'heure prévue, même après la fin du live
       const ctx = { state, changed: false };

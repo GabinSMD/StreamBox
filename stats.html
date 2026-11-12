@@ -36,6 +36,11 @@
         <button class="btn ghost small" id="recapNow" type="button">Envoyer un aperçu maintenant</button>
       </div>
       <p class="bt-help" id="weeklyHelp">Lives, heures, viewers en moyenne et pic, follows, abonnements, messages et meilleur live, comparés à la semaine d’avant. Il part sur le webhook Discord de Mon compte → Intégrations.</p>
+      <div class="bt-row sx-weekly">
+        <label class="bt-toggle"><input type="checkbox" id="clips"><b>Moments forts du live sur Discord, à la fin de chaque live</b></label>
+        <button class="btn ghost small" id="clipsNow" type="button">Envoyer ceux du dernier live</button>
+      </div>
+      <p class="bt-help">Les 3 clips les plus vus du live, postés 20 minutes après la fin (le temps que les derniers clips soient créés). Seulement si quelqu’un a clippé.</p>
       <div class="note" id="warn" hidden></div>
     </section>
 
@@ -159,6 +164,7 @@ function chatSeries(samples) { const out = []; for (let i = 0; i < samples.lengt
 function render() {
   const c = data.cfg;
   $('weekly').checked = !!c.weekly; $('weekly').disabled = !c.enabled;
+  $('clips').checked = !!c.clips; $('clips').disabled = !c.enabled;
   $('enabled').checked = c.enabled; $('enabledLabel').textContent = c.enabled ? 'Enregistrement des lives activé' : 'Enregistrement désactivé';
   $('st').textContent = data.live ? '🔴 live en cours' : c.enabled ? 'en attente du prochain live' : '';
   const warn = [];
@@ -228,6 +234,14 @@ $('dDel').onclick = async () => {
 };
 $('dClose').onclick = () => { current = null; $('detail').hidden = true; render(); };
 $('period').onclick = (e) => { const b = e.target.closest('button'); if (!b) return; period = +b.dataset.i; document.querySelectorAll('#period button').forEach((x) => x.classList.toggle('on', x === b)); render(); };
+$('clipsNow').onclick = async () => {
+  if (DEMO) return toast('Connecte-toi pour envoyer les moments forts sur ton Discord');
+  try { await SBA.api('POST', '/me/stats/clips', {}); toast('Moments forts envoyés sur Discord'); } catch (e) { toast('Erreur : ' + e.message); }
+};
+$('clips').onchange = async () => {
+  try { const d = DEMO ? { cfg: Object.assign({}, data.cfg, { clips: $('clips').checked }) } : await SBA.api('PUT', '/me/stats', { enabled: data.cfg.enabled, clips: $('clips').checked }); data.cfg = d.cfg; render(); toast(d.cfg.clips ? 'Moments forts activés' : 'Moments forts désactivés'); }
+  catch (e) { toast('Erreur : ' + e.message); $('clips').checked = !$('clips').checked; }
+};
 $('weekly').onchange = async () => {
   try { const d = DEMO ? { cfg: Object.assign({}, data.cfg, { weekly: $('weekly').checked }) } : await SBA.api('PUT', '/me/stats', { enabled: data.cfg.enabled, weekly: $('weekly').checked }); data.cfg = d.cfg; render(); toast(d.cfg.weekly ? 'Récap du lundi activé' : 'Récap du lundi désactivé'); }
   catch (e) { toast('Erreur : ' + e.message); $('weekly').checked = !$('weekly').checked; }

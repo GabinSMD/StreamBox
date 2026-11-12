@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>StreamBox · Classement de la communauté</title>
+<link rel="stylesheet" href="../css/overlay.css">
+<script src="../js/i18n.js"></script>
+</head>
+<body>
+<section class="rk" id="box" hidden>
+  <div class="rk-head"><span class="rk-title" id="title"></span><span class="rk-sub" id="sub"></span></div>
+  <ol class="rk-list" id="list"></ol>
+</section>
+<script src="../js/config.js"></script>
+<script src="../js/sb.js"></script>
+<script>
+/* Classement de la communauté, tiré des mini-jeux du chat : points (depuis toujours), messages ou présence du mois.
+ * En rotation, les trois classements s'affichent l'un après l'autre. */
+const c = SB.params({ kind: 'messages', rotate: false, every: 15, count: 5, title: '', size: 22, font: 'Inter', accent: '#9b5cff', demo: false });
+SB.loadFont(c.font); SB.setAccent(c.accent);
+document.documentElement.style.setProperty('--size', c.size + 'px');
+const $ = (id) => document.getElementById(id);
+const fmt = (n) => Math.round(n).toLocaleString(SB_LANG_TAG);
+const fmtMin = (m) => (m >= 60 ? `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}` : `${m} min`);
+const KINDS = ['messages', 'presence', 'points'];
+let S = null, k = KINDS.includes(c.kind) ? c.kind : 'messages';
+const label = (S2) => ({ messages: [SB.t('Les plus bavards'), SB.t('messages ce mois-ci')], presence: [SB.t('Les plus fidèles'), SB.t('temps passé dans le chat ce mois-ci')], points: [SB.t('Les plus riches'), S2 ? S2.currency : 'points'] }[k]);
+
+function render() {
+  if (!S || !S.ranks) return;
+  const [t, sub] = label(S);
+  $('title').textContent = c.title || t; $('sub').textContent = sub;
+  const list = (S.ranks[k] || []).slice(0, Math.max(1, Math.min(10, c.count)));
+  $('box').hidden = false;
+  $('list').replaceChildren(...(list.length ? list.map((x, i) => {
+    const li = SB.el('li', 'rk-item' + (i < 3 ? ' rk-' + (i + 1) : ''));
+    const n = SB.el('span', 'rk-name', x.name); n.dataset.i18nSkip = '';
+    li.append(SB.el('span', 'rk-pos', String(i + 1)), n, SB.el('span', 'rk-val', k === 'presence' ? fmtMin(x.n) : fmt(x.n)));
+    return li;
+  }) : [SB.el('li', 'rk-empty', SB.t('Pas encore de classement ce mois-ci.'))]));
+}
+if (c.rotate) setInterval(() => { k = KINDS[(KINDS.indexOf(k) + 1) % KINDS.length]; render(); }, Math.max(5, c.every) * 1000);
+
+if (c.demo) {
+  const names = ['PixelMaud', 'KevinLeRoux', 'Lou_Gaming', 'Sacha', 'Camille', 'Nino', 'Jade'];
+  S = { currency: 'pépites', ranks: { messages: names.map((name, i) => ({ name, n: 820 - i * 97 })), presence: names.map((name, i) => ({ name, n: 1340 - i * 151 })), points: names.map((name, i) => ({ name, n: 25400 - i * 2900 })) } };
+  render();
+} else if (SB.ovLink) {
+  const poll = async () => { try { const r = await fetch(`${SB.ovLink.relay}/o/${SB.ovLink.id}/jeux`, { cache: 'no-store' }); if (r.ok) { S = await r.json(); render(); } } catch (e) { /* relais injoignable : on réessaie */ } };
+  poll(); setInterval(poll, 20000);
+} else if (!SB._cfgError) document.body.appendChild(SB.el('div', 'sb-hint', 'StreamBox : ' + SB.t('cet overlay passe par ton compte StreamBox : enregistre-le dans ton compte et colle son lien court dans OBS.')));
+else SB.hintIfNoChannel(c);
+</script>
+</body>
+</html>
