@@ -820,16 +820,19 @@
 
   /* Ce qu'il faut vraiment avant de configurer un outil :
    * libre (rien), option (marche sans connexion, Twitch ajoute ce qui est indiqué), twitch, compte (compte StreamBox), cle (un réglage à créer une fois) */
-  const opt = (what) => ['option', 'Twitch en option : ' + what];
-  const COMPTE = ['compte', 'Compte StreamBox'], TW = ['twitch', 'Connexion Twitch'];
+  // [niveau, détail exact] : le badge court est dans SB_NEED_SHORT, le détail va sur la fiche de l'outil et dans l'info-bulle
+  const opt = (what) => ['option', `Marche sans connexion. Avec la connexion Twitch en plus : ${what}.`];
+  const COMPTE = ['compte', 'Demande un compte StreamBox : tu te connectes simplement avec Twitch, c’est gratuit.'];
+  const TW = ['twitch', 'Demande la connexion Twitch (en un clic, sans partager ton mot de passe), ou un compte StreamBox.'];
+  const setup = (what) => ['cle', `À préparer une fois : ${what} (expliqué dans les réglages de l’outil).`];
   const NEED = {
     alertes: opt('follows, points'), subathon: opt('follows, points'), objectifs: opt('followers'), etiquettes: opt('follows, totaux'),
     webcam: opt('follows'), sons: opt('points de chaîne'), tts: opt('points de chaîne'), rewind: opt('clips'),
     shoutout: TW, clips: TW, hypetrain: TW, pubs: TW, votes: TW,
-    discord: ['cle', 'Webhook Discord'], musique: ['cle', 'Pseudo Last.fm'],
+    discord: setup('un webhook Discord'), musique: setup('ton pseudo Last.fm (gratuit)'),
     lecteur: COMPTE, jeux: COMPTE, defis: COMPTE, classement: COMPTE, soustitres: COMPTE, generique: COMPTE, vedette: COMPTE,
     diagnostic: COMPTE, raid: COMPTE, bot: COMPTE, moderation: COMPTE, stats: COMPTE, 'subathon-live': COMPTE, sr: COMPTE, minijeux: COMPTE, automatisations: COMPTE, chaine: COMPTE, 'sous-titres': COMPTE,
-    panneau: ['cle', 'Mot de passe OBS'], extension: ['libre', 'Extension à installer'],
+    panneau: setup('le mot de passe du WebSocket d’OBS'), extension: ['libre', 'Pour tes viewers : une extension de navigateur à installer, sans compte.'],
   };
   /* « Pour commencer » : trois parcours courts, outils dans l'ordre où les régler, et toujours la vérification à la fin */
   window.SB_PATHS = [
@@ -837,14 +840,8 @@
     { id: 'animer', icon: '💬', name: 'Animer mon chat', desc: 'Un bot qui répond, des viewers accueillis, des votes et des jeux pour faire participer.', steps: ['bot', 'bienvenue', 'sondage', 'minijeux', 'diagnostic'] },
     { id: 'subathon', icon: '⏱️', name: 'Organiser un subathon', desc: 'Un timer qui monte avec les abos, les bits et les dons, un objectif et une roue pour les défis.', steps: ['subathon-live', 'objectifs', 'roue', 'diagnostic'] },
   ];
-  window.SB_NEED_HELP = {
-    libre: 'Marche tout de suite : ni connexion ni compte.',
-    option: 'Marche sans connexion. La connexion Twitch ajoute seulement ce qui est indiqué.',
-    twitch: 'Demande la connexion Twitch (ou un compte StreamBox).',
-    compte: 'Demande un compte StreamBox : connexion avec Twitch, gratuite.',
-    cle: 'Demande un réglage à créer une fois, gratuit (expliqué dans l’outil).',
-  };
-  [...window.SB_TOOLS, ...window.SB_PAGES].forEach((t) => { t.need = NEED[t.id] || ['libre', 'Sans connexion']; });
+  window.SB_NEED_SHORT = { libre: 'Sans connexion', option: 'Connexion facultative', twitch: 'Connexion requise', compte: 'Connexion requise', cle: 'Configuration avancée' };
+  [...window.SB_TOOLS, ...window.SB_PAGES].forEach((t) => { t.need = NEED[t.id] || ['libre', 'Marche tout de suite : ni connexion ni compte.']; });
 
   window.SB_TOOLS.forEach((t) => {
     if (WITH_DONS.includes(t.id)) t.fields = t.fields.concat(DONS);

@@ -29,7 +29,7 @@
     a.append(head, el('p', null, t.short || t.tagline)); // description courte ; le détail est dans la page de l'outil
     const meta = el('span', 'tool-meta');
     meta.append(el('span', 'tag-kind', KIND[t.kind]));
-    if (t.need) { const n = el('span', 'tag-need tag-' + t.need[0], t.need[1]); n.title = SB.t((window.SB_NEED_HELP || {})[t.need[0]] || ''); meta.append(n); } // ce qu'il faut vraiment
+    if (t.need) { const n = el('span', 'tag-need tag-' + t.need[0], window.SB_NEED_SHORT[t.need[0]]); n.title = SB.t(t.need[1]); meta.append(n); } // badge court, le détail au survol et sur la fiche
     if (t.platforms.includes('kick') || t.platforms.includes('youtube')) meta.append(el('span', null, 'Aussi ' + t.platforms.filter((p) => p !== 'twitch').map((p) => ({ kick: 'Kick', youtube: 'YouTube' })[p]).join(' et ')));
     a.appendChild(meta);
     if (t.links && !(opts && opts.short)) {

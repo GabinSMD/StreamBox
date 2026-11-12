@@ -105,8 +105,8 @@ const isDefault = (f, v) => v === f.default || (f.type === 'checkbox' && !!v ===
   $('tagline').textContent = tool.tagline;
   if (tool.need) { // ce qu'il faut vraiment, avant de commencer
     const n = document.createElement('p'); n.className = 'need-line';
-    const b = document.createElement('b'); b.className = 'tag-' + tool.need[0]; b.textContent = tool.need[1];
-    n.append(b, document.createTextNode(SB.t((window.SB_NEED_HELP || {})[tool.need[0]] || ''))); $('tagline').after(n);
+    const b = document.createElement('b'); b.className = 'tag-' + tool.need[0]; b.textContent = window.SB_NEED_SHORT[tool.need[0]];
+    n.append(b, document.createTextNode(SB.t(tool.need[1]))); $('tagline').after(n);
   }
   if (tool.mergedInto) { // overlay qui fait partie d'un outil plus large (Subathon, Demandes de musique)
     const parent = SB_PAGES.find((x) => x.id === tool.mergedInto);

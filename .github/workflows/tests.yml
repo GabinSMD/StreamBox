@@ -1,0 +1,34 @@
+# Tests de StreamBox à chaque pull request et sur main : relais (faux Cloudflare et faux Twitch),
+# vérifications du site (syntaxe, traductions, registre des outils) et navigateur (Chromium).
+# Aucun secret n'est utilisé : rien ne sort vers Twitch, Discord ou le relais déployé.
+name: Tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Navigateur Chromium pour les tests
+        run: npx playwright install --with-deps chromium
+      - name: Tests
+        run: npm test
+        env:
+          CI: 'true'
