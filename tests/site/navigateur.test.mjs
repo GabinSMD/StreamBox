@@ -124,3 +124,28 @@ test('automatisations : une règle déclenchée par un test n’exécute aucune 
   assert.doesNotMatch(log, /OBS non connecté|⚠️/, 'aucune action tentée');
   await p.context().close();
 });
+
+test('traduction de la page : un message de viewer piégé ne bloque pas l’overlay, et il n’est pas traduit', { skip, timeout: 60000 }, async () => {
+  const p = await page();
+  await p.goto(`${base}overlays/vedette.html?channel=chaine_test&lang=en`); await p.waitForTimeout(300);
+  const r = await p.evaluate(async () => {
+    const dict = await (await fetch('../js/i18n/en.json')).json();
+    const tpls = Object.keys(dict).filter((k) => /\{\w+\}/.test(k)).sort((a, b) => b.length - a.length).slice(0, 80);
+    let worst = 0;
+    for (const fr of tpls) { // les morceaux fixes du modèle répétés : le pire cas pour une recherche paresseuse
+      const lits = fr.split(/\{\w+\}/).filter(Boolean);
+      const trap = (lits.join(' a ') + ' ').repeat(Math.ceil(390 / (fr.length + 3))).slice(0, 390);
+      for (const s of [trap, trap + ' x', 'Viewer hugs ' + 'a : '.repeat(60) + ' (total '.repeat(60)]) {
+        const t0 = performance.now(); SB.t(s); worst = Math.max(worst, performance.now() - t0);
+      }
+    }
+    const box = document.createElement('div'); box.append(...SB.messageNodes({ text: 'Défi introuvable.' })); document.body.append(box);
+    await new Promise((ok) => setTimeout(ok, 200));
+    return { worst, text: box.textContent, ui: SB.t('Défi introuvable.') };
+  });
+  assert.ok(r.worst < 250, `pire cas : ${Math.round(r.worst)} ms`);
+  assert.equal(r.ui, 'Challenge not found.', 'le texte de l’interface est bien traduit');
+  assert.equal(r.text, 'Défi introuvable.', 'le message du viewer reste tel quel');
+  assert.deepEqual(p.errors, []);
+  await p.context().close();
+});

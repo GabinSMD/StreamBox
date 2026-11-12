@@ -64,7 +64,7 @@ export function fakeFetch(state) {
       if ((opt.method || 'GET') === 'POST') state.subs.push(JSON.parse(body));
       return J({ data: [{ id: 'sub' + state.subs.length }] }, 202);
     }
-    if (url.includes('api.twitch.tv/helix/moderation/moderators')) return J({ data: new URL(url).searchParams.get('user_id') === '200' ? [{ user_id: '200' }] : [] });
+    if (url.includes('api.twitch.tv/helix/moderation/moderators')) { const u = new URL(url).searchParams.get('user_id'); return J({ data: [{ user_id: '200' }].filter((m) => !u || m.user_id === u) }); }
     if (url.includes('api.twitch.tv/helix/chat/messages')) { state.said.push(JSON.parse(body).message); return J({ data: [{ is_sent: true }] }); }
     if (url.includes('api.twitch.tv/helix/')) return J({ data: [] });
     if (url.includes('discord.com/api/webhooks')) { state.discord.push(JSON.parse(body)); return new NativeResponse(null, { status: 204 }); }

@@ -161,7 +161,7 @@ function render() {
   const LBL = { points: C, messages: 'Messages du mois', presence: 'Présence du mois' };
   $('rankTabs').replaceChildren(...Object.keys(R).map((k) => { const b = btn(k === 'points' ? SB.t('Points') : SB.t(LBL[k]), () => { rankKind = k; render(); }, k !== rankKind); b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', String(k === rankKind)); return b; }));
   const val = (x) => (rankKind === 'presence' ? (x.n >= 60 ? `${Math.floor(x.n / 60)} h ${String(x.n % 60).padStart(2, '0')}` : `${x.n} min`) : rankKind === 'messages' ? SB.t('{0} messages', [fmt(x.n)]) : `${fmt(x.n)} ${C}`);
-  $('top').replaceChildren(...(R[rankKind].length ? R[rankKind].map((x, i) => { const r = el('div', 'pn-row'); r.append(el('span', 'lv-num', `${i + 1}.`), el('span', null, x.name), el('b', null, val(x))); return r; }) : [el('p', 'bt-help', `Personne n’a encore de ${C} : il suffit d’écrire dans le chat quand les jeux sont activés.`)]));
+  $('top').replaceChildren(...(R[rankKind].length ? R[rankKind].map((x, i) => { const r = el('div', 'pn-row'); const nm = el('span', null, x.name); nm.dataset.i18nSkip = ''; r.append(el('span', 'lv-num', `${i + 1}.`), nm, el('b', null, val(x))); return r; }) : [el('p', 'bt-help', `Personne n’a encore de ${C} : il suffit d’écrire dans le chat quand les jeux sont activés.`)]));
   $('events').replaceChildren(...(S.events.length ? S.events.map((e) => (() => { const d = el('div', 'bt-help'); d.append(SB.meta(new Date(e.t).toLocaleTimeString(SB_LANG_TAG, { hour: '2-digit', minute: '2-digit' })), ' ', e.text); return d; })()) : [el('p', 'bt-help', 'Rien pour l’instant.')]));
   if (!dirty) $('settings').replaceChildren(
     field('currency', 'Nom des points', 'text'),
