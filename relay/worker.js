@@ -346,7 +346,7 @@ const NEEDS = {
   musique: ['spotifycid', 'lastfm', 'lfmkey'], // Spotify : jeton à jour fourni par /o/:id/spotify-token ; journal des musiques : /o/:id/track
   lecteur: [], jeux: [], generique: [], soustitres: [], pngtuber: ['obspass'], shoutout: ['token', 'obspass'], clips: ['token', 'obspass'], etiquettes: ['token', 'sejwt', 'sltoken', 'kofi', 'obspass'], automatisations: ['token', 'sejwt', 'sltoken', 'kofi', 'obspass'], qrdons: [], compteurs: ['obspass'], sons: ['token', 'obspass'],
   tts: ['token', 'sejwt', 'sltoken', 'kofi', 'obspass'],
-  planning: [], hypetrain: [], vedette: [], pubs: [], votes: [], score: ['obspass'], // pubs, votes, Hype Train : le relais lit Twitch pour eux (OV_TWITCH)
+  planning: [], hypetrain: [], reseaux: [], bienvenue: [], webcam: [], vedette: [], pubs: [], votes: [], score: ['obspass'], // pubs, votes, Hype Train : le relais lit Twitch pour eux (OV_TWITCH)
   discord: ['token', 'webhook'],
 };
 // Overlays qui suivent Twitch SANS recevoir le jeton du streamer : le relais s'abonne aux événements
@@ -355,6 +355,7 @@ const OV_TWITCH = {
   pubs: { subs: [['channel.ad_break.begin', '1', 'adBreak']], helix: ['channels/ads'] },
   votes: { subs: [['channel.poll.begin', '1', 'pollBegin'], ['channel.poll.progress', '1', 'pollProgress'], ['channel.poll.end', '1', 'pollEnd'],
     ['channel.prediction.begin', '1', 'predBegin'], ['channel.prediction.progress', '1', 'predProgress'], ['channel.prediction.lock', '1', 'predLock'], ['channel.prediction.end', '1', 'predEnd']], helix: ['polls', 'predictions'] },
+  webcam: { subs: [['channel.follow', '2', 'follow', (bid) => ({ broadcaster_user_id: bid, moderator_user_id: bid })]], helix: [] },
   hypetrain: { subs: [['channel.hype_train.begin', '2', 'hypeBegin'], ['channel.hype_train.progress', '2', 'hypeProgress'], ['channel.hype_train.end', '2', 'hypeEnd']], helix: ['hypetrain/status'] },
 };
 const OV_EV = Object.fromEntries(Object.entries(OV_TWITCH).flatMap(([tool, x]) => x.subs.map(([type, , ev]) => [type, { tool, ev }])));
@@ -1214,7 +1215,7 @@ export class Account {
         if (!cfg.enabled && !subOn && !srOn && !jeuxOn && !(sc.includes('user:read:chat') && sc.includes('channel:bot'))) list = list.filter((x) => x.type !== 'channel.chat.message');
       }
       if (!cfg.enabled && !subOn && !srOn && !jeuxOn && !statsOn) list = []; // seulement des overlays pubs / votes / Hype Train
-      for (const t of ovTools) for (const [type, version] of OV_TWITCH[t].subs) list.push({ type, version, condition: { broadcaster_user_id: bid } });
+      for (const t of ovTools) for (const [type, version, , cond] of OV_TWITCH[t].subs) list.push({ type, version, condition: cond ? cond(bid) : { broadcaster_user_id: bid } });
       list = list.filter((x, i) => list.findIndex((y) => y.type === x.type) === i);
       if (cfg.sender === 'bot' && !bot) errors.push('compte bot du site non connecté');
       else for (const sub of list) {
@@ -1263,7 +1264,7 @@ export class Account {
       const ovEv = OV_EV[body.type];
       if (ovEv) { // pub, sondage, prédiction, Hype Train : poussé aux overlays de cet outil
         if (body.kind !== 'revocation') this.ctx.getWebSockets('tool:' + ovEv.tool).forEach((ws) => { try { ws.send(JSON.stringify({ type: 'twitch', ev: ovEv.ev, data: body.event || {} })); } catch (e) { /* parti */ } });
-        return ok({ ok: true });
+        if (body.type !== 'channel.follow') return ok({ ok: true }); // le follow sert aussi au bot, au subathon et aux statistiques
       }
       const subCfg = await st.get('sub');
       const subOn = !!(subCfg && subCfg.enabled);

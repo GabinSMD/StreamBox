@@ -82,7 +82,7 @@ export function pageUrl(page, login) {
 }
 
 /* Simulateur : faux événement nettoyé avant d'être envoyé aux overlays (texte borné, nombres plafonnés) */
-const SIM_KINDS = ['follow', 'sub', 'resub', 'gift', 'raid', 'bits', 'don', 'points', 'hype', 'chat', 'ad', 'poll', 'pred', 'feature'];
+const SIM_KINDS = ['follow', 'sub', 'resub', 'gift', 'raid', 'bits', 'don', 'points', 'hype', 'chat', 'first', 'ad', 'poll', 'pred', 'feature'];
 export function simEvent(input) {
   const e = input && typeof input === 'object' ? input : {};
   if (!SIM_KINDS.includes(e.kind)) return null;
@@ -97,7 +97,7 @@ export function simEvent(input) {
   if (e.kind === 'points') { out.reward = String(e.reward || 'Hydrate-toi').slice(0, 45); out.cost = int(e.cost, 1, 1000000, 500); }
   if (e.kind === 'hype') out.level = int(e.level, 1, 25, 2);
   if (e.kind === 'ad') out.duration = int(e.duration, 5, 180, 30);
-  if (['resub', 'bits', 'don', 'points', 'chat', 'feature'].includes(e.kind)) out.message = String(e.message || '').replace(/[\u0000-\u001f]/g, ' ').slice(0, 200);
+  if (['resub', 'bits', 'don', 'points', 'chat', 'first', 'feature'].includes(e.kind)) out.message = String(e.message || '').replace(/[\u0000-\u001f]/g, ' ').slice(0, 200);
   return out;
 }
 

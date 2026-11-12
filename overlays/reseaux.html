@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>StreamBox · Réseaux sociaux</title>
+<link rel="stylesheet" href="../css/overlay.css">
+<script src="../js/i18n.js"></script>
+</head>
+<body>
+<div class="rs" id="box" aria-live="polite"></div>
+<script src="../js/config.js"></script>
+<script src="../js/sb.js"></script>
+<script>
+/* Réseaux sociaux : tes pseudos un par un (rotation) ou tous ensemble (bandeau), en permanence ou de temps en temps.
+ * Une ligne par réseau : « plateforme | pseudo ». Les couleurs des plateformes connues sont reprises (pas de logo). */
+const c = SB.params({
+  items: 'youtube | @tachaine\ntiktok | @tachaine\ninstagram | @tachaine\ndiscord | discord.gg/tonserveur',
+  mode: 'rotation', every: 5, cycle: 0, visible: 30, align: 'gauche', size: 24, font: 'Inter', accent: '#9b5cff', demo: false,
+});
+SB.loadFont(c.font); SB.setAccent(c.accent);
+document.documentElement.style.setProperty('--size', c.size + 'px');
+document.body.classList.add('rs-' + (c.align === 'droite' ? 'droite' : c.align === 'centre' ? 'centre' : 'gauche'));
+const PLATFORMS = { // nom affiché, couleur de fond, couleur du texte
+  twitch: ['Twitch', '#9146ff', '#fff'], youtube: ['YouTube', '#ff0033', '#fff'], tiktok: ['TikTok', '#111', '#25f4ee'],
+  instagram: ['Instagram', '#d62976', '#fff'], x: ['X', '#111', '#fff'], twitter: ['X', '#111', '#fff'], discord: ['Discord', '#5865f2', '#fff'],
+  kick: ['Kick', '#53fc18', '#0b0b0b'], bluesky: ['Bluesky', '#1185fe', '#fff'], threads: ['Threads', '#111', '#fff'], facebook: ['Facebook', '#0866ff', '#fff'],
+  snapchat: ['Snapchat', '#fffc00', '#111'], github: ['GitHub', '#24292f', '#fff'], steam: ['Steam', '#1b2838', '#fff'], kofi: ['Ko-fi', '#72a4f2', '#fff'], 'ko-fi': ['Ko-fi', '#72a4f2', '#fff'],
+};
+const items = c.items.split('\n').map((l) => l.split('|').map((x) => x.trim())).filter(([p, h]) => p && h).slice(0, 12)
+  .map(([p, h]) => { const k = PLATFORMS[p.toLowerCase().replace(/\s+/g, '')]; return { name: k ? k[0] : p, bg: k ? k[1] : '', fg: k ? k[2] : '', handle: h }; });
+const box = document.getElementById('box');
+
+function chip(it) {
+  const d = SB.el('div', 'rs-item');
+  const tag = SB.el('span', 'rs-tag', it.name);
+  if (it.bg) { tag.style.background = it.bg; tag.style.color = it.fg; }
+  const h = SB.el('span', 'rs-handle', it.handle);
+  d.dataset.i18nSkip = ''; d.append(tag, h);
+  return d;
+}
+let rot = 0, rotTimer = null;
+function show() {
+  if (!items.length) return;
+  if (c.mode === 'bandeau') box.replaceChildren(...items.map(chip));
+  else {
+    const next = () => {
+      const el = chip(items[rot++ % items.length]);
+      const old = box.firstChild;
+      if (old) { old.classList.add('out'); setTimeout(() => old.remove(), 400); }
+      box.appendChild(el);
+    };
+    next(); clearInterval(rotTimer); rotTimer = setInterval(next, Math.max(2, c.every) * 1000);
+  }
+  box.classList.add('on');
+}
+function hide() { box.classList.remove('on'); clearInterval(rotTimer); }
+
+if (!items.length) document.body.appendChild(SB.el('div', 'sb-hint', 'StreamBox : ' + SB.t('ajoute tes réseaux dans les réglages, une ligne par réseau : plateforme | pseudo.')));
+else if (c.cycle > 0 && !c.demo) { // de temps en temps : visible `visible` s toutes les `cycle` minutes
+  const once = () => { show(); setTimeout(hide, Math.max(5, c.visible) * 1000); };
+  once(); setInterval(once, Math.max(1, c.cycle) * 60000);
+} else show();
+</script>
+</body>
+</html>

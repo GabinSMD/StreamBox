@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>StreamBox · Cadre webcam</title>
+<link rel="stylesheet" href="../css/overlay.css">
+<script src="../js/i18n.js"></script>
+</head>
+<body>
+<div class="wc" id="frame">
+  <div class="wc-hole"></div>
+  <div class="wc-label" id="label"><b id="title"></b><span id="sub"></span></div>
+  <div class="wc-thanks" id="thanks" aria-live="polite"></div>
+</div>
+<script src="../js/config.js"></script>
+<script src="../js/sb.js"></script>
+<script src="../js/eventsub.js"></script>
+<script>
+/* Cadre webcam : à poser par-dessus la caméra dans OBS (même taille). Un contour aux couleurs de la chaîne, ton pseudo,
+ * et un éclat avec un merci à chaque abo, raid, bits ou follow. Les abos, raids et bits viennent du chat (sans connexion). */
+const c = SB.params({
+  channel: '', token: '', title: '', sub: '', thickness: 6, glow: true, label: 'bas-gauche', events: true, thanks: true,
+  tsub: 'Merci pour l’abo, {name} !', traid: 'Merci pour le raid, {name} !', tbits: 'Merci pour les bits, {name} !', tfollow: 'Merci pour le follow, {name} !',
+  size: 22, font: 'Inter', accent: '#9b5cff', demo: false,
+});
+SB.loadFont(c.font); SB.setAccent(c.accent);
+const root = document.documentElement;
+root.style.setProperty('--size', c.size + 'px');
+root.style.setProperty('--wc-b', Math.max(0, Math.min(40, c.thickness)) + 'px');
+const $ = (id) => document.getElementById(id);
+const frame = $('frame');
+frame.classList.toggle('wc-glow', c.glow);
+document.body.classList.add('wc-' + (['bas-gauche', 'bas-droite', 'haut-gauche', 'haut-droite', 'aucun'].includes(c.label) ? c.label : 'bas-gauche'));
+$('title').textContent = c.title || c.channel || (c.demo ? 'TaChaine' : '');
+$('sub').textContent = c.sub; $('sub').hidden = !c.sub;
+$('label').hidden = c.label === 'aucun' || !$('title').textContent;
+
+const queue = [];
+let busy = false;
+function next() {
+  const e = queue.shift();
+  if (!e) { busy = false; return; }
+  busy = true;
+  frame.classList.remove('wc-pop'); void frame.offsetWidth; frame.classList.add('wc-pop'); // relance l'animation
+  if (c.thanks) { $('thanks').textContent = e.text; $('thanks').classList.add('on'); }
+  setTimeout(() => { $('thanks').classList.remove('on'); setTimeout(next, 500); }, 4000);
+}
+function hit(kind, name) {
+  if (!c.events) return;
+  const t = { sub: c.tsub, raid: c.traid, bits: c.tbits, follow: c.tfollow }[kind];
+  if (queue.length < 8) queue.push({ text: t.replace('{name}', name || '') });
+  if (!busy) next();
+}
+
+if (c.demo) {
+  const demo = [['sub', 'PixelMaud'], ['raid', 'KevinLeRoux'], ['follow', 'Lou_Gaming'], ['bits', 'Sacha']];
+  let i = 0; const step = () => { const [k, n] = demo[i++ % demo.length]; hit(k, n); };
+  setTimeout(step, 600); setInterval(step, 6000);
+} else if (c.channel) {
+  new SB.TwitchChat(c.channel).on('usernotice', (n) => {
+    if (['sub', 'resub'].includes(n.type)) hit('sub', n.name);
+    else if (n.type === 'subgift' && !n.isCommunityGift) hit('sub', n.name);
+    else if (n.type === 'submysterygift') hit('sub', n.name);
+    else if (n.type === 'raid') hit('raid', n.name);
+  }).on('cheer', (m) => hit('bits', m.name)).connect();
+  if (c.token || SB.ovLink) SB.twitchEvents(c, ['follow']).on('follow', (e) => hit('follow', e.name || e.user_name));
+} else SB.hintIfNoChannel(c);
+</script>
+</body>
+</html>
