@@ -136,20 +136,26 @@ export function moderate(cfg, st, text, login, level) {
 }
 
 /* Traite un message du chat. ev = { text, login, name, userId, badges, messageId } */
-export async function onChat(cfg, st, ev, api, channel) {
+/* Modération d'un message (liens, majuscules, mots interdits…) : appliquée avant tout le reste,
+ * mini-jeux, demandes de musique et subathon compris. Renvoie la règle enfreinte, ou null. */
+export async function modChat(cfg, st, ev, api, channel) {
+  const level = userLevel(ev.badges, ev.isBroadcaster);
+  const rule = moderate(cfg, st, ev.text, ev.login, level);
+  if (!rule) return null;
+  const r = cfg.mod[rule];
+  if (r.action === 'delete') await api.del(ev.messageId);
+  else if (r.action.startsWith('timeout:')) await api.timeout(ev.userId, +r.action.split(':')[1], 'StreamBox : ' + rule);
+  if (r.msg) await api.say(await render(r.msg, { user: ev.name, channel }, api, st));
+  return rule;
+}
+
+export async function onChat(cfg, st, ev, api, channel, opts = {}) {
   const level = userLevel(ev.badges, ev.isBroadcaster);
   st.lines = (st.lines || 0) + 1;
   const now = Date.now();
 
-  // 1. Modération
-  const rule = moderate(cfg, st, ev.text, ev.login, level);
-  if (rule) {
-    const r = cfg.mod[rule];
-    if (r.action === 'delete') await api.del(ev.messageId);
-    else if (r.action.startsWith('timeout:')) await api.timeout(ev.userId, +r.action.split(':')[1], 'StreamBox : ' + rule);
-    if (r.msg) await api.say(await render(r.msg, { user: ev.name, channel }, api, st));
-    return { moderated: rule };
-  }
+  // 1. Modération (déjà faite par l'appelant quand opts.moderated)
+  if (!opts.moderated) { const rule = await modChat(cfg, st, ev, api, channel); if (rule) return { moderated: rule }; }
 
   // 2. Commandes
   const text = ev.text.trim();

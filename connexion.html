@@ -36,7 +36,7 @@ const say = (h, p) => { document.getElementById('h').textContent = h; document.g
 if (q.get('code') && q.get('state')) {
   // Compte StreamBox : le relais échange le code (avec le secret Twitch, qui ne quitte jamais le serveur)
   let expected = null;
-  try { expected = sessionStorage.getItem('sb-oauth-state'); } catch (e) { /* ignore */ }
+  try { expected = sessionStorage.getItem('sb-oauth-state'); sessionStorage.removeItem('sb-oauth-state'); } catch (e) { /* ignore */ }
   const [nonce, ...ret] = q.get('state').split('|');
   if (!expected || nonce !== expected) say('Connexion refusée', 'La réponse de Twitch ne correspond pas à la demande. Réessaie.');
   else {

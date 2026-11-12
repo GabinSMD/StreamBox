@@ -16,7 +16,8 @@
   const urlQ = new URLSearchParams(location.search);
   let cfgQ = null;
   const ovId = urlQ.get('o');
-  const relay = ((urlQ.get('relay') || (window.SB_CONFIG && window.SB_CONFIG.relayUrl) || '') + '').replace(/\/$/, '');
+  // Lien de compte (?o=) : toujours le relais du site, jamais un ?relay= ajouté au lien (il recevrait les réglages)
+  const relay = (((ovId ? '' : urlQ.get('relay')) || (window.SB_CONFIG && window.SB_CONFIG.relayUrl) || '') + '').replace(/\/$/, '');
   if (ovId && /^[a-z0-9]{20,48}$/.test(ovId) && relay) {
     try {
       const x = new XMLHttpRequest();
@@ -191,7 +192,7 @@
   /* Événements de test : l'overlay réagit comme en live, mais sur une copie de son état. Rien n'est compté ni
    * enregistré : 8 s après le dernier test, il revient à son état réel (tout de suite si un vrai événement arrive). */
   let sandbox = null;
-  const REAL = new Set(['message', 'usernotice', 'cheer', 'follow', 'points', 'don', 'adBreak', 'pollBegin', 'pollProgress', 'pollEnd', 'predBegin', 'predProgress', 'predLock', 'predEnd', 'hypeBegin', 'hypeProgress', 'hypeEnd']);
+  const REAL = new Set(['message', 'usernotice', 'cheer', 'follow', 'points', 'don', 'adBreak', 'pollBegin', 'pollProgress', 'pollEnd', 'predBegin', 'predProgress', 'predLock', 'predEnd', 'hypeBegin', 'hypeProgress', 'hypeEnd', 'online', 'offline']);
   SB.testable = function (get, set, render) { SB._testable = { get, set, render }; }; // l'overlay déclare son état (objet JSON)
   SB.testing = () => !!sandbox || !!SB.inTest; // vrai pendant un test : ne rien enregistrer, ne rien transmettre au relais
   function endTest() {
@@ -366,12 +367,13 @@
     const chars = Array.from(msg.text || '');
     const nodes = [];
     let pending = '';
-    const flush = () => { if (pending) { nodes.push(document.createTextNode(pending)); pending = ''; } };
+    const keep = SB.raw || ((n) => n); // texte du viewer : la traduction de la page n'y touche pas
+    const flush = () => { if (pending) { nodes.push(keep(document.createTextNode(pending))); pending = ''; } };
     const img = (url, alt) => {
       flush();
       const i = document.createElement('img');
       i.className = 'emote'; i.src = url; i.alt = alt; i.title = alt;
-      nodes.push(i);
+      nodes.push(keep(i));
     };
     const pushText = (s) => s.split(/(\s+)/).forEach((tok) => {
       const e = store && tok && store.get(tok);

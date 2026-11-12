@@ -75,7 +75,7 @@
  *   EVENTSUB_SECRET (10 à 100 caractères, pour signer les webhooks), BOT_LOGIN (facultatif : compte bot du site).
  */
 
-import { DEFAULT_BOT, sanitizeBot, onChat, onEvent, onTick, wantedSubs, userLevel, BOT_SCOPES, BOT_ACCOUNT_SCOPES, SHIELD_SCOPES } from './bot.js';
+import { DEFAULT_BOT, sanitizeBot, onChat, modChat, onEvent, onTick, wantedSubs, userLevel, BOT_SCOPES, BOT_ACCOUNT_SCOPES, SHIELD_SCOPES } from './bot.js';
 import * as SUBA from './subathon.js';
 import * as SR from './sr.js';
 import * as JEUX from './jeux.js';
@@ -289,7 +289,10 @@ export class Room {
   async fetch(req) {
     const url = new URL(req.url);
     if (url.pathname === '/ws') {
-      if (this.ctx.getWebSockets().length >= 200) return new Response('trop de connexions', { status: 429 }); // un salon de dons : quelques overlays, pas plus
+      // Un salon de dons : quelques overlays. Au-delà de 200, on ferme les plus anciennes connexions au lieu de refuser
+      // les nouvelles : quelqu'un qui remplirait le salon ne peut pas empêcher les overlays du streamer de se reconnecter.
+      const open = this.ctx.getWebSockets();
+      open.slice(0, Math.max(0, open.length - 199)).forEach((ws) => { try { ws.close(1013, 'trop de connexions'); } catch (e) { /* déjà fermée */ } });
       const pair = new WebSocketPair();
       this.ctx.acceptWebSocket(pair[1]);
       return new Response(null, { status: 101, webSocket: pair[0] });
@@ -302,6 +305,7 @@ export class Room {
     if (url.pathname === '/tracks' && req.method === 'POST') {
       const t = await req.json();
       const now = Date.now(); // 60 morceaux par minute au plus pour une chaîne
+      t.at = Math.min(now + 60000, Math.max(now - 86400e3, +t.at || now)); // pas de date inventée : au plus un jour en arrière
       this._rate = (this._rate || []).filter((x) => now - x < 60000);
       if (this._rate.length >= 60) return new Response(JSON.stringify({ error: 'trop de morceaux, réessaie dans un instant' }), { status: 429 });
       this._rate.push(now);
@@ -309,7 +313,10 @@ export class Room {
       const last = await this.ctx.storage.list({ prefix: 't:', reverse: true, limit: 1 });
       const prev = [...last.values()][0];
       if (prev && prev.title === t.title && prev.artist === t.artist && t.at - prev.at < 15 * 60000) return new Response(JSON.stringify({ ok: true, dup: true }));
-      await this.ctx.storage.put('t:' + String(t.at).padStart(15, '0'), t);
+      const key = 't:' + String(t.at).padStart(15, '0');
+      const isNew = (await this.ctx.storage.get(key)) === undefined;
+      await this.ctx.storage.put(key, t);
+      if (!isNew) return new Response(JSON.stringify({ ok: true })); // même instant réécrit : le compteur ne bouge pas
       const n = ((await this.ctx.storage.get('n')) || 0) + 1; // on garde les 20 000 derniers morceaux
       if (n > 20000) { const old = await this.ctx.storage.list({ prefix: 't:', limit: n - 20000 }); await this.ctx.storage.delete([...old.keys()]); await this.ctx.storage.put('n', 20000); }
       else await this.ctx.storage.put('n', n);
@@ -844,7 +851,7 @@ export class Account {
     }
     /* ---- Équipe : sondages, prédictions et récompenses faits par le relais pour les modos ---- */
     if (path === '/team-get') return ok(Object.assign({ mods: false }, await st.get('team'), { scopes: TEAM_SCOPES.filter((s) => !(profile.scopes || []).includes(s)) }));
-    if (path === '/team-save') { const t = { mods: !!body.mods }; await st.put('team', t); this._mods = new Map(); return ok(t); }
+    if (path === '/team-save') { const t = { mods: !!body.mods }; await st.put('team', t); this._modList = null; return ok(t); }
     if (path === '/team-helix') {
       const g = await this.teamGuard(body, profile, E, secrets);
       if (g.error) return err(g.error, g.status || 403);
@@ -1037,7 +1044,7 @@ export class Account {
     }
     if (path === '/overlay-config') {
       const s = await secrets();
-      const params = Object.assign({}, o.settings);
+      const params = Object.assign({}, checkSettings(o.tool, o.settings)); // même règle à la lecture : les overlays enregistrés avant elle sont nettoyés aussi
       if (!params.channel) params.channel = profile.login;
       for (const k of NEEDS[o.tool] || []) {
         if (k === 'token') { const t = await this.twitchAccess(s, E); if (t) params.token = t; }
@@ -1079,26 +1086,33 @@ export class Account {
     const team = (await st.get('team')) || {};
     if (!isOwner && !team.mods) return { error: `${profile.login} n’a pas autorisé ses modos à gérer sondages, prédictions, récompenses et messages en vedette depuis StreamBox` };
     const now = Date.now();
-    const hit0 = !isOwner && this._mods && this._mods.get(body.caller);
-    if (hit0 && !hit0.ok && now - hit0.at <= 300000) return { error: `tu n’es pas modo de ${profile.login}` }; // refusé récemment : rien à vérifier
-    if (!isOwner && !(hit0 && now - hit0.at <= 300000)) { // vérifications de modo : limite à part, pour ne pas épuiser celle de l'équipe
-      this._lookups = (this._lookups || []).filter((t) => now - t < 60000);
-      if (this._lookups.length >= 30) return { error: 'trop d’actions, réessaie dans un instant', status: 429 };
-      this._lookups.push(now);
-    }
     const access = await this.twitchAccess(await secrets(), E);
     if (!access) return { error: `la connexion Twitch de ${profile.login} a expiré : il ou elle doit se reconnecter à StreamBox` };
     const H = { 'Client-Id': E.cid, Authorization: 'Bearer ' + access, 'Content-Type': 'application/json' };
     if (!isOwner) {
-      this._mods = this._mods || new Map();
-      const hit = this._mods.get(body.caller);
-      if (!hit || now - hit.at > 300000) {
-        const r = await fetch(`https://api.twitch.tv/helix/moderation/moderators?broadcaster_id=${profile.user_id}&user_id=${encodeURIComponent(body.caller)}`, { headers: H });
-        if (r.status === 401 || r.status === 403) return { error: `${profile.login} doit se reconnecter à StreamBox pour autoriser cette fonction` };
-        const d = await r.json().catch(() => ({}));
-        this._mods.set(body.caller, { ok: r.ok && (d.data || []).length > 0, at: now });
+      /* On garde la liste des modos de la chaîne (une lecture Twitch toutes les 5 min, ou après 1 min pour un appelant
+       * inconnu) : des comptes qui ne sont pas modos ne peuvent ni multiplier les appels à Twitch ni bloquer un vrai modo. */
+      const L = this._modList, caller = String(body.caller);
+      if (!L || now - L.at > 300000 || (!L.ids.has(caller) && now - L.at > 60000)) {
+        this._modFetch = this._modFetch || (async () => { // une seule lecture à la fois, même pour une rafale d'appels
+          const ids = new Set();
+          let cursor = '';
+          for (let page = 0; page < 10; page++) {
+            const r = await fetch(`https://api.twitch.tv/helix/moderation/moderators?broadcaster_id=${profile.user_id}&first=100${cursor ? '&after=' + encodeURIComponent(cursor) : ''}`, { headers: H });
+            if (r.status === 401 || r.status === 403) return { error: `${profile.login} doit se reconnecter à StreamBox pour autoriser cette fonction` };
+            if (!r.ok) return L ? null : { error: 'Twitch ne répond pas, réessaie dans un instant', status: 502 };
+            const d = await r.json().catch(() => ({}));
+            (d.data || []).forEach((m) => ids.add(String(m.user_id)));
+            cursor = (d.pagination || {}).cursor;
+            if (!cursor) break;
+          }
+          this._modList = { ids, at: Date.now() };
+          return null;
+        })().finally(() => { this._modFetch = null; });
+        const fail = await this._modFetch;
+        if (fail) return fail;
       }
-      if (!this._mods.get(body.caller).ok) return { error: `tu n’es pas modo de ${profile.login}` };
+      if (!this._modList.ids.has(caller)) return { error: `tu n’es pas modo de ${profile.login}` };
     }
     // limite de l'équipe : comptée seulement pour le streamer et les modos vérifiés
     this._team = (this._team || []).filter((t) => now - t < 60000);
@@ -1309,8 +1323,13 @@ export class Account {
           : e.chatter_user_id === profile.user_id && (state.sent || []).some((x) => x.text === text && Date.now() - x.t < 60000);
         if (!own && statsOn) { const L = await st.get('statlive'); if (L) { STATS.chat(L, e); await st.put('statlive', L); } }
         if (!own) {
-          const handled = (srOn && await this.srChat(srCfg, text, e, profile, api, secrets, E)) || (subOn && await this.subChat(subCfg, text, e, profile, api)) || (jeuxOn && await this.jeuxChat(jxCfg, text, e, profile, api));
-          if (!handled && cfg.enabled) await onChat(cfg, state, { text, login: e.chatter_user_login, name: e.chatter_user_name, userId: e.chatter_user_id, badges: e.badges, messageId: e.message_id, isBroadcaster: e.chatter_user_id === profile.user_id }, api, profile.login);
+          const ev = { text, login: e.chatter_user_login, name: e.chatter_user_name, userId: e.chatter_user_id, badges: e.badges, messageId: e.message_id, isBroadcaster: e.chatter_user_id === profile.user_id };
+          // la modération passe d'abord : un !defi, un !sr ou une idée de subathon ne contournent pas les règles du bot
+          const ruled = cfg.enabled && await modChat(cfg, state, ev, api, profile.login);
+          if (!ruled) {
+            const handled = (srOn && await this.srChat(srCfg, text, e, profile, api, secrets, E)) || (subOn && await this.subChat(subCfg, text, e, profile, api)) || (jeuxOn && await this.jeuxChat(jxCfg, text, e, profile, api));
+            if (!handled && cfg.enabled) await onChat(cfg, state, ev, api, profile.login, { moderated: true });
+          }
         }
       } else {
         if (subOn) { const S = (await st.get('substate')) || SUBA.freshState(subCfg); SUBA.onEvent(subCfg, S, body.type, e, Date.now()); await st.put('substate', S); }
@@ -1363,6 +1382,11 @@ export class Account {
       if (req.kind === 'spotify') return { error: 'envoie un lien YouTube.' };
       const key = this.env.YOUTUBE_API_KEY;
       if (!key) return { error: 'envoie un lien YouTube (la recherche par titre n’est pas activée).' };
+      // La clé YouTube est partagée par toutes les chaînes (environ 100 recherches par jour) : 20 par heure et par chaîne au plus
+      const st = this.ctx.storage, h = Math.floor(Date.now() / 3600e3), yq = (await st.get('ytq')) || { h, n: 0 };
+      if (yq.h !== h) { yq.h = h; yq.n = 0; }
+      if (yq.n >= 20) return { error: 'trop de recherches cette heure-ci : envoie plutôt un lien YouTube.' };
+      yq.n++; await st.put('ytq', yq);
       const d = await (await fetch(`https://www.googleapis.com/youtube/v3/search?part=id&type=video&videoEmbeddable=true&maxResults=1&q=${encodeURIComponent(req.q)}&key=${key}`)).json();
       const id = ((d.items || [])[0] || {}).id;
       return id && id.videoId ? this.ytMeta(id.videoId) : { error: 'aucun résultat.' };
@@ -1395,8 +1419,9 @@ export class Account {
         const no = SR.canRequest(cfg, Q, user, level, now);
         if (no) reply = `@${name} ${no}`;
         else {
-          if (level < 3) Q.cd[user.id] = now; // le délai compte dès la recherche, même ratée (quota YouTube partagé)
+          if (level < 3) { Q.cd[user.id] = now; await st.put('srq', Q); } // le délai compte dès la recherche, même ratée, et avant elle : les messages qui arrivent pendant la recherche le voient
           const track = await this.resolve(cfg, SR.parseRequest(args), secrets, E);
+          Object.assign(Q, (await st.get('srq')) || {}); // la file a pu changer pendant la recherche : on repart de la version enregistrée
           if (track.error) reply = `@${name} ${track.error}`;
           else {
             const r = SR.addTrack(cfg, Q, track, user, level, now);
@@ -1539,7 +1564,7 @@ export class Account {
     if (!clips.length) return null;
     const loc = { fr: 'fr-FR', en: 'en-US', es: 'es-ES' }[lang] || 'fr-FR';
     const lines = ['**' + T('🎬 Les moments forts du live de {0}', [profile.login]) + '**'];
-    clips.forEach((c, i) => lines.push(`${i + 1}. [${String(c.title || 'Clip').replace(/[\[\]\n]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 90)}](${c.url}) · ${T('{0} vues', [Number(c.view_count || 0).toLocaleString(loc)])} · ${T('par {0}', [String(c.creator_name || '').slice(0, 30)])}`));
+    clips.forEach((c, i) => lines.push(`${i + 1}. [${String(c.title || 'Clip').replace(/[\[\]\n()*_~`|<>#@\\]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 90)}](${c.url}) · ${T('{0} vues', [Number(c.view_count || 0).toLocaleString(loc)])} · ${T('par {0}', [String(c.creator_name || '').replace(/[^\p{L}\p{N}_ -]/gu, '').slice(0, 30)])}`));
     const text = lines.join('\n');
     await fetch(secrets.webhook, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: text, allowed_mentions: { parse: [] } }) });
     return text;

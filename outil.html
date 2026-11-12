@@ -318,6 +318,8 @@ const isDefault = (f, v) => v === f.default || (f.type === 'checkbox' && !!v ===
     toast('Lien copié, colle-le dans OBS');
   });
   /* Reprendre un overlay existant : on relit les paramètres de son lien */
+  let fromLink = false; // lien arrivé par #import= depuis un autre site : prérempli, à vérifier
+  $('importurl').addEventListener('input', () => { fromLink = false; });
   $('import').addEventListener('click', () => {
     let u;
     try { u = new URL($('importurl').value.trim()); } catch (e) { toast('Ce lien n’est pas valide'); return; }
@@ -333,19 +335,21 @@ const isDefault = (f, v) => v === f.default || (f.type === 'checkbox' && !!v ===
       if (!el || f.type === 'twitch' || f.type === 'spotify') return;
       const has = u.searchParams.has(f.key), raw = u.searchParams.get(f.key);
       // adresse OBS : seulement ce PC ou le réseau local (un lien reçu ne doit pas envoyer ton OBS ailleurs)
+      // webhook Discord : jamais depuis un lien reçu (tes annonces partiraient sur le serveur de quelqu'un d'autre)
+      if (fromLink && (f.key === 'discord' || /webhook/i.test(f.key)) && has) { skipped = true; return; }
       if (f.key === 'obsurl' && has && !/^wss?:\/\/(localhost|127\.\d+\.\d+\.\d+|\[::1\]|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)(:\d+)?\/?$/i.test(raw)) { skipped = true; return; }
       if (f.type === 'checkbox') el.checked = has ? raw === '1' || raw === 'true' : !!f.default;
       else el.value = has ? raw : initial(f);
       el.dispatchEvent(new Event('input'));
     });
-    $('importurl').value = '';
-    update(); toast(skipped ? 'Réglages chargés, sauf l’adresse OBS (elle doit pointer vers ton PC ou ton réseau local)' : 'Réglages chargés : modifie-les puis recopie le lien');
+    $('importurl').value = ''; fromLink = false;
+    update(); toast(skipped ? 'Réglages chargés, sauf l’adresse OBS ou le webhook Discord (à remplir toi-même)' : 'Réglages chargés : modifie-les puis recopie le lien');
   });
   const imp = new URLSearchParams(location.hash.slice(1)).get('import');
   // Lien reçu (#import=…) : prérempli, mais c'est toi qui cliques pour charger ces réglages
   let auto = null; try { auto = sessionStorage.getItem('sb-import-auto'); sessionStorage.removeItem('sb-import-auto'); } catch (e) { /* ignore */ }
   if (imp && imp === auto) { $('importurl').value = imp; history.replaceState(null, '', location.pathname + location.search); setTimeout(() => $('import').click(), 0); } // venu de ce site, à l'instant
-  else if (imp) { $('importurl').value = imp; history.replaceState(null, '', location.pathname + location.search); setTimeout(() => { $('importurl').scrollIntoView({ block: 'center' }); $('importurl').focus(); toast('Vérifie le lien collé, puis clique sur « Modifier » pour charger ses réglages'); }, 0); }
+  else if (imp) { $('importurl').value = imp; fromLink = true; history.replaceState(null, '', location.pathname + location.search); setTimeout(() => { $('importurl').scrollIntoView({ block: 'center' }); $('importurl').focus(); toast('Vérifie le lien collé, puis clique sur « Modifier » pour charger ses réglages'); }, 0); }
 
   /* Fond d'aperçu personnel (capture de son jeu, de sa scène…) : reste dans le navigateur */
   $('bgfile').addEventListener('change', (e) => {

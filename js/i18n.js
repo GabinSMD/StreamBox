@@ -28,7 +28,28 @@
 
   const norm = (s) => s.replace(/\s+/g, ' ').trim();
   const weak = (fr) => (fr.replace(/\{\w+\}/g, '').match(/\p{L}/gu) || []).length < 4;
-  const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  /* Reconnaît « littéral {a} littéral {b} … » (même algorithme que relay/i18n.js) : chaque valeur est la plus courte
+   * possible, mais le nombre d'essais est borné. Un message de viewer affiché par un overlay ne peut pas bloquer la page. */
+  const BUDGET = 2000, MAX = 400;
+  function matchTpl(lits, k) {
+    const n = lits.length - 1;
+    if (!k.startsWith(lits[0]) || !k.endsWith(lits[n]) || k.length < lits[0].length + lits[n].length + n) return null;
+    const end = k.length - lits[n].length, vals = new Array(n);
+    let budget = BUDGET;
+    const rec = (i, pos) => {
+      if (i === n - 1) { if (end - pos < 1) return false; vals[i] = k.slice(pos, end); return true; }
+      const L = lits[i + 1];
+      for (let j = pos + 1; j <= end; j++) {
+        if (L) { j = k.indexOf(L, j); if (j < 0 || j + L.length > end) return false; }
+        if (--budget < 0) return false;
+        vals[i] = k.slice(pos, j);
+        if (rec(i + 1, j + L.length)) return true;
+        if (budget < 0) return false;
+      }
+      return false;
+    };
+    return rec(0, lits[0].length) ? vals : null;
+  }
   function compile(dict) {
     exact = new Map(); patterns = [];
     for (const [fr, tr] of Object.entries(dict)) {
@@ -36,10 +57,10 @@
       if (!/\{\w+\}/.test(fr)) { exact.set(fr, tr); continue; }
       exact.set(fr, tr); // le modèle lui-même (texte brut avec {user} : messages par défaut)
       if (weak(fr)) continue; // « {0} par {1} » : trop vague, traduirait des bouts de phrases
-      const names = [];
-      const re = new RegExp('^' + fr.split(/(\{\w+\})/).map((part) => { const m = part.match(/^\{(\w+)\}$/); if (m) { names.push(m[1]); return '([\\s\\S]+?)'; } return esc(part); }).join('') + '$');
-      const chunk = fr.split(/\{\w+\}/).sort((a, b) => b.length - a.length)[0];
-      patterns.push({ re, names, tr, chunk, len: fr.length });
+      const lits = [], names = [];
+      fr.split(/(\{\w+\})/).forEach((x, i) => (i % 2 ? names.push(x.slice(1, -1)) : lits.push(x)));
+      const chunk = lits.slice().sort((a, b) => b.length - a.length)[0];
+      patterns.push({ lits, names, tr, chunk, len: fr.length });
     }
     patterns.sort((a, b) => b.len - a.len); // le modèle le plus précis d'abord
   }
@@ -58,11 +79,12 @@
       const tr = parts.map((x) => (join === ', ' ? exact.get(x) : translate(x, depth + 1)));
       if (tr.some(Boolean)) return parts.map((x, i) => tr[i] || x).join(join);
     }
+    if (k.length > MAX) return null; // modèles : seulement pour des textes courts (un long texte vient d'un viewer)
     for (const p of patterns) {
       if (p.chunk && !k.includes(p.chunk)) continue;
-      const m = k.match(p.re);
+      const m = matchTpl(p.lits, k);
       if (!m) continue;
-      const vals = {}; p.names.forEach((n, i) => { const v = m[i + 1]; vals[n] = translate(v, depth + 1) || v; });
+      const vals = {}; p.names.forEach((n, i) => { const v = m[i]; vals[n] = translate(v, depth + 1) || v; });
       return p.tr.replace(/\{(\w+)\}/g, (all, n) => (n in vals ? vals[n] : all));
     }
     return null;
@@ -78,16 +100,17 @@
   /* ---------- Traduction de la page ---------- */
   const SKIP = 'script,style,code,pre,textarea,[data-i18n-skip],[contenteditable]';
   const ATTRS = ['placeholder', 'title', 'aria-label', 'alt'];
-  function skipped(el) { return !el || (el.closest && el.closest(SKIP)); }
+  function skipped(el) { return !el || raw.has(el) || (el.closest && el.closest(SKIP)); }
+  const raw = new WeakSet(); // nœuds venus d'un viewer (SB.messageNodes) : jamais traduits
   function textNode(n) {
-    if (lang === 'fr' || done.get(n) === n.nodeValue || skipped(n.parentElement)) return;
+    if (lang === 'fr' || raw.has(n) || done.get(n) === n.nodeValue || skipped(n.parentElement)) return;
     const v = n.nodeValue, tr = translate(v, 0);
     if (tr == null) return;
     const lead = v.match(/^\s*/)[0], trail = v.match(/\s*$/)[0];
     n.nodeValue = lead + tr + trail; done.set(n, n.nodeValue);
   }
   function element(el) { // attributs (placeholder, title…) : traduits même sur un champ de saisie
-    if (lang === 'fr' || !el || (el.closest && el.closest('script,style,[data-i18n-skip]'))) return;
+    if (lang === 'fr' || !el || raw.has(el) || (el.closest && el.closest('script,style,[data-i18n-skip]'))) return;
     for (const a of ATTRS) { const v = el.getAttribute(a); if (v && done.get(el) !== a + v) { const tr = translate(v, 0); if (tr != null) { el.setAttribute(a, tr); done.set(el, a + tr); } } }
   }
   function tree(root) {
@@ -130,7 +153,7 @@
 
   window.SB_LANG = 'fr'; window.SB_LANG_TAG = 'fr-FR';
   const SB = (window.SB = window.SB || {});
-  SB.LANGS = LANGS; SB.t = t; SB.setLang = setLang; SB.lang = () => lang;
+  SB.LANGS = LANGS; SB.t = t; SB.raw = (n) => (raw.add(n), n); SB.setLang = setLang; SB.lang = () => lang;
   // Boîtes de dialogue du navigateur : traduites aussi
   ['alert', 'confirm', 'prompt'].forEach((f) => { const orig = window[f]; window[f] = function (msg, ...rest) { return orig.call(window, t(String(msg == null ? '' : msg)), ...rest); }; });
   setLang(pick());

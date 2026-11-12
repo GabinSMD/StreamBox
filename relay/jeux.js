@@ -49,7 +49,7 @@ export async function earn(cfg, P, user, isSub, now) {
   if (!p.seen) { p.seen = now; p.n += cfg.start; }
   const mo = month(now);
   if (p.mo !== mo) { p.mo = mo; p.mm = 0; p.mt = 0; } // classements du mois : messages (mm) et minutes de présence (mt)
-  p.mm = (p.mm || 0) + 1;
+  if (now - (p.lm || 0) >= 3000) { p.lm = now; p.mm = (p.mm || 0) + 1; } // classement des messages : une rafale compte pour un
   if (now - (p.last || 0) >= 60000) { p.last = now; p.n += Math.round(cfg.earn * (isSub ? cfg.subBonus : 1)); p.mt = (p.mt || 0) + 1; }
   p.name = user.name; p.login = user.login;
   await P.put(user.id, p);
@@ -183,7 +183,9 @@ export async function onChat(cfg, G, P, ev, level, now, api) {
 const fmtMin = (m) => (m >= 60 ? `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}` : `${m} min`);
 const liveDefis = (G) => (G.defis || []).filter((d) => d.status === 'ouvert' || d.status === 'atteint');
 function tidyDefis(G, now) { // les défis terminés restent 30 min à l'écran, puis disparaissent
-  G.defis = (G.defis || []).filter((d) => d.status === 'ouvert' || d.status === 'atteint' || now - (d.endedAt || 0) < 30 * 60000).slice(-20);
+  // Un défi en cours n'est jamais retiré (sa cagnotte serait perdue) : on ne garde que les 10 derniers terminés
+  const ended = (G.defis || []).filter((d) => d.status !== 'ouvert' && d.status !== 'atteint' && now - (d.endedAt || 0) < 30 * 60000).slice(-10);
+  G.defis = (G.defis || []).filter((d) => d.status === 'ouvert' || d.status === 'atteint' || ended.includes(d));
 }
 async function refundDefi(P, d) { for (const [id, n] of Object.entries(d.backers || {})) { const u = await P.get(id); u.n += n; await P.put(id, u); } }
 async function defiCmd(cfg, G, P, ev, cmd, rest, isMod, now) {
@@ -207,12 +209,13 @@ async function defiCmd(cfg, G, P, ev, cmd, rest, isMod, now) {
     return null; // pas de message à chaque mise : l'overlay montre la cagnotte
   }
   const action = (rest[0] || '').toLowerCase(), target = find(rest[1]);
-  if (isMod && /^(fait|ok|valid[ée]|done)$/.test(action) && rest.length === 2) {
+  const byNumber = /^\d+$/.test(rest[1] || ''); // « !defi non 3 merci » : c'est bien une action de modo, pas une proposition
+  if (isMod && /^(fait|ok|valid[ée]|done)$/.test(action) && byNumber) {
     if (!target || (target.status !== 'ouvert' && target.status !== 'atteint')) return 'Défi introuvable.';
     target.status = 'fait'; target.endedAt = now; log(G, `✅ Défi relevé : ${target.text}`, now);
     return `✅ Défi n°${target.n} relevé : « ${target.text} » ! Merci à ceux qui l’ont soutenu.`;
   }
-  if (isMod && /^(non|refus[ée]?|refuser|retirer|annuler)$/.test(action) && rest.length === 2) {
+  if (isMod && /^(non|refus[ée]?|refuser|retirer|annuler)$/.test(action) && byNumber) {
     if (!target || (target.status !== 'ouvert' && target.status !== 'atteint')) return 'Défi introuvable.';
     await refundDefi(P, target); target.status = 'refusé'; target.endedAt = now; log(G, `❌ Défi refusé : ${target.text}`, now);
     return `❌ Défi n°${target.n} refusé : les mises sont rendues.`;
