@@ -31,6 +31,16 @@
     predEnd: { type: 'channel.prediction.end', version: '1', cond: (b) => ({ broadcaster_user_id: b }), raw: true },
   };
   const RAW = Object.fromEntries(Object.entries(TYPES).filter(([, t]) => t.raw).map(([k, t]) => [t.type, k]));
+  /* Événement Twitch → [nom, données] tel que les overlays le reçoivent (EventSub direct ou poussé par le relais) */
+  function shape(st, ev) {
+    ev = ev || {};
+    if (st === 'channel.follow') return ['follow', { login: ev.user_login, name: ev.user_name }];
+    if (st === 'stream.online') return ['online', { start: Date.parse(ev.started_at) || Date.now() }];
+    if (st === 'stream.offline') return ['offline', {}];
+    if (RAW[st]) return [RAW[st], ev];
+    if (st === TYPES.points.type) return ['points', { login: ev.user_login, name: ev.user_name, reward: (ev.reward || {}).title || '', cost: (ev.reward || {}).cost || 0, input: ev.user_input || '' }];
+    return null;
+  }
 
   SB.EventSub = class {
     constructor(token, channel, wanted) {
@@ -71,12 +81,8 @@
           const id = m.metadata.message_id;
           if (this.seen.has(id)) return; // Twitch peut renvoyer un message en double
           this.seen.add(id); if (this.seen.size > 500) this.seen.clear();
-          const ev = m.payload.event, st = m.payload.subscription.type;
-          if (st === 'channel.follow') this.emit('follow', { login: ev.user_login, name: ev.user_name });
-          else if (st === 'stream.online') this.emit('online', { start: Date.parse(ev.started_at) || Date.now() });
-          else if (st === 'stream.offline') this.emit('offline', {});
-          else if (RAW[st]) this.emit(RAW[st], ev);
-          else if (st === TYPES.points.type) this.emit('points', { login: ev.user_login, name: ev.user_name, reward: ev.reward.title, cost: ev.reward.cost, input: ev.user_input || '' });
+          const x = shape(m.payload.subscription.type, m.payload.event);
+          if (x) this.emit(x[0], x[1]);
         }
       };
       ws.onclose = () => {
@@ -108,7 +114,7 @@
   SB.twitchEvents = function (c, wanted) {
     const es = new SB.EventSub(c.token, c.channel, wanted);
     if (!c.token && SB.ovLink && !c.demo) { // overlay du compte sans jeton : les événements arrivent par le relais
-      (SB._twitchRelay = SB._twitchRelay || []).push((ev, d) => { if (wanted.includes(ev)) es.inject(ev, d); });
+      (SB._twitchRelay = SB._twitchRelay || []).push((ev, d, st) => { const x = st ? shape(st, d) : [ev, d]; if (x && wanted.includes(x[0])) es.inject(x[0], x[1]); });
       return es;
     }
     if (!c.demo) es.start();

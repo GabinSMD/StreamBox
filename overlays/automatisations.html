@@ -68,7 +68,7 @@ chat.on('status', (s) => { status.chat = s === 'connected' ? 'connecté' : 'reco
   .connect();
 const types = new Set(engine.rules.map((r) => r.trigger.type));
 const wanted = ['follow', 'points', 'online'].filter((t) => types.has(t));
-if (wanted.length && c.token) SB.twitchEvents(c, wanted)
+if (wanted.length && SB.canTwitch(c)) SB.twitchEvents(c, wanted)
   .on('follow', (e) => engine.emit('follow', { user: e.name }))
   .on('points', (e) => engine.emit('points', { user: e.name, reward: e.reward, input: e.input }))
   .on('online', () => engine.emit('online', {}));

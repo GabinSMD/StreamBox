@@ -73,7 +73,7 @@ if (c.demo) { // aperçu : pas de vrai clip (le lecteur Twitch ne s'affiche que 
     document.body.classList.add('so-on'); setTimeout(() => document.body.classList.remove('so-on'), 5000);
   };
   run(); setInterval(run, 7000);
-} else if (!c.token) SB._cfgError = SB.t('Connecte-toi avec Twitch dans les réglages : le shoutout a besoin de lire les clips.');
+} else if (!SB.canTwitch(c)) SB._cfgError = SB.t('Connecte-toi avec Twitch dans les réglages : le shoutout a besoin de lire les clips.');
 SB.hintIfNoChannel(c);
 </script>
 </body>

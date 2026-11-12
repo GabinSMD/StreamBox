@@ -345,27 +345,54 @@ export class Room {
 // Jetons dont chaque outil a besoin : un overlay ne reçoit QUE ceux-là (moindre privilège).
 const NEEDS = {
   chat: [], emotes: [],
-  alertes: ['token', 'sejwt', 'sltoken', 'kofi', 'obspass'],
-  subathon: ['token', 'sejwt', 'sltoken', 'kofi', 'obspass'],
-  objectifs: ['token', 'sejwt', 'sltoken', 'kofi', 'obspass'],
+  alertes: ['sejwt', 'sltoken', 'kofi', 'obspass'],
+  subathon: ['sejwt', 'sltoken', 'kofi', 'obspass'],
+  objectifs: ['sejwt', 'sltoken', 'kofi', 'obspass'],
   sondage: ['obspass'], minuteur: ['obspass'], roue: ['obspass'], giveaway: ['obspass', 'webhook'],
-  rewind: ['token', 'obspass'],
+  rewind: ['obspass'],
   musique: ['spotifycid', 'lastfm', 'lfmkey'], // Spotify : jeton à jour fourni par /o/:id/spotify-token ; journal des musiques : /o/:id/track
-  lecteur: [], jeux: [], generique: [], soustitres: [], pngtuber: ['obspass'], shoutout: ['token', 'obspass'], clips: ['token', 'obspass'], etiquettes: ['token', 'sejwt', 'sltoken', 'kofi', 'obspass'], automatisations: ['token', 'sejwt', 'sltoken', 'kofi', 'obspass'], qrdons: [], compteurs: ['obspass'], sons: ['token', 'obspass'],
-  tts: ['token', 'sejwt', 'sltoken', 'kofi', 'obspass'],
-  planning: [], hypetrain: [], reseaux: [], bienvenue: [], webcam: [], defis: [], classement: [], vedette: [], pubs: [], votes: [], score: ['obspass'], // pubs, votes, Hype Train : le relais lit Twitch pour eux (OV_TWITCH)
-  discord: ['token', 'webhook'],
+  lecteur: [], jeux: [], generique: [], soustitres: [], pngtuber: ['obspass'], shoutout: ['obspass'], clips: ['obspass'], etiquettes: ['sejwt', 'sltoken', 'kofi', 'obspass'], automatisations: ['sejwt', 'sltoken', 'kofi', 'obspass'], qrdons: [], compteurs: ['obspass'], sons: ['obspass'],
+  tts: ['sejwt', 'sltoken', 'kofi', 'obspass'],
+  planning: [], hypetrain: [], reseaux: [], bienvenue: [], webcam: [], defis: [], classement: [], vedette: [], pubs: [], votes: [], score: ['obspass'], // aucun overlay ne reçoit le jeton Twitch : le relais lit Twitch pour eux (OV_TWITCH)
+  discord: ['webhook'],
 };
 // Overlays qui suivent Twitch SANS recevoir le jeton du streamer : le relais s'abonne aux événements
 // (webhooks EventSub) et les leur pousse par /o/:id/ws ; il fait aussi pour eux quelques lectures Helix précises.
-const OV_TWITCH = {
-  pubs: { subs: [['channel.ad_break.begin', '1', 'adBreak']], helix: ['channels/ads'] },
-  votes: { subs: [['channel.poll.begin', '1', 'pollBegin'], ['channel.poll.progress', '1', 'pollProgress'], ['channel.poll.end', '1', 'pollEnd'],
-    ['channel.prediction.begin', '1', 'predBegin'], ['channel.prediction.progress', '1', 'predProgress'], ['channel.prediction.lock', '1', 'predLock'], ['channel.prediction.end', '1', 'predEnd']], helix: ['polls', 'predictions'] },
-  webcam: { subs: [['channel.follow', '2', 'follow', (bid) => ({ broadcaster_user_id: bid, moderator_user_id: bid })]], helix: [] },
-  hypetrain: { subs: [['channel.hype_train.begin', '2', 'hypeBegin'], ['channel.hype_train.progress', '2', 'hypeProgress'], ['channel.hype_train.end', '2', 'hypeEnd']], helix: ['hypetrain/status'] },
+const EV = { // événements EventSub que le relais peut pousser aux overlays : [type, version, nom côté overlay, condition]
+  follow: ['channel.follow', '2', 'follow', (bid) => ({ broadcaster_user_id: bid, moderator_user_id: bid })],
+  points: ['channel.channel_points_custom_reward_redemption.add', '1', 'points'],
+  online: ['stream.online', '1', 'online'], offline: ['stream.offline', '1', 'offline'],
+  adBreak: ['channel.ad_break.begin', '1', 'adBreak'],
+  pollBegin: ['channel.poll.begin', '1', 'pollBegin'], pollProgress: ['channel.poll.progress', '1', 'pollProgress'], pollEnd: ['channel.poll.end', '1', 'pollEnd'],
+  predBegin: ['channel.prediction.begin', '1', 'predBegin'], predProgress: ['channel.prediction.progress', '1', 'predProgress'], predLock: ['channel.prediction.lock', '1', 'predLock'], predEnd: ['channel.prediction.end', '1', 'predEnd'],
+  hypeBegin: ['channel.hype_train.begin', '2', 'hypeBegin'], hypeProgress: ['channel.hype_train.progress', '2', 'hypeProgress'], hypeEnd: ['channel.hype_train.end', '2', 'hypeEnd'],
 };
-const OV_EV = Object.fromEntries(Object.entries(OV_TWITCH).flatMap(([tool, x]) => x.subs.map(([type, , ev]) => [type, { tool, ev }])));
+/* Pour chaque outil : les événements qu'il reçoit, ses lectures Helix (chaîne du compte uniquement), ses lectures publiques
+ * (n'importe quelle chaîne, avec le jeton d'application : profil, catégorie, clips) et la création de clip (Rewind). */
+const OV_TWITCH = {
+  pubs: { ev: ['adBreak'], helix: ['channels/ads'] },
+  votes: { ev: ['pollBegin', 'pollProgress', 'pollEnd', 'predBegin', 'predProgress', 'predLock', 'predEnd'], helix: ['polls', 'predictions'] },
+  webcam: { ev: ['follow'], helix: [] },
+  hypetrain: { ev: ['hypeBegin', 'hypeProgress', 'hypeEnd'], helix: ['hypetrain/status'] },
+  alertes: { ev: ['follow', 'points'], helix: [] },
+  subathon: { ev: ['follow', 'points'], helix: [] },
+  objectifs: { ev: ['follow'], helix: ['channels/followers', 'subscriptions'] },
+  etiquettes: { ev: ['follow'], helix: ['channels/followers', 'subscriptions'] },
+  automatisations: { ev: ['follow', 'points', 'online'], helix: [] },
+  sons: { ev: ['points'], helix: [] },
+  tts: { ev: ['points'], helix: [] },
+  discord: { ev: ['online', 'offline'], helix: ['streams'] },
+  rewind: { ev: [], helix: ['streams', 'clips'], clip: true },
+  shoutout: { ev: [], helix: [], pub: ['users', 'channels', 'clips'] },
+  clips: { ev: [], helix: [], pub: ['users', 'clips'] },
+};
+for (const x of Object.values(OV_TWITCH)) x.subs = x.ev.map((k) => EV[k]);
+const LEGACY_TOKEN = new Set(['alertes', 'subathon', 'objectifs', 'rewind', 'shoutout', 'clips', 'etiquettes', 'automatisations', 'sons', 'tts', 'discord']); // recevaient le jeton avant que le relais lise Twitch pour eux
+const OV_EV = {}; // type EventSub → nom de l'événement et outils qui le reçoivent
+for (const [tool, x] of Object.entries(OV_TWITCH)) for (const [type, , ev] of x.subs) (OV_EV[type] = OV_EV[type] || { ev, tools: [] }).tools.push(tool);
+const OV_ONLY = new Set(['adBreak', 'pollBegin', 'pollProgress', 'pollEnd', 'predBegin', 'predProgress', 'predLock', 'predEnd', 'hypeBegin', 'hypeProgress', 'hypeEnd'].map((k) => EV[k][0])); // le reste sert aussi au bot, au subathon et aux statistiques
+// Paramètres acceptés pour une lecture Helix d'un overlay (les autres sont ignorés)
+const HELIX_Q = { clips: ['id', 'started_at', 'ended_at', 'first'], users: ['login', 'id'], channels: [], streams: [], 'channels/followers': ['first'], subscriptions: ['first'], polls: ['first'], predictions: ['first'], 'channels/ads': [], 'hypetrain/status': ['first'] };
 const LOCAL_WS = /^wss?:\/\/(localhost|127\.\d+\.\d+\.\d+|\[::1\]|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)(:\d+)?\/?$/i;
 const DISCORD_HOOK = /^https:\/\/(?:\w+\.)?discord(?:app)?\.com\/api\/webhooks\/\d+\/[\w-]+$/;
 const SECRET_KEYS = ['spotify', 'spotifycid', 'lastfm', 'lfmkey', 'sejwt', 'sltoken', 'kofi', 'kofiv', 'webhook', 'obspass']; // kofiv : jeton de vérification Ko-fi (jamais envoyé à un overlay)
@@ -492,8 +519,8 @@ async function accountRoutes(req, env, url, p) {
       if (s2 !== 200) return json(o, s2);
       return logTrack(env, o.login, d);
     }
-    if (p[2] === 'twitch' && req.method === 'GET') { // pubs, votes, Hype Train : lecture Twitch faite par le relais (l'overlay n'a pas le jeton)
-      const r = await stub('user:' + idx.user_id).fetch('https://acc/ov-twitch', { method: 'POST', headers: { 'X-Env': JSON.stringify({ cid: env.TWITCH_CLIENT_ID, secret: env.TWITCH_CLIENT_SECRET, key: env.ENCRYPTION_KEY || '' }) }, body: JSON.stringify({ ov: p[1], path: url.searchParams.get('path') || '' }) });
+    if (p[2] === 'twitch' && (req.method === 'GET' || req.method === 'POST')) { // lecture Twitch faite par le relais (l'overlay n'a pas le jeton) ; POST : création de clip (Rewind)
+      const r = await stub('user:' + idx.user_id).fetch('https://acc/ov-twitch', { method: 'POST', headers: { 'X-Env': JSON.stringify({ cid: env.TWITCH_CLIENT_ID, secret: env.TWITCH_CLIENT_SECRET, key: env.ENCRYPTION_KEY || '' }) }, body: JSON.stringify({ ov: p[1], path: url.searchParams.get('path') || '', method: req.method }) });
       return withCors(new Response(r.body, { status: r.status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } }));
     }
     if (p[2] === 'don' && req.method === 'POST') { // l'overlay transmet un don Streamlabs reçu en direct
@@ -752,18 +779,29 @@ export class Account {
       const allow = o && OV_TWITCH[o.tool];
       if (!allow) return err('overlay non autorisé', 403);
       const [ep, qs] = String(body.path || '').split('?');
-      if (ep === 'users') return ok({ data: [{ id: profile.user_id, login: profile.login }] });
-      if (!allow.helix.includes(ep)) return err('lecture non autorisée pour cet overlay', 403);
+      const pub = (allow.pub || []).includes(ep), post = body.method === 'POST';
+      if (post && !(allow.clip && ep === 'clips')) return err('action non autorisée pour cet overlay', 403);
+      if (!post && ep === 'users' && !pub) return ok({ data: [{ id: profile.user_id, login: profile.login }] }); // la chaîne du compte, sans appel
+      if (!post && !pub && !allow.helix.includes(ep)) return err('lecture non autorisée pour cet overlay', 403);
       const now = Date.now(); // 60 lectures par minute et par compte
       this._ovtw = (this._ovtw || []).filter((t) => now - t < 60000);
       if (this._ovtw.length >= 60) return err('trop de lectures, réessaie dans un instant', 429);
       this._ovtw.push(now);
-      const access = await this.twitchAccess(await secrets(), E);
-      if (!access) return err('connexion Twitch expirée : reconnecte-toi sur StreamBox', 401);
-      const q = new URLSearchParams({ broadcaster_id: profile.user_id });
-      const first = new URLSearchParams(qs || '').get('first');
-      if (first && /^\d{1,2}$/.test(first)) q.set('first', first);
-      const r = await fetch('https://api.twitch.tv/helix/' + ep + '?' + q, { headers: { 'Client-Id': E.cid, Authorization: 'Bearer ' + access } }).catch(() => null);
+      const inQ = new URLSearchParams(qs || ''), q = new URLSearchParams();
+      for (const k of HELIX_Q[ep] || []) inQ.getAll(k).slice(0, 100).forEach((v) => { if (/^[\w:.-]{1,40}$/.test(v)) q.append(k, v); });
+      if (q.has('first') && !(+q.get('first') >= 1 && +q.get('first') <= 100)) q.delete('first');
+      let auth;
+      if (pub && !post) { // données publiques de n'importe quelle chaîne : jeton d'application, jamais celui du streamer
+        if (ep === 'channels' || (ep === 'clips' && !q.has('id'))) { const b = inQ.get('broadcaster_id'); if (!/^\d{1,20}$/.test(b || '')) return err('chaîne manquante'); q.set('broadcaster_id', b); }
+        auth = await appAccess(E.cid, E.secret);
+      } else { // chaîne du compte uniquement
+        q.delete('id'); q.delete('login');
+        if (ep === 'streams') q.set('user_id', profile.user_id); else q.set('broadcaster_id', profile.user_id);
+        auth = await this.twitchAccess(await secrets(), E);
+        if (!auth) return err('connexion Twitch expirée : reconnecte-toi sur StreamBox', 401);
+      }
+      if (post) { q.delete('started_at'); q.delete('ended_at'); q.delete('first'); }
+      const r = await fetch('https://api.twitch.tv/helix/' + ep + '?' + q, { method: post ? 'POST' : 'GET', headers: { 'Client-Id': E.cid, Authorization: 'Bearer ' + auth } }).catch(() => null);
       if (!r) return err('Twitch injoignable', 502);
       return new Response(JSON.stringify(await r.json().catch(() => ({}))), { status: r.status, headers: { 'Content-Type': 'application/json' } });
     }
@@ -938,7 +976,7 @@ export class Account {
     if (path === '/me') {
       const s = await secrets(); const ov = await overlays();
       // overlays pubs / votes / Hype Train créés avant que le relais ne s'abonne pour eux : abonnements faits une fois
-      if (!(await st.get('ovsubs')) && Object.values(ov).some((o) => OV_TWITCH[o.tool])) { await this.syncOvSubs(profile, E); await st.put('ovsubs', 1); }
+      if (!(await st.get('ovsubs2')) && Object.values(ov).some((o) => OV_TWITCH[o.tool])) { await this.syncOvSubs(profile, E); await st.put('ovsubs2', 1); } // abonnements des overlays (une fois de plus après l'ajout des follows, points et lives)
       return ok({ login: profile.login, lang: profile.lang || 'fr', scopes: profile.scopes, secrets: Object.fromEntries(SECRET_KEYS.map((k) => [k, !!s[k]])), spotifycid: s.spotifycid || '', // Client ID : public
         overlays: Object.values(ov).map(({ id, tool, name, updatedAt }) => ({ id, tool, name, updatedAt })).sort((a, b) => b.updatedAt - a.updatedAt) });
     }
@@ -1036,9 +1074,9 @@ export class Account {
       this.broadcast(o.id);
       return ok({ ok: true });
     }
-    if (path === '/overlay-delete') { this.revoke(o.id); delete ov[o.id]; await st.put('overlays', ov); if (OV_TWITCH[o.tool]) await this.syncOvSubs(profile, E); return ok({ ok: true }); }
+    if (path === '/overlay-delete') { this.revoke(o.id); delete ov[o.id]; await st.put('overlays', ov); await this.renewTwitch(o, secrets, E); if (OV_TWITCH[o.tool]) await this.syncOvSubs(profile, E); return ok({ ok: true }); }
     if (path === '/overlay-rotate') {
-      this.revoke(o.id);
+      this.revoke(o.id); await this.renewTwitch(o, secrets, E);
       delete ov[o.id]; o.id = body.nid; o.updatedAt = Date.now(); ov[o.id] = o; await st.put('overlays', ov);
       return ok({ id: o.id });
     }
@@ -1069,6 +1107,18 @@ export class Account {
     s.twitch = { access: d.access_token, refresh: d.refresh_token || t.refresh, exp: Date.now() + (d.expires_in || 3600) * 1000 };
     await this.ctx.storage.put('secrets', await seal(s, E.key));
     return s.twitch.access;
+  }
+  /* Lien d'un outil qui recevait autrefois le jeton Twitch, régénéré ou supprimé : nouveau jeton, puis l'ancien est révoqué
+   * (celui qu'un lien vu ou copié aurait pu donner ne marche plus). Sans nouveau jeton, on ne révoque rien : la connexion reste. */
+  async renewTwitch(o, secrets, E) {
+    if (!LEGACY_TOKEN.has(o.tool)) return;
+    try {
+      const s = await secrets(), old = s.twitch && s.twitch.access;
+      if (!old || !s.twitch.refresh) return;
+      s.twitch.exp = 0;
+      const fresh = await this.twitchAccess(s, E);
+      if (fresh && fresh !== old) await fetch('https://id.twitch.tv/oauth2/revoke', { method: 'POST', body: new URLSearchParams({ client_id: E.cid, token: old }) });
+    } catch (e) { /* Twitch indisponible : le jeton expirera de lui-même */ }
   }
   /* ================= Bot de chat ================= */
   async botAccount() {
@@ -1285,9 +1335,12 @@ export class Account {
     }
     if (path === '/bot-event') {
       const ovEv = OV_EV[body.type];
-      if (ovEv) { // pub, sondage, prédiction, Hype Train : poussé aux overlays de cet outil
-        if (body.kind !== 'revocation') this.ctx.getWebSockets('tool:' + ovEv.tool).forEach((ws) => { try { ws.send(JSON.stringify({ type: 'twitch', ev: ovEv.ev, data: body.event || {} })); } catch (e) { /* parti */ } });
-        if (body.type !== 'channel.follow') return ok({ ok: true }); // le follow sert aussi au bot, au subathon et aux statistiques
+      if (ovEv) { // poussé aux overlays des outils qui suivent cet événement (ils n'ont pas le jeton)
+        if (body.kind !== 'revocation') {
+          const msg = JSON.stringify({ type: 'twitch', ev: ovEv.ev, st: body.type, data: body.event || {} });
+          for (const tool of ovEv.tools) this.ctx.getWebSockets('tool:' + tool).forEach((ws) => { try { ws.send(msg); } catch (e) { /* parti */ } });
+        }
+        if (OV_ONLY.has(body.type)) return ok({ ok: true }); // follow, points, début et fin du live : servent aussi au bot, au subathon et aux statistiques
       }
       const subCfg = await st.get('sub');
       const subOn = !!(subCfg && subCfg.enabled);

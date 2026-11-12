@@ -62,7 +62,7 @@ SB.remote('clips', '', (m) => { if (/^(suivant|next|skip)$/i.test(m.text.trim())
     const step = () => { const [t, by, v] = demo[k++ % demo.length]; $('title').textContent = t; $('meta').textContent = SB.t('clip de {0}', [by]) + ' · ' + SB.t('{0} vues', [v.toLocaleString(SB_LANG_TAG)]); $('video').replaceChildren(SB.el('div', 'clip-demo', '▶ ' + t)); document.body.classList.add('cp-on'); };
     step(); setInterval(step, 4000); return;
   }
-  if (!c.token) { SB._cfgError = SB.t('Connecte-toi avec Twitch dans les réglages : le lecteur a besoin de lire tes clips.'); return SB.hintIfNoChannel(c); }
+  if (!SB.canTwitch(c)) { SB._cfgError = SB.t('Connecte-toi avec Twitch dans les réglages : le lecteur a besoin de lire tes clips.'); return SB.hintIfNoChannel(c); }
   try { clips = order(await load()); if (!clips.length) throw new Error(SB.t('aucun clip trouvé sur cette période')); loop(); }
   catch (e) { $('title').textContent = e.message; $('meta').textContent = ''; document.body.classList.add('cp-on'); }
   SB.hintIfNoChannel(c);

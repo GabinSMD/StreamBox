@@ -149,3 +149,21 @@ test('traduction de la page : un message de viewer piégé ne bloque pas l’ove
   assert.deepEqual(p.errors, []);
   await p.context().close();
 });
+
+test('événement Twitch poussé par le relais : même forme qu’en direct, et compté comme un vrai événement', { skip }, async () => {
+  const p = await page();
+  await p.goto(`${base}overlays/alertes.html?channel=chaine_test`); await p.waitForTimeout(300);
+  const r = await p.evaluate(() => {
+    SB.ovLink = { relay: 'http://127.0.0.1:1', id: 'x'.repeat(24) }; // lien du compte, sans jeton
+    const got = [];
+    SB.twitchEvents({ channel: 'chaine_test' }, ['points', 'follow']).on('points', (e) => got.push(e)).on('follow', (e) => got.push(e));
+    const f = SB._twitchRelay.at(-1);
+    f('points', { user_login: 'lou', user_name: 'Lou', reward: { title: 'Hydrate-toi', cost: 500 }, user_input: 'coucou' }, 'channel.channel_points_custom_reward_redemption.add');
+    f('follow', { user_login: 'sacha', user_name: 'Sacha' }, 'channel.follow');
+    f('online', { started_at: '2026-11-12T20:00:00Z' }, 'stream.online'); // pas demandé : ignoré
+    return got;
+  });
+  assert.deepEqual(r, [{ login: 'lou', name: 'Lou', reward: 'Hydrate-toi', cost: 500, input: 'coucou' }, { login: 'sacha', name: 'Sacha' }]);
+  assert.deepEqual(p.errors, []);
+  await p.context().close();
+});

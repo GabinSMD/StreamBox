@@ -5,13 +5,13 @@ import { relay } from '../helpers/relay.mjs';
 const create = async (R, S, tool, settings = {}) => (await R.req('POST', '/me/overlays', { tool, name: tool, settings }, { token: S }))[1].id;
 const config = async (R, id) => (await R.req('GET', '/o/' + id))[1].params;
 
-test('les overlays pubs, votes, Hype Train et Musique ne reçoivent pas le jeton Twitch', async () => {
+test('aucun overlay du compte ne reçoit le jeton Twitch', async () => {
   const R = await relay(); const S = await R.login('a');
-  for (const tool of ['pubs', 'votes', 'hypetrain', 'musique', 'webcam', 'defis', 'classement']) {
-    const p = await config(R, await create(R, S, tool, { log: true }));
-    assert.equal(p.token, undefined, tool);
+  const W = { window: {} }; (await import('node:vm')).runInNewContext((await import('node:fs')).readFileSync(new URL('../../js/tools.js', import.meta.url), 'utf8'), W);
+  for (const t of W.window.SB_TOOLS) {
+    const p = await config(R, await create(R, S, t.id, { log: true }));
+    assert.equal(p.token, undefined, t.id);
   }
-  assert.ok((await config(R, await create(R, S, 'alertes'))).token, 'les alertes en ont encore besoin pour EventSub');
 });
 
 test('réglages : seulement les champs de l’outil (pas de relay ni de jeton caché, OBS en local)', async () => {
@@ -47,7 +47,7 @@ test('événements Twitch poussés aux overlays, et le follow reste traité par 
   await R.eventsub('channel.follow', { user_name: 'Lou' });
   const socks = R.account().sockets;
   const sent = (tool) => socks.filter((s) => s.tags.includes('tool:' + tool)).flatMap((s) => s.sent);
-  assert.deepEqual(sent('votes')[0], { type: 'twitch', ev: 'pollBegin', data: { id: 'p1', title: 'Q ?' } });
+  assert.deepEqual(sent('votes')[0], { type: 'twitch', ev: 'pollBegin', st: 'channel.poll.begin', data: { id: 'p1', title: 'Q ?' } });
   assert.equal(sent('webcam')[0].ev, 'follow');
 });
 
