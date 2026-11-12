@@ -82,6 +82,7 @@
     if (q.get('sltoken')) d.streamlabs(q.get('sltoken'));
     const relay = q.get('relay') || (window.SB_CONFIG && SB_CONFIG.relayUrl);
     if (q.get('kofi') && relay) d.relay(relay, q.get('kofi'));
+    else if (SB.ovLink) { (SB._donRelay = SB._donRelay || []).push((x) => { if (x && x.kind === 'don') d.don(x); }); } // lien du compte : dons Ko-fi poussés par le relais, sans la clé
     return d;
   };
 

@@ -35,7 +35,7 @@
       let retry = 0;
       const live = () => {
         const ws = new WebSocket(relay.replace(/^http/, 'ws') + '/o/' + ovId + '/ws');
-        ws.onmessage = (e) => { try { const m = JSON.parse(e.data); if (m.type === 'update' || m.type === 'deleted') location.reload(); else if (m.type === 'sim' && SB.simulate) SB.simulate(m.ev); else if (m.type === 'twitch') (SB._twitchRelay || []).forEach((f) => f(m.ev, m.data, m.st)); else if (SB.onRelay) SB.onRelay(m); } catch (err) { /* ignore */ } };
+        ws.onmessage = (e) => { try { const m = JSON.parse(e.data); if (m.type === 'update' || m.type === 'deleted') location.reload(); else if (m.type === 'sim' && SB.simulate) SB.simulate(m.ev); else if (m.type === 'twitch') (SB._twitchRelay || []).forEach((f) => f(m.ev, m.data, m.st)); else if (m.type === 'don') (SB._donRelay || []).forEach((f) => f(m.don)); else if (SB.onRelay) SB.onRelay(m); } catch (err) { /* ignore */ } };
         ws.onopen = () => { retry = 0; };
         ws.onclose = () => setTimeout(live, Math.min(60000, 3000 * 2 ** retry++));
       };
@@ -550,7 +550,13 @@
 
   /* ---------- Discord (webhook, sans serveur) ---------- */
   SB.isDiscordWebhook = (u) => /^https:\/\/(?:\w+\.)?discord(?:app)?\.com\/api\/webhooks\/\d+\/[\w-]+$/.test(u || '');
+  SB.canDiscord = (u) => (u === 'relais' && !!SB.ovLink) || SB.isDiscordWebhook(u); // « relais » : lien du compte, le relais poste
   SB.discordPost = async function (webhook, payload) {
+    if (webhook === 'relais' && SB.ovLink) {
+      const r = await fetch(SB.ovLink.relay + '/o/' + SB.ovLink.id + '/discord', { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(payload) });
+      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'Discord a refusé le message (' + r.status + ')');
+      return {};
+    }
     if (!SB.isDiscordWebhook(webhook)) throw new Error('adresse de webhook Discord invalide');
     const r = await fetch(webhook + '?wait=true', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ username: 'StreamBox', allowed_mentions: { parse: [] } }, payload)) });
     if (!r.ok) throw new Error('Discord a refusé le message (' + r.status + ')');
