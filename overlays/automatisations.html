@@ -34,6 +34,7 @@ const engine = new SB.AUTO.Engine(rules, {
   obs, channel: c.channel,
   log: (text) => { const d = SB.el('div', 'au-line', `${new Date().toLocaleTimeString(SB_LANG_TAG, { hour: '2-digit', minute: '2-digit', second: '2-digit' })} ${text}`); $('log').prepend(d); while ($('log').children.length > 12) $('log').lastChild.remove(); },
   say: ovId && relay ? async (text, to) => { // message du chat ou Discord : envoyé par le relais (les jetons restent sur le serveur)
+    if (SB.testing()) throw new Error('test : message non envoyé'); // un événement de test n'écrit jamais pour de vrai
     const r = await fetch(`${relay}/o/${ovId}/say`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, to }) });
     const d = await r.json().catch(() => ({})); if (!r.ok) throw new Error(d.error || 'erreur ' + r.status);
   } : null,

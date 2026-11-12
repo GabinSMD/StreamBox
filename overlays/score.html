@@ -32,7 +32,8 @@ while (teams.length < 2) teams.push({ name: SB.t('Équipe {0}', [teams.length + 
 const key = 'sb-score:' + (new URLSearchParams(location.search).get('o') || c.channel || 'local');
 let S = { scores: teams.map(() => 0), round: 1 };
 try { const x = JSON.parse(localStorage.getItem(key) || 'null'); if (x && Array.isArray(x.scores)) S = { scores: teams.map((_, i) => +x.scores[i] || 0), round: +x.round || 1 }; } catch (e) { /* ignore */ }
-const save = () => { try { localStorage.setItem(key, JSON.stringify(S)); } catch (e) { /* ignore */ } };
+const save = () => { if (SB.testing()) return; try { localStorage.setItem(key, JSON.stringify(S)); } catch (e) { /* ignore */ } }; // test : rien n'est enregistré
+SB.testable(() => S, (v) => { S = v; }, () => draw());
 
 const cells = teams.map((t, i) => {
   const row = SB.el('div', 'sc-team'); if (t.color) row.style.setProperty('--team', t.color);

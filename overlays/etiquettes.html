@@ -31,7 +31,8 @@ const key = 'sb-etiquettes:' + (new URLSearchParams(location.search).get('o') ||
 let S = {}; try { S = JSON.parse(localStorage.getItem(key) || '{}'); } catch (e) { /* ignore */ }
 const today = new Date().toDateString();
 if (c.reset === 'jour' && S.day !== today) { delete S.topbits; delete S.topdon; S.day = today; } // les « top » repartent chaque jour
-const save = () => { try { localStorage.setItem(key, JSON.stringify(S)); } catch (e) { /* ignore */ } render(); };
+const save = () => { if (!SB.testing()) { try { localStorage.setItem(key, JSON.stringify(S)); } catch (e) { /* ignore */ } } render(); }; // test : affiché, pas enregistré
+SB.testable(() => S, (v) => { S = v; }, () => render());
 const nf = (n) => Number(n || 0).toLocaleString(SB_LANG_TAG);
 
 /* Texte d'une étiquette (null si pas encore de valeur) */

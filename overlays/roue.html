@@ -141,6 +141,7 @@ function done(sg) {
 
 /* Déclencheurs */
 let subCount = 0;
+SB.testable(() => ({ subCount }), (v) => { subCount = v.subCount; }, () => {}); // un abo de test fait tourner la roue sans compter
 function onMessage(m) {
   if (SB.command(m, c.cmd) !== null && m.isMod) request(m.login === 'panneau' ? '' : m.name);
 }

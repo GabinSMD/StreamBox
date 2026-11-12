@@ -5,16 +5,13 @@
   'use strict';
   const SB = (window.SB = window.SB || {});
   const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
-  // Pages qui ont besoin d'un compte StreamBox (connexion Twitch)
-  const ACCOUNT = ['diagnostic', 'raid', 'bot', 'moderation', 'stats', 'subathon-live', 'sr', 'minijeux', 'automatisations', 'chaine', 'sous-titres'];
   // Plateformes : Twitch par défaut ; « toutes » pour ce qui ne dépend d'aucune plateforme
   const PLATFORMS = { chat: ['twitch', 'kick', 'youtube'], extension: ['twitch', 'youtube'], qrdons: ['toutes'], panneau: ['toutes'], 'sous-titres': ['toutes'], integrations: ['toutes'], annuaire: ['toutes'] };
   // Aperçus disponibles (img/apercus/<id>.jpg)
-  const PREVIEWS = new Set('alertes annuaire automatisations bot calc chaine chat clips compteurs discord emotes etiquettes extension generique giveaway integrations minijeux minuteur moderation musique objectifs panneau pngtuber qrdons resizer rewind roue shoutout sondage sons sous-titres sr stats subathon-live testeur tts planning hypetrain diagnostic vedette pubs votes score raid'.split(' '));
+  const PREVIEWS = new Set('alertes annuaire automatisations bot calc chaine chat clips compteurs discord emotes etiquettes extension generique giveaway integrations minijeux minuteur moderation musique objectifs panneau pngtuber qrdons resizer rewind roue shoutout sondage sons sous-titres sr stats subathon-live testeur tts planning hypetrain diagnostic vedette pubs votes score raid reseaux bienvenue webcam defis classement'.split(' '));
   const all = [...window.SB_TOOLS, ...window.SB_PAGES].filter((t) => !t.mergedInto).map((t) => {
-    const f = t.fields || [];
     t.kind = t.overlay ? 'overlay' : t.id === 'extension' ? 'extension' : 'page';
-    t.login = f.some((x) => x.type === 'twitch') || ACCOUNT.includes(t.id);
+    t.login = ['twitch', 'compte'].includes((t.need || [])[0]); // connexion vraiment nécessaire (pas « en option »)
     t.platforms = PLATFORMS[t.id] || ['twitch'];
     return t;
   });
@@ -32,7 +29,7 @@
     a.append(head, el('p', null, t.short || t.tagline)); // description courte ; le détail est dans la page de l'outil
     const meta = el('span', 'tool-meta');
     meta.append(el('span', 'tag-kind', KIND[t.kind]));
-    if (t.login) meta.append(el('span', 'tag-login', 'Connexion Twitch'));
+    if (t.need) { const n = el('span', 'tag-need tag-' + t.need[0], t.need[1]); n.title = SB.t((window.SB_NEED_HELP || {})[t.need[0]] || ''); meta.append(n); } // ce qu'il faut vraiment
     if (t.platforms.includes('kick') || t.platforms.includes('youtube')) meta.append(el('span', null, 'Aussi ' + t.platforms.filter((p) => p !== 'twitch').map((p) => ({ kick: 'Kick', youtube: 'YouTube' })[p]).join(' et ')));
     a.appendChild(meta);
     if (t.links && !(opts && opts.short)) {

@@ -33,9 +33,10 @@ const KEY = 'sb-goal-' + (c.demo ? 'demo' + Math.random() : (c.channel.toLowerCa
 let S;
 try { S = JSON.parse(localStorage.getItem(KEY)) || null; } catch (e) { S = null; }
 if (!S || S.start !== c.start) S = { value: c.start, start: c.start };
-const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { /* ignore */ } };
+const save = () => { if (SB.testing()) return; try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { /* ignore */ } }; // test : rien n'est enregistré
 
 let shownTarget = null, lastValue = null;
+SB.testable(() => S, (v) => { S = v; lastValue = null; }, () => render()); // événement de test : affiché puis annulé
 function currentTarget() { return targets.find((t) => S.value < t) || targets[targets.length - 1]; }
 function render() {
   const t = currentTarget();

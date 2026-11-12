@@ -14,7 +14,7 @@
   SB.Donations = class {
     constructor() { this.handlers = {}; this.seen = new Set(); this.status = {}; if (SB.sources) SB.sources('dons').push(this); } // simulateur
     on(ev, fn) { (this.handlers[ev] = this.handlers[ev] || []).push(fn); return this; }
-    emit(ev, d) { (this.handlers[ev] || []).forEach((f) => { try { f(d); } catch (e) { console.error(e); } }); }
+    emit(ev, d) { if (window.SB && SB._real) SB._real(ev); (this.handlers[ev] || []).forEach((f) => { try { f(d); } catch (e) { console.error(e); } }); }
     don(d) {
       const key = d.id || [d.source, d.name, d.amount, d.message].join('|') + '|' + Math.floor(Date.now() / 5000);
       if (this.seen.has(key)) return; // même don reçu deux fois

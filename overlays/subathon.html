@@ -49,7 +49,8 @@ const fresh = () => ({
 });
 let S;
 try { S = JSON.parse(localStorage.getItem(KEY)) || fresh(); } catch (e) { S = fresh(); }
-const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { /* stockage indisponible */ } };
+const save = () => { if (SB.testing()) return; try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { /* stockage indisponible */ } }; // test : rien n'est enregistré
+SB.testable(() => S, (v) => { S = v; }, () => render());
 
 const remaining = () => S.status === 'running' ? Math.max(0, S.endAt - Date.now()) : S.left;
 const multiplier = () => (S.happyUntil > Date.now() ? S.happyMult : 1);
@@ -239,7 +240,7 @@ if (c.source !== 'relais') {
   const slToken = SB.query().get('sltoken');
   if (ovId && slToken && !c.demo) {
     const dons = new SB.Donations();
-    dons.on('don', (d) => fetch(`${relay}/o/${ovId}/don`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) }).then(sync).catch((e) => console.warn(e.message)));
+    dons.on('don', (d) => !SB.testing() && fetch(`${relay}/o/${ovId}/don`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) }).then(sync).catch((e) => console.warn(e.message)));
     dons.streamlabs(slToken);
   }
 }

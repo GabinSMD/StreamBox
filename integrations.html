@@ -39,25 +39,26 @@
 <script src="js/site.js"></script>
 <script>
 const I = [
-  { icon: '🟣', name: 'Twitch', how: 'Chat lu sans compte. Une connexion (sans mot de passe partagé) ajoute les follows, les points de chaîne, le total d’abonnés et les clips.', tools: ['chat', 'alertes', 'subathon', 'objectifs', 'rewind', 'discord'], ready: () => !!SB_CONFIG.twitchClientId },
-  { icon: '🎥', name: 'OBS (obs-websocket)', how: 'Inclus dans OBS 28+. Sert au Rewind (micro, Replay Buffer), au panneau de contrôle et aux scènes.', tools: ['rewind', 'panneau'], ready: () => true },
-  { icon: '💬', name: 'Discord', how: 'Par webhook, sans bot : annonce du live, récap de fin, gagnant du giveaway, messages des modos.', tools: ['discord', 'giveaway'], ready: () => true },
-  { icon: '🟢', name: 'Spotify', how: 'Le plus simple : via Last.fm (gratuit, ligne suivante). En direct avec la progression : avec ta propre application Spotify (Spotify l’exige d’un compte Premium).', tools: ['musique'], ready: () => true },
-  { icon: '🎧', name: 'Last.fm : Spotify, Deezer, YouTube Music, Apple Music', how: 'Gratuit. Deezer et Spotify y envoient nativement ce que tu écoutes. Pour YouTube Music, utilise l’extension Web Scrobbler.', tools: ['musique'], ready: () => !!SB_CONFIG.lastfmApiKey },
-  { icon: '☕', name: 'Ko-fi', how: 'Dons en direct dans les alertes, le subathon et les objectifs, via le relais StreamBox (gratuit, à déployer une fois).', tools: ['alertes', 'subathon', 'objectifs'], ready: () => !!SB_CONFIG.relayUrl },
-  { icon: '⚡', name: 'StreamElements', how: 'Dons (tips) en direct avec ton jeton JWT.', tools: ['alertes', 'subathon', 'objectifs'], ready: () => true },
-  { icon: '🔷', name: 'Streamlabs', how: 'Dons en direct avec ton jeton Socket API.', tools: ['alertes', 'subathon', 'objectifs'], ready: () => true },
-  { icon: '🪝', name: 'Tout le reste (Tipeee, Patreon, Zapier…)', how: 'Tout service capable d’envoyer un webhook peut passer par le relais StreamBox (/hook/<clé>).', tools: ['alertes', 'subathon'], ready: () => !!SB_CONFIG.relayUrl },
+  { icon: '🟣', name: 'Twitch', how: 'Chat lu sans compte. Une connexion (sans mot de passe partagé) ajoute les follows, les points de chaîne, le total d’abonnés et les clips.', tools: ['chat', 'alertes', 'subathon', 'objectifs', 'rewind', 'discord'], need: ['libre', 'Rien pour le chat · connexion en un clic pour le reste'], site: () => !!SB_CONFIG.twitchClientId },
+  { icon: '🎥', name: 'OBS (obs-websocket)', how: 'Inclus dans OBS 28+. Sert au Rewind (micro, Replay Buffer), au panneau de contrôle et aux scènes.', tools: ['rewind', 'panneau'], need: ['cle', 'Le mot de passe du WebSocket d’OBS'] },
+  { icon: '💬', name: 'Discord', how: 'Par webhook, sans bot : annonce du live, récap de fin, gagnant du giveaway, messages des modos.', tools: ['discord', 'giveaway'], need: ['cle', 'Un webhook à copier depuis Discord'] },
+  { icon: '🟢', name: 'Spotify', how: 'Le plus simple : via Last.fm (gratuit, ligne suivante). En direct avec la progression : avec ta propre application Spotify (Spotify l’exige d’un compte Premium).', tools: ['musique'], need: ['twitch', 'Ta propre application Spotify (compte Premium)'] },
+  { icon: '🎧', name: 'Last.fm : Spotify, Deezer, YouTube Music, Apple Music', how: 'Gratuit. Deezer et Spotify y envoient nativement ce que tu écoutes. Pour YouTube Music, utilise l’extension Web Scrobbler.', tools: ['musique'], need: ['cle', 'Un compte Last.fm gratuit'], site: () => !!SB_CONFIG.lastfmApiKey, siteMsg: 'en attendant, mets ta propre clé API Last.fm dans l’outil Musique' },
+  { icon: '☕', name: 'Ko-fi', how: 'Dons en direct dans les alertes, le subathon et les objectifs, via le relais StreamBox (gratuit, à déployer une fois).', tools: ['alertes', 'subathon', 'objectifs'], need: ['compte', 'Compte StreamBox + une adresse à coller dans Ko-fi'], site: () => !!SB_CONFIG.relayUrl },
+  { icon: '⚡', name: 'StreamElements', how: 'Dons (tips) en direct avec ton jeton JWT.', tools: ['alertes', 'subathon', 'objectifs'], need: ['cle', 'Ton jeton JWT StreamElements'] },
+  { icon: '🔷', name: 'Streamlabs', how: 'Dons en direct avec ton jeton Socket API.', tools: ['alertes', 'subathon', 'objectifs'], need: ['cle', 'Ton jeton Socket API Streamlabs'] },
+  { icon: '🪝', name: 'Tout le reste (Tipeee, Patreon, Zapier…)', how: 'Tout service capable d’envoyer un webhook peut passer par le relais StreamBox (/hook/<clé>).', tools: ['alertes', 'subathon'], need: ['compte', 'Compte StreamBox + l’adresse du webhook'], site: () => !!SB_CONFIG.relayUrl },
 ];
 const all = [...SB_TOOLS, ...SB_PAGES];
 const list = document.getElementById('list');
 I.forEach((it) => {
   const d = document.createElement('div'); d.className = 'tool'; d.style.cursor = 'default';
   const h = document.createElement('h2'); h.textContent = it.icon + ' ' + it.name;
-  const ok = it.ready();
-  const st = document.createElement('span'); st.className = 'flag'; st.style.marginLeft = '8px';
-  st.textContent = ok ? 'prêt' : 'à configurer sur ce site'; st.style.color = ok ? 'var(--ok)' : 'var(--warn)';
-  h.appendChild(st);
+  // Ce qu'il te faut (vert : rien, violet : connexion ou application, ambre : un réglage à copier une fois)
+  const need = document.createElement('p'); need.className = 'need-line';
+  const tag = document.createElement('b'); tag.className = 'tag-' + it.need[0]; tag.textContent = it.need[1];
+  need.append(SB.t('Il te faut :'), ' ', tag);
+  if (it.site && !it.site()) { const w = document.createElement('span'); w.style.color = 'var(--warn)'; w.textContent = it.siteMsg ? SB.t('Pas encore prêt sur ce site : {0}.', [SB.t(it.siteMsg)]) : SB.t('Pas encore prêt sur ce site (réglage du propriétaire).'); need.append(w); }
   const p = document.createElement('p'); p.textContent = it.how + (it.warn ? ' ' + it.warn : '');
   const links = document.createElement('div'); links.className = 'rep';
   links.append('Utilisé par : ');
@@ -65,7 +66,7 @@ I.forEach((it) => {
     if (i) links.append(', ');
     const a = document.createElement('a'); a.href = t.href || 'outil.html?id=' + t.id; a.textContent = t.icon + ' ' + t.name; links.appendChild(a);
   });
-  d.append(h, p, links); list.appendChild(d);
+  d.append(h, p, need, links); list.appendChild(d);
 });
 </script>
 </body>
