@@ -57,7 +57,8 @@ if (q.get('code') && q.get('state')) {
   let expected = null;
   try { expected = sessionStorage.getItem('sb-oauth-state'); sessionStorage.removeItem('sb-oauth-state'); } catch (e) { /* ignore */ }
   const [nonce, ...ret] = (hash.get('state') || '').split('|');
-  if (!expected || nonce !== expected) // la demande doit venir de cet onglet (sinon : jeton imposé par un lien piégé) say('Connexion refusée', 'La réponse de Twitch ne correspond pas à la demande. Réessaie.');
+  // la demande doit venir de cet onglet (sinon : jeton imposé par un lien piégé)
+  if (!expected || nonce !== expected) say('Connexion refusée', 'La réponse de Twitch ne correspond pas à la demande. Réessaie.');
   else {
     try { localStorage.setItem(KEY, hash.get('access_token')); } catch (e) { /* ignore */ }
     say('Connecté !', 'Retour à l’outil…');
