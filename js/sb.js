@@ -35,7 +35,7 @@
       let retry = 0;
       const live = () => {
         const ws = new WebSocket(relay.replace(/^http/, 'ws') + '/o/' + ovId + '/ws');
-        ws.onmessage = (e) => { try { const m = JSON.parse(e.data); if (m.type === 'update' || m.type === 'deleted') location.reload(); else if (m.type === 'sim' && SB.simulate) SB.simulate(m.ev); else if (m.type === 'twitch') (SB._twitchRelay || []).forEach((f) => f(m.ev, m.data)); else if (SB.onRelay) SB.onRelay(m); } catch (err) { /* ignore */ } };
+        ws.onmessage = (e) => { try { const m = JSON.parse(e.data); if (m.type === 'update' || m.type === 'deleted') location.reload(); else if (m.type === 'sim' && SB.simulate) SB.simulate(m.ev); else if (m.type === 'twitch') (SB._twitchRelay || []).forEach((f) => f(m.ev, m.data, m.st)); else if (SB.onRelay) SB.onRelay(m); } catch (err) { /* ignore */ } };
         ws.onopen = () => { retry = 0; };
         ws.onclose = () => setTimeout(live, Math.min(60000, 3000 * 2 ** retry++));
       };
@@ -449,18 +449,21 @@
    * Utilise un jeton « utilisateur » sans aucune permission (scope vide) : il ne permet que de lire
    * des données publiques (clips, VODs). Il est obtenu via connexion.html.
    */
-  SB.helix = async function (path, token) {
+  SB.helix = async function (path, token, opts) {
+    const method = (opts && opts.method) || 'GET';
     if (!token && SB.ovLink) { // overlay du compte sans jeton : le relais fait la lecture (points d'accès autorisés pour cet overlay)
-      const r = await fetch(SB.ovLink.relay + '/o/' + SB.ovLink.id + '/twitch?path=' + encodeURIComponent(path));
+      const r = await fetch(SB.ovLink.relay + '/o/' + SB.ovLink.id + '/twitch?path=' + encodeURIComponent(path), { method });
       if (!r.ok) throw new Error('API Twitch : erreur ' + r.status);
       return r.json();
     }
     const cid = window.SB_CONFIG && SB_CONFIG.twitchClientId;
     if (!cid || !token) throw new Error('Connexion Twitch non configurée');
-    const r = await fetch('https://api.twitch.tv/helix/' + path, { headers: { 'Client-Id': cid, Authorization: 'Bearer ' + token } });
+    const r = await fetch('https://api.twitch.tv/helix/' + path, { method, headers: { 'Client-Id': cid, Authorization: 'Bearer ' + token } });
     if (!r.ok) throw new Error('API Twitch : erreur ' + r.status);
     return r.json();
   };
+  /* L'overlay peut suivre Twitch : avec un jeton (lien manuel) ou par le relais (lien du compte) */
+  SB.canTwitch = (c) => !!(c.token || SB.ovLink);
   SB.validateToken = async function (token) {
     const r = await fetch('https://id.twitch.tv/oauth2/validate', { headers: { Authorization: 'OAuth ' + token } });
     return r.ok ? r.json() : null; // { login, user_id, expires_in }

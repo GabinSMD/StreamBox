@@ -39,7 +39,7 @@ if (c.bg === 'scene') {
 const stage = document.getElementById('rw-stage');
 const GAP = 2 * 3600000; // 2 h sans activité = nouveau stream
 const BOTS = new Set(['nightbot', 'streamelements', 'streamlabs', 'moobot', 'fossabot', 'wizebot', 'soundalerts', 'sery_bot']);
-const twitchReady = () => !!(c.token && window.SB_CONFIG && SB_CONFIG.twitchClientId);
+const twitchReady = () => !!(SB.ovLink || (c.token && window.SB_CONFIG && SB_CONFIG.twitchClientId)); // lien du compte : le relais lit Twitch et crée le clip
 let playing = false;
 
 /* =================== 1. MÉMOIRE DES STREAMS ===================
@@ -98,9 +98,8 @@ det.on('trigger', () => {
         const path = (ev && ev.savedReplayPath) || (await obs.call('GetLastReplayBufferReplay')).savedReplayPath;
         Object.assign(h, { kind: 'obs', path });
       } else if (c.save === 'twitch' && twitchReady()) {
-        const r = await fetch('https://api.twitch.tv/helix/clips?broadcaster_id=' + (await getUserId()), { method: 'POST', headers: { 'Client-Id': SB_CONFIG.twitchClientId, Authorization: 'Bearer ' + c.token } });
-        if (!r.ok) throw new Error('création du clip refusée (' + r.status + ')');
-        Object.assign(h, { kind: 'twitch', clipId: (await r.json()).data[0].id });
+        const d = await SB.helix('clips?broadcaster_id=' + (await getUserId()), c.token, { method: 'POST' }).catch((e) => { throw new Error('création du clip refusée (' + e.message + ')'); });
+        Object.assign(h, { kind: 'twitch', clipId: d.data[0].id });
       } else h.kind = 'moment';
     } catch (e) { h.kind = 'moment'; h.error = e.message; console.warn(e); }
     record((s) => s.highlights.push(h));

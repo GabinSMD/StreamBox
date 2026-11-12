@@ -90,7 +90,7 @@ const chat = new SB.TwitchChat(c.channel);
 chat.on('message', onMessage)
   .on('cheer', (m) => { if (!c.bits || m.bits < c.bits) return; const w = (m.text || '').match(new RegExp(c.cmd.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s+(.+)$', 'i')); if (w) play(w[1].replace(/\bcheer\d+\b/gi, '').trim(), m.name, true); })
   .connect();
-if (c.reward || c.token) SB.twitchEvents(c, ['points']).on('points', (e) => {
+if (c.reward || SB.canTwitch(c)) SB.twitchEvents(c, ['points']).on('points', (e) => {
   // récompense « Jouer un son » (le viewer écrit le nom du son), ou une récompense qui porte le nom d'un son
   if (c.reward && norm(e.reward) === norm(c.reward)) play(e.input, e.name, true);
   else if (sounds.has(norm(e.reward))) play(e.reward, e.name, true);

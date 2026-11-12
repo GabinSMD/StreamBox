@@ -92,7 +92,7 @@ if (c.type === 'dons') SB.donations(c).on('don', (d) => add(d.amount));
 
 // Valeur de départ réelle depuis l'API Twitch (followers ou abonnés), si connecté
 (async () => {
-  if (!c.auto || c.demo || !c.token || !window.SB_CONFIG || !SB_CONFIG.twitchClientId || !c.channel || !['follows', 'subs'].includes(c.type)) return;
+  if (!c.auto || c.demo || !(SB.ovLink || (c.token && window.SB_CONFIG && SB_CONFIG.twitchClientId)) || !c.channel || !['follows', 'subs'].includes(c.type)) return;
   try {
     const id = (await SB.helix('users?login=' + encodeURIComponent(c.channel), c.token)).data[0].id;
     const d = await SB.helix(c.type === 'follows' ? `channels/followers?broadcaster_id=${id}&first=1` : `subscriptions?broadcaster_id=${id}&first=1`, c.token);

@@ -79,14 +79,14 @@ chat.on('usernotice', (n) => {
   const tot = (S.bitsBy || {}); tot[m.login] = { name: m.name, n: ((tot[m.login] || {}).n || 0) + m.bits }; S.bitsBy = tot; // cumul par viewer sur la session
   const best = Object.values(tot).sort((a, b) => b.n - a.n)[0]; set('topbits', best);
 }).connect();
-if (c.token) SB.twitchEvents(c, ['follow']).on('follow', (e) => set('follow', { name: e.name }));
+if (SB.canTwitch(c)) SB.twitchEvents(c, ['follow']).on('follow', (e) => set('follow', { name: e.name }));
 SB.donations(c).on('don', (d) => {
   set('don', { name: d.name, amount: d.amount, currency: d.currency });
   if (!S.topdon || d.amount > S.topdon.amount) set('topdon', { name: d.name, amount: d.amount, currency: d.currency });
 });
 // Nombre de followers et d'abonnés (et dernier follow au démarrage), relus toutes les 2 minutes
 async function counts() {
-  if (!c.token || !c.channel) return;
+  if (!SB.canTwitch(c) || !c.channel) return;
   try {
     const u = ((await SB.helix('users?login=' + encodeURIComponent(c.channel), c.token)).data || [])[0]; if (!u) return;
     const f = await SB.helix(`channels/followers?broadcaster_id=${u.id}&first=1`, c.token).catch(() => null);
