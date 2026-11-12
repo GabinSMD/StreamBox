@@ -28,7 +28,7 @@ const defs = c.counters.split('\n').map((l) => l.split('|').map((x) => x.trim())
 const key = 'sb-compteurs:' + (new URLSearchParams(location.search).get('o') || c.channel || 'local');
 let vals = {};
 try { vals = JSON.parse(localStorage.getItem(key) || '{}'); } catch (e) { /* ignore */ }
-const save = () => { try { localStorage.setItem(key, JSON.stringify(vals)); } catch (e) { /* ignore */ } };
+const save = () => { if (SB.testing()) return; try { localStorage.setItem(key, JSON.stringify(vals)); } catch (e) { /* ignore */ } }; // test : rien n'est enregistré
 
 const box = document.getElementById('list'), rows = {};
 defs.forEach((d) => {
@@ -37,6 +37,7 @@ defs.forEach((d) => {
   row.append(SB.el('span', 'ct-l', d.label), v);
   box.appendChild(row); rows[d.id] = { row, v };
 });
+SB.testable(() => vals, (v) => { vals = v; defs.forEach((d) => { rows[d.id].v.textContent = String(vals[d.id] || 0); }); }, () => {});
 function set(id, n) {
   vals[id] = Math.max(-999999, Math.min(999999, Math.round(n)));
   save();

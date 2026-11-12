@@ -10,7 +10,7 @@
   class Emitter {
     constructor() { this.handlers = {}; }
     on(ev, fn) { (this.handlers[ev] = this.handlers[ev] || []).push(fn); return this; }
-    emit(ev, d) { (this.handlers[ev] || []).forEach((f) => { try { f(d); } catch (e) { console.error(e); } }); }
+    emit(ev, d) { if (window.SB && SB._real) SB._real(ev); (this.handlers[ev] || []).forEach((f) => { try { f(d); } catch (e) { console.error(e); } }); }
   }
 
   /* ---------- Kick ---------- */

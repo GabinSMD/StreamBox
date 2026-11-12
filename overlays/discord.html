@@ -29,7 +29,8 @@ if (c.debug || c.demo) $('panel').hidden = false;
 const color = parseInt((c.accent || '#9b5cff').replace('#', ''), 16) || 0x9b5cff;
 const KEY = 'sb-discord-' + (c.channel.toLowerCase() || 'local');
 let S; try { S = JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { S = {}; }
-const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { /* ignore */ } };
+const save = () => { if (SB.testing()) return; try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { /* ignore */ } }; // test : rien n'est enregistré
+SB.testable(() => S, (v) => { S = v; }, () => {});
 
 function log(t) { const d = SB.el('div', null, new Date().toLocaleTimeString(SB_LANG_TAG) + ' · ' + t); $('log').prepend(d); while ($('log').children.length > 6) $('log').lastElementChild.remove(); }
 const fill = (tpl, v) => tpl.replace(/\{(\w+)\}/g, (_, k) => (v[k] != null ? v[k] : ''));
@@ -41,6 +42,7 @@ function mention() {
 }
 async function post(payload, what) {
   if (c.demo) { log('(démo) ' + what); return; }
+  if (SB.testing()) { log('(test, rien envoyé) ' + what); return; } // un événement de test ne poste jamais sur Discord
   try { await SB.discordPost(c.webhook, payload); log(what + ' ✓'); } catch (e) { log(what + ' : ' + e.message); }
 }
 const fmtDur = (ms) => { const m = Math.round(ms / 60000); return m >= 60 ? `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}` : `${m} min`; };

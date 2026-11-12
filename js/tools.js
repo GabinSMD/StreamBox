@@ -818,6 +818,34 @@
   const MERGED = { subathon: 'subathon-live', lecteur: 'sr', jeux: 'minijeux', soustitres: 'sous-titres' };
   [...window.SB_TOOLS, ...window.SB_PAGES].forEach((t) => { t.cat = CAT[t.id] || 'outils'; if (MERGED[t.id]) t.mergedInto = MERGED[t.id]; });
 
+  /* Ce qu'il faut vraiment avant de configurer un outil :
+   * libre (rien), option (marche sans connexion, Twitch ajoute ce qui est indiqué), twitch, compte (compte StreamBox), cle (un réglage à créer une fois) */
+  const opt = (what) => ['option', 'Twitch en option : ' + what];
+  const COMPTE = ['compte', 'Compte StreamBox'], TW = ['twitch', 'Connexion Twitch'];
+  const NEED = {
+    alertes: opt('follows, points'), subathon: opt('follows, points'), objectifs: opt('followers'), etiquettes: opt('follows, totaux'),
+    webcam: opt('follows'), sons: opt('points de chaîne'), tts: opt('points de chaîne'), rewind: opt('clips'),
+    shoutout: TW, clips: TW, hypetrain: TW, pubs: TW, votes: TW,
+    discord: ['cle', 'Webhook Discord'], musique: ['cle', 'Pseudo Last.fm'],
+    lecteur: COMPTE, jeux: COMPTE, defis: COMPTE, classement: COMPTE, soustitres: COMPTE, generique: COMPTE, vedette: COMPTE,
+    diagnostic: COMPTE, raid: COMPTE, bot: COMPTE, moderation: COMPTE, stats: COMPTE, 'subathon-live': COMPTE, sr: COMPTE, minijeux: COMPTE, automatisations: COMPTE, chaine: COMPTE, 'sous-titres': COMPTE,
+    panneau: ['cle', 'Mot de passe OBS'], extension: ['libre', 'Extension à installer'],
+  };
+  /* « Pour commencer » : trois parcours courts, outils dans l'ordre où les régler, et toujours la vérification à la fin */
+  window.SB_PATHS = [
+    { id: 'premier', icon: '🚀', name: 'Mon premier live', desc: 'L’essentiel pour un live propre : un écran d’attente, ton chat et tes alertes à l’écran.', steps: ['minuteur', 'chat', 'alertes', 'diagnostic'] },
+    { id: 'animer', icon: '💬', name: 'Animer mon chat', desc: 'Un bot qui répond, des viewers accueillis, des votes et des jeux pour faire participer.', steps: ['bot', 'bienvenue', 'sondage', 'minijeux', 'diagnostic'] },
+    { id: 'subathon', icon: '⏱️', name: 'Organiser un subathon', desc: 'Un timer qui monte avec les abos, les bits et les dons, un objectif et une roue pour les défis.', steps: ['subathon-live', 'objectifs', 'roue', 'diagnostic'] },
+  ];
+  window.SB_NEED_HELP = {
+    libre: 'Marche tout de suite : ni connexion ni compte.',
+    option: 'Marche sans connexion. La connexion Twitch ajoute seulement ce qui est indiqué.',
+    twitch: 'Demande la connexion Twitch (ou un compte StreamBox).',
+    compte: 'Demande un compte StreamBox : connexion avec Twitch, gratuite.',
+    cle: 'Demande un réglage à créer une fois, gratuit (expliqué dans l’outil).',
+  };
+  [...window.SB_TOOLS, ...window.SB_PAGES].forEach((t) => { t.need = NEED[t.id] || ['libre', 'Sans connexion']; });
+
   window.SB_TOOLS.forEach((t) => {
     if (WITH_DONS.includes(t.id)) t.fields = t.fields.concat(DONS);
     if (PILOTABLE.includes(t.id)) t.fields = t.fields.concat(REMOTE);

@@ -188,8 +188,32 @@
    * Chaque source d'événements de l'overlay (chat, EventSub, dons) s'inscrit ici ; un faux événement envoyé
    * par le relais y est injecté, exactement comme un vrai : l'overlay réagit comme en live. */
   SB.sources = (kind) => { SB._src = SB._src || { chat: [], events: [], dons: [] }; return SB._src[kind]; };
+  /* Événements de test : l'overlay réagit comme en live, mais sur une copie de son état. Rien n'est compté ni
+   * enregistré : 8 s après le dernier test, il revient à son état réel (tout de suite si un vrai événement arrive). */
+  let sandbox = null;
+  const REAL = new Set(['message', 'usernotice', 'cheer', 'follow', 'points', 'don', 'adBreak', 'pollBegin', 'pollProgress', 'pollEnd', 'predBegin', 'predProgress', 'predLock', 'predEnd', 'hypeBegin', 'hypeProgress', 'hypeEnd']);
+  SB.testable = function (get, set, render) { SB._testable = { get, set, render }; }; // l'overlay déclare son état (objet JSON)
+  SB.testing = () => !!sandbox || !!SB.inTest; // vrai pendant un test : ne rien enregistrer, ne rien transmettre au relais
+  function endTest() {
+    if (!sandbox) return;
+    clearTimeout(sandbox.timer);
+    const T = SB._testable, snap = sandbox.snap; sandbox = null;
+    if (T && snap) { T.set(JSON.parse(snap)); T.render(); }
+  }
+  function run(fn) {
+    const T = SB._testable;
+    if (!sandbox) sandbox = { snap: T ? JSON.stringify(T.get()) : null }; // même sans état : la fenêtre de test bloque les envois réels
+    clearTimeout(sandbox.timer); sandbox.timer = setTimeout(endTest, 8000);
+    SB.inTest = true;
+    try { fn(); } finally { SB.inTest = false; }
+  }
+  const later = (fn, ms) => setTimeout(() => run(fn), ms);
+  SB._real = (ev) => { if (sandbox && !SB.inTest && REAL.has(ev)) endTest(); }; // un vrai événement : retour à l'état réel d'abord
   SB.simulate = function (ev) {
     if (!ev || !ev.kind) return;
+    run(() => SB._simulate(ev));
+  };
+  SB._simulate = function (ev) {
     const login = String(ev.name || 'viewer_test').toLowerCase(), user = { login: ev.name || 'Viewer_Test', color: '#9b5cff', sub: true };
     const notice = (type, extra) => Object.assign(SB.fake({ user, text: ev.message || '' }), { type, months: 1, giftCount: 0, viewers: 0, recipient: '', isCommunityGift: false, systemMsg: '' }, extra);
     const chat = SB.sources('chat'), events = SB.sources('events'), dons = SB.sources('dons');
@@ -210,8 +234,8 @@
         const id = 'sim-' + Date.now(), ends = new Date(Date.now() + 20000).toISOString();
         const poll = (v) => ({ id, title: 'Sondage de test', ends_at: ends, choices: [{ id: 'a', title: 'Oui', votes: v[0] }, { id: 'b', title: 'Non', votes: v[1] }] });
         events.forEach((e) => e.emit('pollBegin', poll([0, 0])));
-        setTimeout(() => events.forEach((e) => e.emit('pollProgress', poll([12, 5]))), 3000);
-        setTimeout(() => events.forEach((e) => e.emit('pollEnd', Object.assign(poll([21, 9]), { status: 'completed', ended_at: new Date().toISOString() }))), 8000);
+        later(() => events.forEach((e) => e.emit('pollProgress', poll([12, 5]))), 3000);
+        later(() => events.forEach((e) => e.emit('pollEnd', Object.assign(poll([21, 9]), { status: 'completed', ended_at: new Date().toISOString() }))), 8000);
         break;
       }
       case 'pred': { // une prédiction : paris, fermeture, résultat
@@ -220,9 +244,9 @@
           { id: 'o1', title: 'Oui', color: 'blue', channel_points: a, users: Math.round(a / 800), top_predictors: [{ user_name: ev.name, channel_points_used: Math.round(a / 3) }] },
           { id: 'o2', title: 'Non', color: 'pink', channel_points: b, users: Math.round(b / 600), top_predictors: [] }] }, extra);
         events.forEach((e) => e.emit('predBegin', pred(0, 0)));
-        setTimeout(() => events.forEach((e) => e.emit('predProgress', pred(24000, 9000))), 3000);
-        setTimeout(() => events.forEach((e) => e.emit('predLock', pred(31000, 15000, { locked_at: new Date().toISOString() }))), 6000);
-        setTimeout(() => events.forEach((e) => e.emit('predEnd', pred(31000, 15000, { winning_outcome_id: 'o1', status: 'resolved', ended_at: new Date().toISOString() }))), 9000);
+        later(() => events.forEach((e) => e.emit('predProgress', pred(24000, 9000))), 3000);
+        later(() => events.forEach((e) => e.emit('predLock', pred(31000, 15000, { locked_at: new Date().toISOString() }))), 6000);
+        later(() => events.forEach((e) => e.emit('predEnd', pred(31000, 15000, { winning_outcome_id: 'o1', status: 'resolved', ended_at: new Date().toISOString() }))), 9000);
         break;
       }
       case 'hype': { // un petit Hype Train : départ, montée d'un niveau, fin
@@ -230,9 +254,9 @@
         const tops = [{ user_name: ev.name, user_login: login, type: 'bits', total: 500 }];
         const base = { id, type: 'regular', goal: 1800, top_contributions: tops, all_time_high_level: lvl + 1 };
         events.forEach((e) => e.emit('hypeBegin', Object.assign({}, base, { level: lvl, progress: 400, total: 400, expires_at: exp() })));
-        setTimeout(() => events.forEach((e) => e.emit('hypeProgress', Object.assign({}, base, { level: lvl, progress: 1300, total: 1300, expires_at: exp() }))), 3000);
-        setTimeout(() => events.forEach((e) => e.emit('hypeProgress', Object.assign({}, base, { level: lvl + 1, progress: 200, total: 2000, expires_at: exp() }))), 6000);
-        setTimeout(() => events.forEach((e) => e.emit('hypeEnd', Object.assign({}, base, { level: lvl + 1, total: 2000, ended_at: new Date().toISOString() }))), 10000);
+        later(() => events.forEach((e) => e.emit('hypeProgress', Object.assign({}, base, { level: lvl, progress: 1300, total: 1300, expires_at: exp() }))), 3000);
+        later(() => events.forEach((e) => e.emit('hypeProgress', Object.assign({}, base, { level: lvl + 1, progress: 200, total: 2000, expires_at: exp() }))), 6000);
+        later(() => events.forEach((e) => e.emit('hypeEnd', Object.assign({}, base, { level: lvl + 1, total: 2000, ended_at: new Date().toISOString() }))), 10000);
         break;
       }
     }
@@ -248,7 +272,7 @@
       this.retry = 0;
     }
     on(ev, fn) { (this.handlers[ev] = this.handlers[ev] || []).push(fn); return this; }
-    emit(ev, data) { (this.handlers[ev] || []).forEach((f) => { try { f(data); } catch (e) { console.error(e); } }); }
+    emit(ev, data) { if (SB._real) SB._real(ev); (this.handlers[ev] || []).forEach((f) => { try { f(data); } catch (e) { console.error(e); } }); }
     connect() {
       if (!this.channel) return this;
       const ws = (this.ws = new WebSocket('wss://irc-ws.chat.twitch.tv:443'));

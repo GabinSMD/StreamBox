@@ -27,9 +27,14 @@
   <div class="cat-tools" role="search">
     <label class="cat-search"><svg class="ic ic-search" aria-hidden="true" focusable="false"><use href="img/icons.svg#search"/></svg><input type="search" id="q" placeholder="Chercher : chat, alertes, Nightbot…" aria-label="Chercher un outil" autocomplete="off"></label>
     <label class="cat-f"><span>Type</span><select id="fKind"><option value="">Tous</option><option value="overlay">Overlay OBS</option><option value="page">Page web</option><option value="extension">Extension</option></select></label>
-    <label class="cat-f"><span>Connexion</span><select id="fLogin"><option value="">Peu importe</option><option value="non">Sans connexion</option><option value="oui">Avec connexion Twitch</option></select></label>
+    <label class="cat-f"><span>Connexion</span><select id="fLogin"><option value="">Peu importe</option><option value="non">Sans connexion (ou en option)</option><option value="oui">Connexion ou compte nécessaire</option></select></label>
     <label class="cat-f"><span>Plateforme</span><select id="fPf"><option value="">Toutes</option><option value="twitch">Twitch</option><option value="kick">Kick</option><option value="youtube">YouTube</option></select></label>
   </div>
+  <section class="start" id="start" aria-labelledby="startH">
+    <h2 class="sec" id="startH">Pour commencer</h2>
+    <p class="sec">Pas besoin de tout installer : choisis un parcours et règle les outils dans l’ordre.</p>
+    <div class="start-grid" id="startGrid"></div>
+  </section>
   <p class="cat-count" id="count" role="status"></p>
   <nav class="cat-nav" id="catNav" aria-label="Catégories"></nav>
   <div id="outils"></div>
@@ -60,6 +65,20 @@ SB_CATEGORIES.forEach((c) => {
   l.append(C.icon(c.icon), c.name, ' ', n); nav.appendChild(l);
   sections.push({ c, sec, items, chip: l, n });
 });
+/* Pour commencer : trois parcours, les outils dans l'ordre, avec ce qu'il faut pour chacun */
+(SB_PATHS || []).forEach((P) => {
+  const d = document.createElement('div'); d.className = 'start-path';
+  const h = document.createElement('h3'); h.append(C.icon(P.icon), P.name);
+  const p = document.createElement('p'); p.textContent = P.desc;
+  const ol = document.createElement('ol');
+  P.steps.map((id) => C.byId(id) || [...SB_TOOLS, ...SB_PAGES].find((t) => t.id === id)).filter(Boolean).forEach((t) => {
+    const li = document.createElement('li'); const a = document.createElement('a'); a.href = C.hrefOf(t); a.textContent = t.name;
+    li.append(a);
+    if (t.need) { const n = document.createElement('small'); n.className = 'tag-' + t.need[0]; n.textContent = t.need[1]; n.title = SB.t((window.SB_NEED_HELP || {})[t.need[0]] || ''); li.append(n); }
+    ol.appendChild(li);
+  });
+  d.append(h, p, ol); $('startGrid').appendChild(d);
+});
 /* Recherche et filtres, gardés dans l'adresse (?q=…&type=…&cnx=…&pf=…) pour partager une recherche */
 const F = { q: $('q'), kind: $('fKind'), login: $('fLogin'), platform: $('fPf') };
 const KEYS = { q: 'q', kind: 'type', login: 'cnx', platform: 'pf' };
@@ -73,6 +92,7 @@ function apply(push) {
     sec.hidden = !k; chip.hidden = !k; n.textContent = k; shown += k;
   });
   const active = Object.values(f).some(Boolean);
+  $('start').hidden = active; // une recherche en cours : les parcours laissent la place aux résultats
   $('count').textContent = active ? SB.t('{0} outil(s) sur {1}', [shown, C.all.length]) : '';
   $('empty').hidden = shown > 0;
   if (push) { const u = new URL(location.href); for (const [k, v] of Object.entries(f)) { if (v) u.searchParams.set(KEYS[k], v); else u.searchParams.delete(KEYS[k]); } history.replaceState(null, '', u); }
