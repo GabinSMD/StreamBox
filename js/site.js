@@ -1,6 +1,7 @@
 /* En-tête, pied de page et petits utilitaires communs aux pages du site. */
 (function () {
   const REPO = 'https://github.com/GabinSMD/StreamBox';
+  const AUTHOR = 'https://gabin-simond.fr'; // site de l'auteur
   const page = location.pathname.split('/').pop() || 'index.html';
   const links = [['outils.html', 'Outils'], ['integrations.html', 'Intégrations', 'opt-link'], ['annuaire.html', 'Annuaire', 'opt-link'], ['apropos.html', 'À propos', 'opt-small']];
   const header = document.createElement('header');
@@ -103,7 +104,7 @@
   footer.innerHTML = `<div class="wrap foot">
     <div class="foot-main">
       <a class="logo" href="index.html"><img class="logo-mark" src="img/logo.svg" alt="" width="24" height="28">StreamBox</a>
-      <p>Des outils gratuits pour streamers, sans rien installer. Fait par Igatax, inspiré par PiRDub.</p>
+      <p>Des outils gratuits pour streamers, sans rien installer. Fait par <a href="${AUTHOR}" target="_blank" rel="noopener">Igatax (Gabin SIMOND)</a>, inspiré par PiRDub. <a href="${REPO}" target="_blank" rel="noopener">Code source sur GitHub</a>.</p>
       <p class="foot-small">Logiciel libre sous licence <a href="${REPO}/blob/main/LICENSE" target="_blank" rel="noopener">AGPL-3.0</a>. Annuaire basé sur <a href="https://github.com/sammwyy/awesome-twitch" target="_blank" rel="noopener">awesome-twitch</a>. StreamBox n’est ni affilié à Twitch, ni approuvé par Twitch.</p>
     </div>
     <div class="foot-cols">
