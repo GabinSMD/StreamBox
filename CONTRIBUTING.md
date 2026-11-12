@@ -73,4 +73,4 @@ En contribuant, tu acceptes que ta contribution soit publiée sous la licence du
 
 ---
 
-StreamBox est fait par Igatax, inspiré par PiRDub.
+StreamBox est fait par [Igatax (Gabin SIMOND)](https://gabin-simond.fr), inspiré par PiRDub.

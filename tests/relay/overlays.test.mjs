@@ -65,7 +65,8 @@ test('régénérer ou supprimer un lien ferme ses WebSockets et l’ancien lien 
 test('journal des musiques : seulement si l’overlay le publie, et des adresses https', async () => {
   const R = await relay(); const S = await R.login('a');
   const on = await create(R, S, 'musique', { log: true }), off = await create(R, S, 'musique', {});
-  assert.equal((await R.req('POST', `/o/${on}/track`, { title: 'T', url: 'javascript:alert(1)//spotify.com', art: 'https://i.scdn.co/x.jpg' }))[0], 200);
+  // at dans le passé : la lecture va jusqu'à « maintenant » exclu, et un serveur rapide peut tout faire dans la même milliseconde
+  assert.equal((await R.req('POST', `/o/${on}/track`, { at: Date.now() - 5000, title: 'T', url: 'javascript:alert(1)//spotify.com', art: 'https://i.scdn.co/x.jpg' }))[0], 200);
   assert.equal((await R.req('POST', `/o/${off}/track`, { title: 'T' }))[0], 403);
   const [, d] = await R.req('GET', '/tracks/streameur');
   assert.equal(d.tracks[0].url, ''); assert.equal(d.tracks[0].art, 'https://i.scdn.co/x.jpg');
