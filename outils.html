@@ -74,7 +74,7 @@ SB_CATEGORIES.forEach((c) => {
   P.steps.map((id) => C.byId(id) || [...SB_TOOLS, ...SB_PAGES].find((t) => t.id === id)).filter(Boolean).forEach((t) => {
     const li = document.createElement('li'); const a = document.createElement('a'); a.href = C.hrefOf(t); a.textContent = t.name;
     li.append(a);
-    if (t.need) { const n = document.createElement('small'); n.className = 'tag-' + t.need[0]; n.textContent = t.need[1]; n.title = SB.t((window.SB_NEED_HELP || {})[t.need[0]] || ''); li.append(n); }
+    if (t.need) { const n = document.createElement('small'); n.className = 'tag-' + t.need[0]; n.textContent = SB_NEED_SHORT[t.need[0]]; n.title = SB.t(t.need[1]); li.append(n); }
     ol.appendChild(li);
   });
   d.append(h, p, ol); $('startGrid').appendChild(d);
