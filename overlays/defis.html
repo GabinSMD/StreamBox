@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>StreamBox · Défis des viewers</title>
+<link rel="stylesheet" href="../css/overlay.css">
+<script src="../js/i18n.js"></script>
+</head>
+<body>
+<section class="df" id="box" hidden>
+  <div class="df-head"><span class="df-title" id="title"></span><span class="df-hint" id="hint"></span></div>
+  <ol class="df-list" id="list"></ol>
+</section>
+<script src="../js/config.js"></script>
+<script src="../js/sb.js"></script>
+<script>
+/* Défis des viewers : les défis proposés dans le chat (!defi) et leur cagnotte (!soutenir), gardés par le relais
+ * avec les mini-jeux. Un défi atteint passe en tête ; relevé ou refusé, il reste un moment puis disparaît. */
+const c = SB.params({ max: 3, title: 'Défis du chat', hint: true, hideempty: true, size: 22, font: 'Inter', accent: '#9b5cff', demo: false });
+SB.loadFont(c.font); SB.setAccent(c.accent);
+document.documentElement.style.setProperty('--size', c.size + 'px');
+const $ = (id) => document.getElementById(id);
+const fmt = (n) => Math.round(n).toLocaleString(SB_LANG_TAG);
+$('title').textContent = c.title;
+
+function render(S) {
+  const C = S.currency || 'points';
+  const order = { atteint: 0, ouvert: 1, fait: 2, 'refusé': 3 };
+  const list = (S.defis || []).slice().sort((a, b) => order[a.status] - order[b.status] || b.total / b.goal - a.total / a.goal).slice(0, Math.max(1, c.max));
+  $('hint').textContent = c.hint ? SB.t('!defi ton défi · !soutenir numéro mise') : '';
+  $('box').hidden = !list.length && c.hideempty;
+  $('list').replaceChildren(...(list.length ? list.map((d) => {
+    const li = SB.el('li', 'df-item df-' + (d.status === 'refusé' ? 'refuse' : d.status));
+    const top = SB.el('div', 'df-top');
+    const t = SB.el('span', 'df-text', d.text); t.dataset.i18nSkip = '';
+    top.append(SB.el('span', 'df-n', '#' + d.n), t);
+    const state = d.status === 'atteint' ? SB.t('Atteint !') : d.status === 'fait' ? SB.t('Relevé ✓') : d.status === 'refusé' ? SB.t('Refusé') : `${fmt(d.total)} / ${fmt(d.goal)} ${C}`;
+    top.append(SB.el('span', 'df-state', state));
+    const bar = SB.el('div', 'df-bar'); const fill = SB.el('div', 'df-fill'); fill.style.width = Math.min(100, (d.total / d.goal) * 100) + '%'; bar.appendChild(fill);
+    const by = SB.el('div', 'df-by', SB.t('proposé par {0} · {1} soutien(s)', [d.by, d.backers])); by.dataset.i18nSkip = '';
+    li.append(top, bar, by);
+    return li;
+  }) : [SB.el('li', 'df-empty', SB.t('Aucun défi pour l’instant : propose le tien avec !defi'))]));
+}
+
+if (c.demo) {
+  const D = [{ n: 3, text: 'Jouer la prochaine partie sans HUD', by: 'PixelMaud', total: 1000, goal: 1000, status: 'atteint', backers: 7 },
+    { n: 4, text: 'Chanter le refrain de la prochaine musique', by: 'Lou_Gaming', total: 420, goal: 1000, status: 'ouvert', backers: 4 },
+    { n: 5, text: 'Finir le niveau avec une seule main', by: 'Sacha', total: 150, goal: 1000, status: 'ouvert', backers: 1 }];
+  const S = { currency: 'pépites', defis: D };
+  render(S);
+  setInterval(() => { D[1].total = D[1].total >= 1000 ? 420 : D[1].total + 60; D[1].status = D[1].total >= 1000 ? 'atteint' : 'ouvert'; render(S); }, 1500);
+} else if (SB.ovLink) {
+  const poll = async () => { try { const r = await fetch(`${SB.ovLink.relay}/o/${SB.ovLink.id}/jeux`, { cache: 'no-store' }); if (r.ok) render(await r.json()); } catch (e) { /* relais injoignable : on réessaie */ } };
+  poll(); setInterval(poll, 3000);
+} else if (!SB._cfgError) document.body.appendChild(SB.el('div', 'sb-hint', 'StreamBox : ' + SB.t('cet overlay passe par ton compte StreamBox : enregistre-le dans ton compte et colle son lien court dans OBS.')));
+else SB.hintIfNoChannel(c);
+</script>
+</body>
+</html>

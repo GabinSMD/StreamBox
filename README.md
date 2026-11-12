@@ -44,6 +44,9 @@ Une boîte à outils gratuite pour streamers. Elle regroupe dans un seul site ce
 | 🔗 Réseaux sociaux : tes pseudos un par un ou en bandeau, en permanence ou de temps en temps, aux couleurs de chaque plateforme | Overlay OBS | Social rotator de StreamElements |
 | 👋 Bienvenue : une carte pour le premier message d'un nouveau viewer et pour ceux qui reviennent | Overlay OBS | First chatter de Streamer.bot |
 | 📷 Cadre webcam : contour aux couleurs de la chaîne, qui s'illumine et dit merci à chaque abo, raid, bits ou follow | Overlay OBS | Cadres webcam animés |
+| 🎯 Défis des viewers : `!defi` pour proposer, `!soutenir` pour remplir la cagnotte de points, validation par le streamer ou ses modos | Relais + overlay + page Mini-jeux | Challenges de StreamElements |
+| 🏅 Classement de la communauté : les plus bavards, les plus fidèles et les plus riches du mois, avec `!classement` | Relais + overlay | Leaderboard de StreamElements |
+| 🎬 Moments forts : les 3 clips les plus vus du live postés sur Discord après la fin | Relais | — |
 | 🚀 Trouver un raid : chaînes en direct dans ton jeu et ta langue, triées par audience proche de la tienne, raid en un clic | Page web | Recherche à la main dans le répertoire Twitch |
 | 🛡️ Bouclier anti-raid haineux : un raid venant d’un compte tout récent passe le chat en mode followers (et en mode bouclier) quelques minutes | Bot (relais) | Réglages manuels pendant le raid |
 | 📊 Récap de la semaine sur Discord, chaque lundi : lives, viewers, follows, abonnements, meilleur live | Statistiques (relais) | |
@@ -204,6 +207,7 @@ Prochaines étapes :
 - [x] Message en vedette, pubs Twitch, sondages et prédictions natifs à l’écran
 - [x] Tableau de score, recherche de raid, bouclier anti-raid haineux, récap hebdomadaire sur Discord
 - [x] Réseaux sociaux, bienvenue aux nouveaux viewers, cadre webcam
+- [x] Défis des viewers, classements du mois, moments forts sur Discord
 
 ## Contribuer
 

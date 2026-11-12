@@ -244,6 +244,35 @@
       ],
     },
     {
+      id: 'defis', icon: '🎯', name: 'Défis des viewers', short: 'Ton chat propose des défis et réunit une cagnotte de points pour les débloquer.', overlay: 'overlays/defis.html', size: [620, 300],
+      tagline: 'Un viewer propose un défi avec !defi, les autres le soutiennent avec leurs points (!soutenir). Quand la cagnotte est pleine, le défi est débloqué : à toi de le relever.',
+      replaces: ['Challenges de StreamElements', 'Bounties de Streamer.bot'],
+      note: 'Fait partie des mini-jeux du chat (compte StreamBox) : les points sont virtuels et se gagnent en discutant. Toi et tes modos validez avec !defi fait 2 ou refusez avec !defi non 2 (les points sont rendus), ou depuis la page Mini-jeux du chat.',
+      links: [['Mini-jeux du chat', 'jeux.html']],
+      fields: [
+        { key: 'title', label: 'Titre', type: 'text', default: 'Défis du chat' },
+        { key: 'max', label: 'Défis affichés au maximum', type: 'number', default: 3, min: 1, max: 10 },
+        { key: 'hint', label: 'Rappeler les commandes', type: 'checkbox', default: true },
+        { key: 'hideempty', label: 'Cacher quand il n’y a aucun défi', type: 'checkbox', default: true },
+        size(22), font, accent,
+      ],
+    },
+    {
+      id: 'classement', icon: '🏅', name: 'Classement de la communauté', short: 'Les viewers les plus bavards, les plus fidèles ou les plus riches du mois.', overlay: 'overlays/classement.html', size: [420, 360],
+      tagline: 'Le top du mois : messages envoyés, temps passé dans le chat, ou points des mini-jeux. En rotation, les trois s’affichent l’un après l’autre.',
+      replaces: ['Leaderboard de StreamElements', 'Top chatters de Streamlabs'],
+      note: 'Fait partie des mini-jeux du chat (compte StreamBox) : les compteurs du mois repartent de zéro le 1er. Dans le chat : !classement (messages) ou !classement presence.',
+      links: [['Mini-jeux du chat', 'jeux.html']],
+      fields: [
+        { key: 'kind', label: 'Classement', type: 'select', default: 'messages', options: [['messages', 'Messages du mois'], ['presence', 'Présence du mois'], ['points', 'Points (depuis toujours)']] },
+        { key: 'rotate', label: 'Alterner les trois classements', type: 'checkbox', default: false },
+        { key: 'every', label: 'Alterner toutes les (s)', type: 'number', default: 15, min: 5, max: 300 },
+        { key: 'count', label: 'Nombre de viewers', type: 'number', default: 5, min: 1, max: 10 },
+        { key: 'title', label: 'Titre (vide = automatique)', type: 'text', default: '' },
+        size(22), font, accent,
+      ],
+    },
+    {
       id: 'shoutout', icon: '📣', name: 'Shoutout vidéo', short: '!so @pseudo ou un raid joue un clip de la chaîne citée.', overlay: 'overlays/shoutout.html', size: [960, 640],
       tagline: '!so @pseudo ou un raid joue à l’écran un clip de la chaîne citée, avec son nom, son avatar et son dernier jeu.',
       replaces: ['Shoutout vidéo de Streamer.bot', 'Clip shoutout StreamElements'],
@@ -782,7 +811,7 @@
     { id: 'outils', icon: '🛠️', name: 'Outils pratiques', desc: 'Piloter tes overlays, préparer tes emotes, estimer tes revenus, trouver d’autres outils.' },
   ];
   const CAT = { chat: 'communaute', bot: 'communaute', sondage: 'communaute', giveaway: 'communaute', roue: 'communaute', emotes: 'communaute', moderation: 'communaute', chaine: 'communaute', jeux: 'communaute', minijeux: 'communaute',
-    alertes: 'alertes', objectifs: 'alertes', discord: 'alertes', tts: 'alertes', qrdons: 'alertes', planning: 'communaute', hypetrain: 'alertes', vedette: 'communaute', reseaux: 'communaute', bienvenue: 'communaute', webcam: 'alertes', pubs: 'alertes', votes: 'communaute', score: 'communaute', raid: 'outils', sons: 'communaute', compteurs: 'communaute', generique: 'evenements',
+    alertes: 'alertes', objectifs: 'alertes', discord: 'alertes', tts: 'alertes', qrdons: 'alertes', planning: 'communaute', hypetrain: 'alertes', vedette: 'communaute', defis: 'communaute', classement: 'communaute', reseaux: 'communaute', bienvenue: 'communaute', webcam: 'alertes', pubs: 'alertes', votes: 'communaute', score: 'communaute', raid: 'outils', sons: 'communaute', compteurs: 'communaute', generique: 'evenements',
     'subathon-live': 'evenements', minuteur: 'evenements', rewind: 'evenements',
     musique: 'musique', sr: 'musique', extension: 'musique',
     panneau: 'outils', automatisations: 'outils', soustitres: 'communaute', 'sous-titres': 'communaute', pngtuber: 'communaute', shoutout: 'communaute', clips: 'evenements', etiquettes: 'alertes', stats: 'outils', integrations: 'outils', resizer: 'outils', testeur: 'outils', calc: 'outils', annuaire: 'outils', diagnostic: 'outils' };
