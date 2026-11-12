@@ -146,6 +146,8 @@ python3 -m http.server 8000
 # puis ouvrir http://localhost:8000
 ```
 
+Tests (relais, site et navigateur) : `npm install`, `npx playwright install chromium`, puis `npm test`. Ils tournent aussi sur chaque pull request. Voir [CONTRIBUTING.md](CONTRIBUTING.md#tests).
+
 ## Structure
 
 ```

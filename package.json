@@ -1,0 +1,15 @@
+{
+  "name": "streambox",
+  "private": true,
+  "description": "StreamBox : site statique et relais Cloudflare. Ce fichier ne sert qu'aux tests (le site n'a rien à installer).",
+  "type": "module",
+  "scripts": {
+    "test": "node --import ./tests/helpers/register.mjs --test --test-concurrency=1 \"tests/**/*.test.mjs\"",
+    "test:relais": "node --import ./tests/helpers/register.mjs --test \"tests/relay/*.test.mjs\"",
+    "test:site": "node --test --test-concurrency=1 \"tests/site/*.test.mjs\""
+  },
+  "devDependencies": {
+    "playwright": "1.63.0"
+  },
+  "engines": { "node": ">=22" }
+}

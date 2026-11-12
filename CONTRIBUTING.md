@@ -42,7 +42,23 @@ Pour le relais (comptes, bot, subathon, demandes de musique), voir [`relay/READM
 - **Sécurité** : ne mets jamais un jeton dans le code. Les jetons des streamers restent chiffrés sur le relais, et chaque overlay ne reçoit que ceux dont il a besoin (`NEEDS` dans `relay/worker.js`).
 - **Un nouvel outil** s'ajoute dans `js/tools.js` (champs du configurateur), avec un overlay dans `overlays/` qui sait tourner en `?demo=1`. Après avoir ajouté ou renommé un champ, lance `node tools/relay/tool-keys.mjs` : le relais n'enregistre que les champs listés dans `relay/tool-keys.js`.
 - **Un overlay qui lit Twitch** ne reçoit pas le jeton du streamer s'il peut s'en passer : le relais s'abonne aux événements et fait les lectures pour lui (`OV_TWITCH` dans `relay/worker.js`).
-- Teste ta modification (mode démo, et vrai chat si possible), et décris ce que tu as testé dans la pull request.
+- Teste ta modification (mode démo, et vrai chat si possible), lance `npm test`, et décris ce que tu as testé dans la pull request.
+
+## Tests
+
+Les tests tournent tout seuls sur chaque pull request (GitHub Actions). Pour les lancer chez toi (Node 22) :
+
+```bash
+npm install
+npx playwright install chromium
+npm test
+```
+
+- `tests/relay/` : le vrai relais (`relay/worker.js`) dans Node, avec un faux Cloudflare (Durable Objects, WebSockets) et un faux Twitch, Discord et YouTube. Rien ne sort sur Internet. Le harnais est dans `tests/helpers/relay.mjs`.
+- `tests/site/statique.test.mjs` : syntaxe de tous les scripts, variables des traductions, registre des outils, `relay/tool-keys.js` à jour, aperçus, aucun secret dans le dépôt.
+- `tests/site/navigateur.test.mjs` : Chromium ouvre chaque overlay en démo, chaque page et chaque configurateur, et vérifie qu'un événement de test ne change ni l'état ni ce qui est enregistré.
+
+`npm run test:relais` ou `npm run test:site` pour n'en lancer qu'une partie.
 
 ## Traductions
 
