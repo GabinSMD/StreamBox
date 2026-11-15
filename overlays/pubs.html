@@ -43,16 +43,16 @@ function tick() {
   if (adEnd > now) { // pub en cours
     card.className = 'ad on during';
     $('title').textContent = c.tduring; $('time').textContent = fmt(adEnd - now);
-    $('fill').style.width = (adLen ? Math.min(100, (1 - (adEnd - now) / adLen) * 100) : 0) + '%';
+    $('fill').style.transform = 'scaleX(' + (adLen ? Math.min(1, 1 - (adEnd - now) / adLen) : 0) + ')';
     $('sub').textContent = c.tsub; return;
   }
   if (adEnd && adEnd <= now) { adEnd = 0; thanksUntil = now + c.thanks * 1000; if (c.sayafter) say('apres'); setTimeout(refresh, 15000); }
-  if (thanksUntil > now) { card.className = 'ad on after'; $('title').textContent = c.tafter; $('time').textContent = ''; $('sub').textContent = ''; $('fill').style.width = '100%'; return; }
+  if (thanksUntil > now) { card.className = 'ad on after'; $('title').textContent = c.tafter; $('time').textContent = ''; $('sub').textContent = ''; $('fill').style.transform = 'none'; return; }
   const left = nextAd - now;
   if (nextAd && left > 0 && left <= c.before * 1000) {
     card.className = 'ad on soon';
     $('title').textContent = c.tbefore; $('time').textContent = fmt(left); $('sub').textContent = c.tsub;
-    $('fill').style.width = (100 - (left / (c.before * 1000)) * 100) + '%';
+    $('fill').style.transform = 'scaleX(' + Math.max(0, 1 - left / (c.before * 1000)) + ')';
     if (c.saybefore && warned !== nextAd && left <= 60000) { warned = nextAd; say('avant'); }
     return;
   }

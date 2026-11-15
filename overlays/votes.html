@@ -30,7 +30,7 @@ let cur = null, hideT = null; // { kind: 'poll'|'pred', ...événement Twitch }
 
 function bar(label, pct, right, cls) {
   const r = SB.el('div', 'vt-row' + (cls ? ' ' + cls : ''));
-  const f = SB.el('div', 'vt-fill'); f.style.width = Math.round(pct) + '%';
+  const f = SB.el('div', 'vt-fill'); f.style.transform = 'scaleX(' + (Math.round(pct) / 100) + ')';
   const t = SB.el('div', 'vt-line'); t.append(SB.el('span', 'vt-lbl', label), SB.el('span', 'vt-val', right));
   r.append(f, t); return r;
 }

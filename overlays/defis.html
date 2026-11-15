@@ -36,8 +36,8 @@ function render(S) {
     top.append(SB.el('span', 'df-n', '#' + d.n), t);
     const state = d.status === 'atteint' ? SB.t('Atteint !') : d.status === 'fait' ? SB.t('Relevé ✓') : d.status === 'refusé' ? SB.t('Refusé') : `${fmt(d.total)} / ${fmt(d.goal)} ${C}`;
     top.append(SB.el('span', 'df-state', state));
-    const bar = SB.el('div', 'df-bar'); const fill = SB.el('div', 'df-fill'); fill.style.width = Math.min(100, (d.total / d.goal) * 100) + '%'; bar.appendChild(fill);
-    const by = SB.el('div', 'df-by', SB.t('proposé par {0} · {1} soutien(s)', [d.by, d.backers])); by.dataset.i18nSkip = '';
+    const bar = SB.el('div', 'df-bar'); const fill = SB.el('div', 'df-fill'); fill.style.transform = 'scaleX(' + Math.min(1, d.total / d.goal) + ')'; bar.appendChild(fill);
+    const by = SB.el('div', 'df-by', (d.backers === 1 ? SB.t('proposé par {0}, 1 soutien', [d.by]) : SB.t('proposé par {0}, {1} soutiens', [d.by, d.backers]))); by.dataset.i18nSkip = '';
     li.append(top, bar, by);
     return li;
   }) : [SB.el('li', 'df-empty', SB.t('Aucun défi pour l’instant : propose le tien avec !defi'))]));

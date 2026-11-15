@@ -5,7 +5,7 @@
   'use strict';
   const KEY = 'sb-mod-layout';
   const PANES = ['automod', 'journal', 'unban', 'modes', 'votes', 'points', 'livetab'];
-  const NAMES = { chat: 'Chat', tabs: 'Onglets', automod: 'AutoMod', journal: 'Journal', unban: 'Débans', modes: 'Modes du chat et annonces', votes: 'Sondages et prédictions', points: 'Points de chaîne', livetab: 'Live et équipe' };
+  const NAMES = { chat: 'Chat', tabs: 'Outils de modération', automod: 'AutoMod', journal: 'Journal', unban: 'Débans', modes: 'Modes du chat et annonces', votes: 'Sondages et prédictions', points: 'Points de chaîne', livetab: 'Live et équipe' };
   const COUNT = { automod: 'nAutomod', unban: 'nUnban', points: 'nPoints' };
   const W = [[3, '¼'], [4, '⅓'], [6, '½'], [8, '⅔'], [12, 'Toute la largeur']];
   const H = [[1, 'Petit'], [2, 'Moyen'], [3, 'Grand']];
@@ -92,6 +92,9 @@
     const cur = tabsNav.querySelector('button.on');
     if (!cur || cur.hidden) { const first = [...tabsNav.querySelectorAll('button')].find((b) => !b.hidden); if (first) first.click(); }
     else widgets.tabs.body.querySelectorAll('.md-pane').forEach((p) => { p.hidden = p.id !== 'p-' + cur.dataset.t; });
+    // rôle d'onglet seulement pour les blocs rangés dans les onglets (un bloc sorti est une région du tableau de bord)
+    PANES.forEach((p) => { const pane = $('p-' + p); if (!pane) return; const inTabs = L.tabs.includes(p);
+      if (inTabs) { pane.setAttribute('role', 'tabpanel'); pane.setAttribute('aria-labelledby', 'tab-' + p); } else { pane.removeAttribute('role'); pane.removeAttribute('aria-labelledby'); } });
     renderBar();
   }
   function change() { L.preset = null; save(); apply(); loadStandalone(); }

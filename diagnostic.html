@@ -21,7 +21,7 @@
 </head>
 <body>
 <main class="wrap">
-  <div class="acc-head" style="margin-top:36px">
+  <div class="acc-head">
     <h1 class="sec"><svg class="ic ic-circle-check" aria-hidden="true" focusable="false"><use href="img/icons.svg#circle-check"/></svg>Vérifier mon installation</h1>
     <button class="btn ghost small" id="again" type="button"><svg class="ic ic-rotate-cw" aria-hidden="true" focusable="false"><use href="img/icons.svg#rotate-cw"/></svg>Relancer</button>
   </div>
@@ -39,7 +39,7 @@
     <div class="dg-obs">
       <div class="field"><label for="obsurl">Adresse</label><input type="text" id="obsurl" value="ws://127.0.0.1:4455" spellcheck="false"></div>
       <div class="field"><label for="obspass">Mot de passe</label><input type="password" id="obspass" autocomplete="off"></div>
-      <button class="btn ghost small" id="obstest" type="button">Tester OBS</button>
+      <button class="btn ghost" id="obstest" type="button">Tester OBS</button>
     </div>
     <p class="bt-help" id="obsres" role="status" aria-live="polite"></p>
   </section>
@@ -95,9 +95,9 @@ async function run() {
   if (!reach) { add('err', 'Relais injoignable', relay(), null); return done(states); }
   add('ok', 'Relais joignable', SB.t('Réponse en {0} ms', [Math.round(performance.now() - t0)]));
   // 3. Compte
-  if (!SBA.loggedIn()) { add('warn', 'Pas connecté à StreamBox', SB.t('Connecte-toi pour vérifier ton compte, tes abonnements et tes overlays.'), ['Se connecter avec Twitch', 'connexion.html?compte=1&retour=diagnostic.html']); simUi(); return done(states); }
+  if (!SBA.loggedIn()) { add('warn', 'Pas connecté à StreamBox', SB.t('Connecte-toi pour vérifier ton compte, tes abonnements et tes overlays.'), ['Se connecter avec Twitch', 'connexion.html?compte=1&retour=diagnostic.html']); simUi(); return done(states, true); }
   try { diag = await SBA.api('GET', '/me/diag'); }
-  catch (e) { add(e.auth ? 'warn' : 'err', e.auth ? 'Session expirée' : 'Relais à mettre à jour', e.auth ? SB.t('Reconnecte-toi.') : SB.t('Le relais ne connaît pas encore la vérification : redéploie-le (npx wrangler deploy).'), e.auth ? ['Se connecter avec Twitch', 'connexion.html?compte=1&retour=diagnostic.html'] : null); simUi(); return done(states); }
+  catch (e) { add(e.auth ? 'warn' : 'err', e.auth ? 'Session expirée' : 'Relais à mettre à jour', e.auth ? SB.t('Reconnecte-toi.') : SB.t('Le relais ne connaît pas encore la vérification : redéploie-le (npx wrangler deploy).'), e.auth ? ['Se connecter avec Twitch', 'connexion.html?compte=1&retour=diagnostic.html'] : null); simUi(); return done(states, e.auth); }
   const R = diag.relay;
   add(R.twitch ? 'ok' : 'err', 'Identifiants Twitch du relais', R.twitch ? SB.t('Présents.') : SB.t('TWITCH_CLIENT_ID ou TWITCH_CLIENT_SECRET manquant sur le relais.'));
   add(R.encryption ? 'ok' : 'warn', 'Chiffrement des jetons', R.encryption ? SB.t('Les jetons sont chiffrés sur le relais.') : SB.t('ENCRYPTION_KEY manquant : les jetons sont stockés en clair.'));
@@ -142,9 +142,14 @@ async function run() {
   simUi();
   done(states);
 }
-function done(states) {
+// partial : la vérification s'est arrêtée avant le compte (pas connecté, session expirée)
+function done(states, partial) {
   const err = states.filter((s) => s === 'err').length, warn = states.filter((s) => s === 'warn').length;
-  $('sum').textContent = err ? SB.t('{0} problème(s) à corriger, {1} point(s) à surveiller.', [err, warn]) : warn ? SB.t('Tout fonctionne, avec {0} point(s) à surveiller.', [warn]) : SB.t('Tout est prêt pour le live.');
+  const nErr = err === 1 ? SB.t('1 problème à corriger') : SB.t('{0} problèmes à corriger', [err]);
+  const nWarn = warn === 1 ? SB.t('1 point à surveiller') : SB.t('{0} points à surveiller', [warn]);
+  $('sum').textContent = err ? (warn ? SB.t('{0}, {1}.', [nErr, nWarn]) : nErr + '.')
+    : partial ? SB.t('Vérification incomplète : connecte-toi pour contrôler ton compte, tes abonnements et tes overlays.')
+    : warn ? SB.t('Tout fonctionne, avec {0}.', [nWarn]) : SB.t('Tout est prêt pour le live.');
   $('sum').className = 'dg-sum ' + (err ? 'dg-err' : warn ? 'dg-warn' : 'dg-ok');
 }
 

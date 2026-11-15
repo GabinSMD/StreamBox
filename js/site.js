@@ -52,7 +52,7 @@
     ['Pendant le live', [['panneau.html', 'Panneau de contrôle', 'sliders-horizontal'], ['moderation.html', 'Modération', 'shield'], ['sous-titres.html', 'Sous-titres', 'message-square']]],
     ['Mes réglages', [['compte.html', 'Mes overlays', 'layout-grid'], ['bot.html', 'Bot de chat', 'bot'], ['automatisations.html', 'Automatisations', 'zap'], ['subathon.html', 'Subathon', 'timer'], ['sr.html', 'Demandes de musique', 'list-music'], ['jeux.html', 'Mini-jeux', 'dices']]],
     ['Après le live', [['raid.html', 'Trouver un raid', 'rocket'], ['stats.html', 'Statistiques', 'chart-column']]],
-    ['Mon compte', [['compte.html#integrations', 'Intégrations', 'plug'], ['compte.html#page', 'Page publique', 'globe'], ['compte.html#images', 'Images', 'image'], ['compte.html#compte', 'Compte', 'user'], ['diagnostic.html', 'Vérifier mon installation', 'circle-check']]],
+    ['Mon compte', [['compte.html#integrations', 'Intégrations', 'plug'], ['compte.html#page', 'Page publique', 'globe'], ['compte.html#images', 'Images', 'image'], ['compte.html#compte', 'Compte', 'user'], ['diagnostic.html', 'Mon installation', 'circle-check']]],
   ];
   const main = document.querySelector('main');
   const inEspace = ESPACE.some(([, items]) => items.some(([h]) => h.split('#')[0] === page));
@@ -80,6 +80,8 @@
     toggle.onclick = () => { const o = nav2.classList.toggle('open'); toggle.setAttribute('aria-expanded', String(o)); };
     nav2.append(toggle, list);
     main.before(shell); shell.append(nav2, main);
+    // barre latérale plus haute que l'écran : la page en cours reste visible sans faire défiler la page
+    requestAnimationFrame(() => { const c = list.querySelector('[aria-current]'); if (c && nav2.scrollHeight > nav2.clientHeight) nav2.scrollTop = Math.max(0, c.offsetTop - nav2.clientHeight / 2); });
     document.body.classList.add('has-esp');
     mark(); addEventListener('hashchange', mark);
   }
