@@ -106,8 +106,10 @@ async function search() {
 }
 function card(s) {
   const c = el('article', 'rd-card');
-  let img = el('div', 'rd-ph');
-  if (s.thumbnail_url) { img = el('img'); img.alt = ''; img.loading = 'lazy'; img.width = 320; img.height = 180; img.src = s.thumbnail_url.replace('{width}', '320').replace('{height}', '180'); }
+  // sans miniature (ou si elle ne charge pas) : un aplat sobre avec le logo Twitch, pas un dégradé vide
+  const ph = () => { const d = el('div', 'rd-ph'); d.appendChild(SB.icon('twitch')); return d; };
+  let img = ph();
+  if (s.thumbnail_url) { img = el('img'); img.alt = ''; img.loading = 'lazy'; img.width = 320; img.height = 180; img.onerror = () => img.replaceWith(ph()); img.src = s.thumbnail_url.replace('{width}', '320').replace('{height}', '180'); }
   const body = el('div', 'rd-b');
   const h = el('h2'); const link = el('a', null, s.user_name); link.href = 'https://www.twitch.tv/' + s.user_login; link.target = '_blank'; link.rel = 'noopener'; link.title = SB.t('Voir la chaîne'); h.appendChild(link);
   body.append(h, el('p', 'rd-t', s.title || ''), SB.meta(SB.t('{0} viewers', [n(s.viewer_count)]), since(s.started_at), s.game_name || ''));

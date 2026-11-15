@@ -66,7 +66,7 @@ function draw() {
     $('left').textContent = '';
   } else {
     const pct = train.goal ? Math.min(100, (train.progress / train.goal) * 100) : 0;
-    $('fill').style.width = pct + '%';
+    $('fill').style.transform = 'scaleX(' + (pct / 100) + ')';
     $('sub').textContent = c.showrecord && record ? SB.t('Record : niveau {0}', [record]) : SB.t('Abos et bits font avancer le train');
     $('pts').textContent = SB.t('{0} / {1} vers le niveau {2}', [Number(train.progress || 0).toLocaleString(SB_LANG_TAG), Number(train.goal || 0).toLocaleString(SB_LANG_TAG), lvl + 1]);
     $('left').textContent = train.expires_at ? fmt(Date.parse(train.expires_at) - Date.now()) : '';

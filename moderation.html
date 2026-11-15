@@ -30,8 +30,10 @@
       <span class="flag" id="live"></span>
       <span class="md-st" id="stChat" title="Chat"><svg class="ic ic-message-square" aria-hidden="true" focusable="false"><use href="img/icons.svg#message-square"/></svg>…</span>
       <span class="md-st" id="stEs" title="Événements de modération"><svg class="ic ic-shield" aria-hidden="true" focusable="false"><use href="img/icons.svg#shield"/></svg>…</span>
+      <div class="md-top-r">
       <button class="btn ghost small wd-edit-btn" id="wdEdit" type="button" aria-pressed="false"><svg class="ic ic-layout-dashboard" aria-hidden="true" focusable="false"><use href="img/icons.svg#layout-dashboard"/></svg><span>Personnaliser</span></button>
-      <label class="md-quick" title="Durée du bouton ⏱ dans le chat"><svg class="ic ic-timer" aria-hidden="true" focusable="false"><use href="img/icons.svg#timer"/></svg>rapide <select id="quickT"><option value="60">1 min</option><option value="600" selected>10 min</option><option value="3600">1 h</option><option value="86400">24 h</option></select></label>
+      <label class="md-quick" title="Durée du timeout donné par le bouton chronomètre de chaque message"><svg class="ic ic-timer" aria-hidden="true" focusable="false"><use href="img/icons.svg#timer"/></svg>Timeout rapide <select id="quickT"><option value="60">1 min</option><option value="600" selected>10 min</option><option value="3600">1 h</option><option value="86400">24 h</option></select></label>
+      </div>
     </header>
     <div class="note" id="scopeWarn" hidden></div>
     <div class="wd-bar" id="wdBar" hidden></div>
@@ -54,7 +56,7 @@
           <button role="tab" type="button" data-t="automod" class="on" aria-selected="true">AutoMod <b id="nAutomod"></b></button>
           <button role="tab" type="button" data-t="journal">Journal</button>
           <button role="tab" type="button" data-t="unban">Débans <b id="nUnban"></b></button>
-          <button role="tab" type="button" data-t="modes">Chat</button>
+          <button role="tab" type="button" data-t="modes">Modes</button>
           <button role="tab" type="button" data-t="votes" id="tabVotes" hidden>Sondages</button>
           <button role="tab" type="button" data-t="points" id="tabPoints" hidden>Points <b id="nPoints"></b></button>
           <button role="tab" type="button" data-t="livetab" id="tabLive" hidden>Live</button>
@@ -74,7 +76,7 @@
         </section>
         <section class="box md-pane" id="p-modes" hidden>
           <div class="md-modes" id="modes"></div>
-          <h2 class="bt-h" style="margin-top:18px"><svg class="ic ic-megaphone" aria-hidden="true" focusable="false"><use href="img/icons.svg#megaphone"/></svg>Annonce</h2>
+          <h3 class="bt-h" style="margin-top:18px"><svg class="ic ic-megaphone" aria-hidden="true" focusable="false"><use href="img/icons.svg#megaphone"/></svg>Annonce</h3>
           <textarea id="annText" aria-label="Message mis en avant dans le chat" rows="2" maxlength="500" placeholder="Message mis en avant dans le chat"></textarea>
           <div class="pn-row">
             <select id="annColor" aria-label="Couleur de l’annonce"><option value="primary">Couleur de la chaîne</option><option value="purple">Violet</option><option value="blue">Bleu</option><option value="green">Vert</option><option value="orange">Orange</option></select>
@@ -109,7 +111,7 @@
           <div class="bx-body">
             <p class="bt-help">Récompenses de points de chaîne à valider ou à rembourser.</p>
             <div id="queue"></div>
-            <h2 class="bt-h" style="margin-top:18px"><svg class="ic ic-gift" aria-hidden="true" focusable="false"><use href="img/icons.svg#gift"/></svg>Récompenses</h2>
+            <h3 class="bt-h" style="margin-top:18px"><svg class="ic ic-gift" aria-hidden="true" focusable="false"><use href="img/icons.svg#gift"/></svg>Récompenses</h3>
             <div id="rewards"></div>
             <details class="md-new" id="rwNew" hidden><summary><svg class="ic ic-plus" aria-hidden="true" focusable="false"><use href="img/icons.svg#plus"/></svg>Nouvelle récompense</summary>
               <label class="bt-f"><span>Nom</span><input type="text" id="wTitle" maxlength="45"></label>
@@ -130,11 +132,11 @@
             <label class="bt-f"><span>Catégorie</span><input type="text" id="game" list="games" autocomplete="off"></label>
             <datalist id="games"></datalist>
             <div class="pn-row"><button class="btn small" id="saveLive" type="button">Mettre à jour</button></div>
-            <h2 class="bt-h" style="margin-top:18px"><svg class="ic ic-rocket" aria-hidden="true" focusable="false"><use href="img/icons.svg#rocket"/></svg>Raid</h2>
+            <h3 class="bt-h" style="margin-top:18px"><svg class="ic ic-rocket" aria-hidden="true" focusable="false"><use href="img/icons.svg#rocket"/></svg>Raid</h3>
             <div class="pn-row"><input type="text" id="raidTo" aria-label="chaîne à raider" placeholder="chaîne à raider"><button class="btn small" id="raidGo" type="button">Lancer</button><button class="btn ghost small" id="raidStop" type="button">Annuler</button></div>
           </div>
           <div id="teamBox" hidden>
-            <h2 class="bt-h" style="margin-top:18px"><svg class="ic ic-handshake" aria-hidden="true" focusable="false"><use href="img/icons.svg#handshake"/></svg>Équipe</h2>
+            <h3 class="bt-h" style="margin-top:18px"><svg class="ic ic-handshake" aria-hidden="true" focusable="false"><use href="img/icons.svg#handshake"/></svg>Équipe</h3>
             <label class="bt-toggle"><input type="checkbox" id="teamMods"><b>Mes modos peuvent gérer sondages, prédictions, file des récompenses et messages en vedette</b></label>
             <p class="bt-help">Twitch réserve ces actions au compte du streamer : StreamBox les fait pour tes modos, après avoir vérifié auprès de Twitch qu’ils sont bien modos. Créer ou supprimer une récompense reste réservé à toi.</p>
           </div>
@@ -655,9 +657,18 @@ async function loadTeam() {
 $('teamMods').onchange = () => act($('teamMods').checked ? 'Tes modos peuvent gérer sondages et récompenses' : 'Accès des modos retiré', () => SBA.api('PUT', '/me/team', { mods: $('teamMods').checked })).then((ok) => { if (!ok) $('teamMods').checked = !$('teamMods').checked; });
 
 /* ---------- Onglets ---------- */
+document.querySelectorAll('#tabs button').forEach((b) => { b.id = 'tab-' + b.dataset.t; b.setAttribute('aria-controls', 'p-' + b.dataset.t); b.setAttribute('aria-selected', String(b.classList.contains('on'))); b.tabIndex = b.classList.contains('on') ? 0 : -1; });
+// clavier : flèches, Début et Fin d'un onglet à l'autre (un seul arrêt de tabulation pour la barre)
+$('tabs').onkeydown = (e) => {
+  if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
+  const bs = [...$('tabs').querySelectorAll('button:not([hidden])')], i = bs.indexOf(document.activeElement); if (i < 0) return;
+  e.preventDefault();
+  const j = e.key === 'Home' ? 0 : e.key === 'End' ? bs.length - 1 : (i + (e.key === 'ArrowRight' ? 1 : -1) + bs.length) % bs.length;
+  bs[j].focus(); bs[j].click();
+};
 $('tabs').onclick = (e) => {
   const b = e.target.closest('button'); if (!b) return;
-  document.querySelectorAll('#tabs button').forEach((x) => { x.classList.toggle('on', x === b); x.setAttribute('aria-selected', String(x === b)); });
+  document.querySelectorAll('#tabs button').forEach((x) => { x.classList.toggle('on', x === b); x.setAttribute('aria-selected', String(x === b)); x.tabIndex = x === b ? 0 : -1; });
   history.replaceState(null, '', location.pathname + location.search + (b.dataset.t === 'automod' ? '' : '#' + b.dataset.t)); // onglet gardé dans l'adresse
   b.scrollIntoView({ block: 'nearest', inline: 'nearest' }); // onglet actif toujours visible si la barre défile
   document.querySelectorAll('#wd-tabs .md-pane').forEach((p) => { p.hidden = p.id !== 'p-' + b.dataset.t; }); // les blocs sortis des onglets restent visibles
@@ -709,7 +720,7 @@ setInterval(() => { if (ch) stream(); }, 60000);
 
 /* ---------- Démarrage ---------- */
 function need(text, label, href) {
-  $('need').hidden = false; $('need').replaceChildren(el('h2', null, '🛡️ Panneau de modération'), el('p', 'lead', text));
+  $('need').hidden = false; const nh = el('h1', 'sec'); nh.append(SB.icon('shield'), SB.t('Panneau de modération')); $('need').replaceChildren(nh, el('p', 'lead', text));
   if (label) { const b = el('button', 'btn', label); b.onclick = () => { location.href = href; }; $('need').appendChild(b); }
   $('need').appendChild(el('p', 'bt-help', 'Chaque modo se connecte avec son propre compte Twitch : les actions sont faites en son nom, comme sur Twitch. StreamBox ne garde aucun message du chat.'));
 }

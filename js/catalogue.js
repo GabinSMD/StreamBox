@@ -49,7 +49,7 @@
     if (login === 'oui' && !t.login) return false;
     if (login === 'non' && t.login) return false;
     if (platform && !(t.platforms.includes(platform) || t.platforms.includes('toutes'))) return false;
-    if (q) { const hay = norm([t.name, t.short, t.tagline, (t.replaces || []).join(' '), KIND[t.kind]].join(' ')); return norm(q).split(/\s+/).filter(Boolean).every((w) => hay.includes(w)); }
+    if (q) { const hay = norm([t.name, t.short, t.tagline, (t.replaces || []).join(' '), (t.links || []).map((l) => l[0]).join(' '), KIND[t.kind]].join(' ')); return norm(q).split(/\s+/).filter(Boolean).every((w) => hay.includes(w)); }
     return true;
   }
   SB.catalogue = { all, card, icon, hrefOf, match, KIND, byId: (id) => all.find((t) => t.id === id) };

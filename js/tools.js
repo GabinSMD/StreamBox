@@ -244,7 +244,7 @@
       ],
     },
     {
-      id: 'defis', icon: '🎯', name: 'Défis des viewers', short: 'Ton chat propose des défis et réunit une cagnotte de points pour les débloquer.', overlay: 'overlays/defis.html', size: [620, 300],
+      id: 'defis', icon: '🎯', name: 'Défis des viewers', short: 'Ton chat propose des défis et réunit une cagnotte de points pour les débloquer.', overlay: 'overlays/defis.html', size: [620, 330],
       tagline: 'Un viewer propose un défi avec !defi, les autres le soutiennent avec leurs points (!soutenir). Quand la cagnotte est pleine, le défi est débloqué : à toi de le relever.',
       replaces: ['Challenges de StreamElements', 'Bounties de Streamer.bot'],
       note: 'Fait partie des mini-jeux du chat (compte StreamBox) : les points sont virtuels et se gagnent en discutant. Toi et tes modos validez avec !defi fait 2 ou refusez avec !defi non 2 (les points sont rendus), ou depuis la page Mini-jeux du chat.',
@@ -516,7 +516,7 @@
       ],
     },
     {
-      id: 'planning', icon: '📅', name: 'Planning des lives', short: 'Tes prochains lives à l’écran, tirés de ton planning Twitch.', overlay: 'overlays/planning.html', size: [560, 600],
+      id: 'planning', icon: '📅', name: 'Planning des lives', short: 'Tes prochains lives à l’écran, tirés de ton planning Twitch.', overlay: 'overlays/planning.html', size: [560, 740],
       tagline: 'Tes prochains lives, tirés du planning Twitch : en liste ou en semaine, avec l’heure, le titre et le jeu. Se met à jour tout seul.',
       replaces: ['planning fait main sur Canva'],
       note: 'Le planning se règle sur Twitch (Tableau de bord → Paramètres → Chaîne → Planning). Aucune connexion n’est nécessaire : il est public. L’image à partager sur Discord et les réseaux se crée sur la page « Image du planning ».',
