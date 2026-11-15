@@ -108,7 +108,7 @@ function renderStatus() {
   tog.append(cb, el('b', null, cfg.enabled ? 'Bot activé' : 'Bot désactivé'));
   row.appendChild(tog);
   row.appendChild(el('span', 'flag', s.live ? '🔴 en live' : 'hors ligne'));
-  if (cfg.enabled) row.appendChild(el('span', 'flag', `${s.subs} abonnement(s) Twitch actif(s)`));
+  if (cfg.enabled) row.appendChild(el('span', 'flag', SB.tn(s.subs, '{0} abonnement Twitch actif', '{0} abonnements Twitch actifs')));
   box.appendChild(row);
   const who = el('div', 'bt-row');
   who.appendChild(el('span', null, 'Le bot écrit avec :'));

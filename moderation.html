@@ -248,7 +248,7 @@ function addMessage(m) {
   const feed = $('feed');
   applyFilter(row); feed.appendChild(row);
   while (feed.children.length > MAX) feed.firstChild.remove();
-  if (atBottom) feed.scrollTop = feed.scrollHeight; else { unseen++; $('more').hidden = false; $('more').textContent = `⬇ ${unseen} nouveau(x) message(s)`; }
+  if (atBottom) feed.scrollTop = feed.scrollHeight; else { unseen++; $('more').hidden = false; $('more').textContent = '⬇ ' + SB.tn(unseen, '{0} nouveau message', '{0} nouveaux messages'); }
   if (cardUser === m.login) renderHist();
 }
 /* Message en vedette : affiché en grand par l'overlay « Message en vedette » (via le relais) */
@@ -500,7 +500,7 @@ function renderPoll() {
   const card = el('div', 'md-held bx-card');
   const head = el('div'); head.append(el('b', null, '📊 '), skip(el('b', null, poll.title)), SB.meta(poll.status === 'ACTIVE' ? `${mmss(left(poll.started_at, poll.duration))} restantes` : POLL_ST[poll.status] || poll.status));
   const total = poll.choices.reduce((a, c) => a + c.votes, 0);
-  card.append(head, ...bars(poll.choices, (c) => c.votes), el('small', null, `${total.toLocaleString(SB_LANG_TAG)} vote(s)`));
+  card.append(head, ...bars(poll.choices, (c) => c.votes), el('small', null, SB.tn(total, '{0} vote', '{0} votes', [total.toLocaleString(SB_LANG_TAG)])));
   const row = el('div', 'pn-row');
   if (poll.status === 'ACTIVE') { const b = el('button', 'btn small', '⏹ Terminer maintenant'); b.onclick = () => endPoll('TERMINATED'); row.appendChild(b); }
   const h = el('button', 'btn ghost small', poll.status === 'ACTIVE' ? '✕ Supprimer' : 'Masquer');

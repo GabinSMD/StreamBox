@@ -77,7 +77,7 @@ engine.rules.filter((r) => r.on && r.trigger.type === 'timer' && r.trigger.minut
   .forEach((r) => setInterval(() => engine.emit('timer', { ruleId: r.id }), Math.max(1, r.trigger.minutes) * 60000));
 
 if (c.demo) {
-  engine.note(SB.t('Démo : {0} automatisation(s)', [engine.rules.length]));
+  engine.note(SB.tn(engine.rules.length, 'Démo : {0} automatisation', 'Démo : {0} automatisations'));
   setInterval(() => chat.inject(SB.fake({ text: '!hype' })), 4000);
 }
 showStatus();

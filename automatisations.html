@@ -141,7 +141,7 @@ $('obsGo').onclick = () => {
       const sc = (await obs.call('GetSceneList')).scenes || [], inp = (await obs.call('GetInputList')).inputs || [];
       $('dl-scene').replaceChildren(...sc.map((x) => { const o = el('option'); o.value = x.sceneName; return o; }));
       $('dl-source').replaceChildren(...[...sc.map((x) => x.sceneName), ...inp.map((x) => x.inputName)].map((n) => { const o = el('option'); o.value = n; return o; }));
-      toast(`OBS connecté : ${sc.length} scène(s), ${inp.length} source(s)`);
+      toast(SB.t('OBS connecté : {0}, {1}', [SB.tn(sc.length, '{0} scène', '{0} scènes'), SB.tn(inp.length, '{0} source', '{0} sources')]));
     } catch (e) { toast(e.message); }
   }).connect();
 };
