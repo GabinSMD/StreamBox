@@ -522,7 +522,6 @@ ol.sx-list { counter-reset: sx; } ol.sx-list li span::before { counter-increment
 .au-rhead input[type=checkbox] { width: 18px; height: 18px; }
 .au-name { flex: 1; min-width: 160px; font-weight: 700; }
 .au-block { margin-top: 12px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; display: flex; flex-direction: column; gap: 8px; }
-.au-k { font-size: 13px; font-weight: 600; color: var(--muted); }
 .au-fields { display: flex; flex-wrap: wrap; gap: 8px 14px; }
 .au-fields .bt-f { min-width: 180px; flex: 1; }
 .au-fields .bt-f input[type=text] { width: 100%; box-sizing: border-box; }
@@ -842,7 +841,7 @@ main:focus { outline: none; }
 /* Automatisations : un niveau de cadre en moins, « Quand » et « Alors » deviennent des zones titrées */
 .au-rule { padding: 16px; margin-top: 16px; }
 .au-block { margin-top: 14px; padding: 12px 0 0; border: 0; border-top: 1px solid var(--line); border-radius: 0; gap: 10px; }
-.au-k { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--accent-ink); }
+.au-k { font-size: 13px; font-weight: 700; color: var(--accent-ink); } /* « Quand » / « Alors » : une seule définition, sans capitales espacées */
 .au-action { border: 0; border-radius: 10px; padding: 10px 12px; background: var(--card); gap: 10px; }
 .au-action .pn-row .sb-grip { margin-left: -6px; }
 .au-rhead .sb-grip { margin-left: -6px; }
@@ -908,3 +907,9 @@ main:focus { outline: none; }
 .start-path li small.tag-libre { color: var(--ok); } .start-path li small.tag-twitch, .start-path li small.tag-compte { color: var(--accent-ink); } .start-path li small.tag-cle { color: var(--warn); }
 .tool p.need-line { flex: none; margin: 4px 0 2px; }
 #need h1.sec { margin-top: 0; }
+/* Écran tactile : en-tête et pied de page à 44 px, comme le reste du site */
+@media (pointer: coarse) {
+  .logo, .top nav a { min-height: 44px; display: inline-flex; align-items: center; }
+  .foot-cols div { gap: 0; }
+  .foot-cols a { min-height: 44px; display: inline-flex; align-items: center; padding: 0; }
+}

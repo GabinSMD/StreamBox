@@ -110,7 +110,7 @@ function apply(d) { info = d; if (!dirty) cfg = d.cfg; render(); }
 function render() {
   const S = info.state, C = cfg.currency, now = S.now;
   $('enabled').checked = cfg.enabled; $('enabledLabel').textContent = cfg.enabled ? 'Jeux activés' : 'Jeux désactivés';
-  $('st').textContent = `${info.players} joueur(s)`;
+  $('st').textContent = SB.tn(info.players, '{0} joueur', '{0} joueurs');
   $('warn').hidden = cfg.enabled; $('warn').textContent = 'Active les jeux pour que le relais lise le chat (les points, les paris et les réponses du quiz passent par là).';
   $('cmdHelp').replaceChildren('Chat : ', ...[`!points`, `!top`, '!classement', cfg.defis && '!defi ton défi', cfg.defis && '!soutenir 2 100', cfg.duel && '!duel @pseudo 100', cfg.pred && '!bet 1 50', cfg.gamble && '!gamble 50'].filter(Boolean).flatMap((x, i) => (i ? [' · ', el('code', null, x)] : [el('code', null, x)])),
     ' · modos : ', el('code', null, '!pred Question | A | B'), ' ', el('code', null, '!pred fin 1'), ' ', el('code', null, '!quiz Question | réponse'), ' ', el('code', null, '!give @pseudo 100'), ' ', el('code', null, '!defi fait 2'));
@@ -124,7 +124,7 @@ function render() {
     const h = el('div'); h.append(el('b', null, p.question + ' '), el('small', 'bt-help', p.cancelled ? 'annulée' : p.resolved ? 'terminée' : p.open ? `paris ouverts (${Math.max(0, Math.ceil((p.endsAt - now) / 1000))} s)` : 'paris fermés')); box.append(h);
     p.options.forEach((o, i) => {
       const row = el('div', 'pn-row');
-      row.append(el('span', 'lv-num', `${i + 1}.`), el('span', null, o.label), SB.meta(`${fmt(o.total)} ${C}`, `${o.bettors} parieur(s)`, `${pool ? Math.round((o.total / pool) * 100) : 0} %`, p.resolved && p.winner === i && '✅ gagnant'));
+      row.append(el('span', 'lv-num', `${i + 1}.`), el('span', null, o.label), SB.meta(`${fmt(o.total)} ${C}`, SB.tn(o.bettors, '{0} parieur', '{0} parieurs'), `${pool ? Math.round((o.total / pool) * 100) : 0} %`, p.resolved && p.winner === i && '✅ gagnant'));
       if (live) row.append(btn('✅ Gagnant', () => { if (confirm(`« ${o.label} » gagne ? Les ${C} sont distribués aux gagnants.`)) run(`!pred fin ${i + 1}`); }));
       box.appendChild(row);
     });
@@ -146,7 +146,7 @@ function render() {
   $('defis').replaceChildren(...(D.length ? D.map((d) => {
     const box = el('div', 'jx-live');
     const h = el('div'); const t = el('b', null, `#${d.n} ${d.text} `); t.dataset.i18nSkip = '';
-    h.append(t, SB.meta(`${fmt(d.total)} / ${fmt(d.goal)} ${C}`, SB.t('par {0}', [d.by]), SB.t('{0} soutien(s)', [d.backers]), { atteint: '🎯 ' + SB.t('atteint'), fait: '✅ ' + SB.t('relevé'), 'refusé': '❌ ' + SB.t('refusé') }[d.status]));
+    h.append(t, SB.meta(`${fmt(d.total)} / ${fmt(d.goal)} ${C}`, SB.t('par {0}', [d.by]), SB.tn(d.backers, '{0} soutien', '{0} soutiens'), { atteint: '🎯 ' + SB.t('atteint'), fait: '✅ ' + SB.t('relevé'), 'refusé': '❌ ' + SB.t('refusé') }[d.status]));
     box.append(h);
     if (d.status === 'ouvert' || d.status === 'atteint') {
       const r = el('div', 'pn-row');

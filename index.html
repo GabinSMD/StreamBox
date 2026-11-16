@@ -107,7 +107,7 @@ SB_CATEGORIES.forEach((c) => {
   a.append(top, Object.assign(document.createElement('span'), { textContent: c.desc }), Object.assign(document.createElement('small'), { textContent: SB.t('{0} outils', [n]) }));
   document.getElementById('cats').appendChild(a);
 });
-if (window.SBA && SBA.enabled() && SBA.loggedIn()) { const h = document.getElementById('heroAccount'); h.textContent = '👤 Mon espace'; }
+if (window.SBA && SBA.enabled() && SBA.loggedIn()) { const h = document.getElementById('heroAccount'); h.replaceChildren(SB.icon('user'), SB.t('Mon espace')); }
 else if (!(window.SBA && SBA.enabled())) document.getElementById('heroAccount').hidden = true;
 </script>
 </body>

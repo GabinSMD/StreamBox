@@ -153,7 +153,9 @@
 
   window.SB_LANG = 'fr'; window.SB_LANG_TAG = 'fr-FR';
   const SB = (window.SB = window.SB || {});
-  SB.LANGS = LANGS; SB.t = t; SB.raw = (n) => (raw.add(n), n); SB.setLang = setLang; SB.lang = () => lang;
+  SB.LANGS = LANGS; SB.t = t;
+  // pluriel : SB.tn(n, '{0} outil', '{0} outils') ; vars vaut [n] par défaut
+  SB.tn = (n, one, many, vars) => t(Math.abs(n) === 1 ? one : many, vars || [n]); SB.raw = (n) => (raw.add(n), n); SB.setLang = setLang; SB.lang = () => lang;
   // Boîtes de dialogue du navigateur : traduites aussi
   ['alert', 'confirm', 'prompt'].forEach((f) => { const orig = window[f]; window[f] = function (msg, ...rest) { return orig.call(window, t(String(msg == null ? '' : msg)), ...rest); }; });
   setLang(pick());

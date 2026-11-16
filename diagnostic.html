@@ -189,7 +189,7 @@ $('simBtns').append(...SIM.map(([kind, emoji, label, extra]) => {
     const ids = [...document.querySelectorAll('#simOvs input:checked')].map((c) => c.value);
     if (!ids.length) { $('simRes').textContent = SB.t('Coche au moins un overlay.'); return; }
     const ev = Object.assign({ kind, name: $('simName').value.trim() || 'Viewer_Test', message: $('simMsg').value.trim() }, extra || {});
-    try { const r = await SBA.api('POST', '/me/sim', { ids, ev }); $('simRes').textContent = r.sent ? SB.t('« {0} » envoyé à {1} overlay(s).', [SB.t(label), r.sent]) : SB.t('Aucun overlay n’a reçu le test : il a peut-être été fermé. Clique sur « Relancer ».'); }
+    try { const r = await SBA.api('POST', '/me/sim', { ids, ev }); $('simRes').textContent = r.sent ? SB.tn(r.sent, '« {0} » envoyé à {1} overlay.', '« {0} » envoyé à {1} overlays.', [SB.t(label), r.sent]) : SB.t('Aucun overlay n’a reçu le test : il a peut-être été fermé. Clique sur « Relancer ».'); }
     catch (e) { $('simRes').textContent = SB.t('Erreur : {0}', [e.message]); }
   });
   return b;
