@@ -66,7 +66,7 @@ export function canRequest(cfg, Q, user, level, now) {
   if (level < LEVELS[cfg.level]) return { sub: 'demandes réservées aux abonnés.', vip: 'demandes réservées aux VIP.', mod: 'demandes réservées aux modos.' }[cfg.level];
   if (level < 3) {
     if (Q.items.length >= cfg.maxQueue) return 'la file est pleine, réessaie plus tard.';
-    if (Q.items.filter((x) => x.byId === user.id).length >= cfg.maxPerUser) return `tu as déjà ${cfg.maxPerUser} demande(s) en attente.`;
+    if (Q.items.filter((x) => x.byId === user.id).length >= cfg.maxPerUser) return cfg.maxPerUser === 1 ? 'tu as déjà 1 demande en attente.' : `tu as déjà ${cfg.maxPerUser} demandes en attente.`;
     const last = Q.cd[user.id] || 0;
     if (cfg.cooldown && now - last < cfg.cooldown * 1000) return `attends encore ${Math.ceil((cfg.cooldown * 1000 - (now - last)) / 1000)} s.`;
   }
