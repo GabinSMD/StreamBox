@@ -1,0 +1,69 @@
+name: PR conventions
+
+# Same rules in every project:
+#   branch   <type>/<issue>-<a-few-words>   e.g. feat/982-player-act-warnings
+#   PR title type(scope): imperative sentence in English, no final period
+# The PR title becomes the squash commit subject.
+# Not checked: long-lived branches (promotions, merge-backs) and bot PRs.
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions: {}
+
+concurrency:
+  group: pr-conventions-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  TYPES: feat|fix|refactor|perf|test|docs|chore|ci|build|security|hotfix|revert
+  LONG_LIVED: ^(main|master|develop|staging)$
+  BOTS: ^(dependabot\[bot\]|renovate\[bot\]|github-actions\[bot\])$
+  EXTRA_PREFIXES: ""
+
+jobs:
+  branch:
+    name: Branch name
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: <type>/<issue>-<a-few-words>
+        env:
+          HEAD: ${{ github.head_ref }}
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+        run: |
+          echo "Branch: $HEAD (author: $AUTHOR)"
+          if echo "$HEAD" | grep -qE "$LONG_LIVED" || echo "$AUTHOR" | grep -qE "$BOTS"; then
+            echo "Long-lived branch or bot: no rule."; exit 0
+          fi
+          PREFIXES="$TYPES"; [ -n "$EXTRA_PREFIXES" ] && PREFIXES="$TYPES|$EXTRA_PREFIXES"
+          if echo "$HEAD" | grep -qE "^($PREFIXES)/[a-z0-9][a-z0-9.-]*$"; then
+            echo "Valid branch."; exit 0
+          fi
+          echo "::error::Branch '$HEAD' does not follow <type>/<issue>-<a-few-words> (lowercase, hyphens)."
+          echo "Types: ${TYPES//|/ }. Example: feat/982-player-act-warnings"
+          echo "Rename before opening the PR (renaming afterwards closes it): git branch -m <new-name>"
+          exit 1
+
+  title:
+    name: PR title
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Conventional commit
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+          HEAD: ${{ github.head_ref }}
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+        run: |
+          echo "Title: $TITLE"
+          if echo "$HEAD" | grep -qE "$LONG_LIVED" || echo "$AUTHOR" | grep -qE "$BOTS"; then
+            echo "Long-lived branch or bot: no rule."; exit 0
+          fi
+          if printf '%s' "$TITLE" | grep -qE "^($TYPES)(\([a-z0-9-]+\))?!?: [^ ].*[^.]$"; then
+            echo "Valid title."; exit 0
+          fi
+          echo "::error::The PR title must be a conventional commit in English: 'type(scope): imperative sentence', no final period."
+          echo "Types: ${TYPES//|/ }. Example: feat(enrollment): compute the siblings discount"
+          exit 1
