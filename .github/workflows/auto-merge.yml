@@ -1,0 +1,59 @@
+name: Auto-merge
+
+# Fusionne seule une PR d'agent quand c'est sans risque : CI verte, « Revue de
+# code : OK » (+ « QA : OK » si l'interface change) plus récents que le dernier
+# commit, aucun fichier sensible. Règles : GabinSMD/shared-workflows.
+# ÉTEINT tant que la variable de dépôt AUTO_MERGE ne vaut pas « on » : le run
+# ne fait qu'écrire dans son résumé ce qu'il fusionnerait.
+#
+# Après une fusion, le site GitHub Pages est reconstruit (une fusion faite par
+# GITHUB_TOKEN n'en déclencherait pas forcément).
+
+on:
+  schedule:
+    - cron: "7,37 * * * *"
+  issue_comment:
+    types: [created]
+  workflow_run:
+    workflows: ["Tests"]
+    types: [completed]
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: auto-merge
+  cancel-in-progress: false
+
+jobs:
+  auto-merge:
+    if: github.event_name != 'issue_comment' || github.event.issue.pull_request
+    permissions:
+      contents: write
+      pull-requests: write
+      checks: read
+      statuses: read
+      actions: write
+      pages: write
+    uses: GabinSMD/shared-workflows/.github/workflows/auto-merge.yml@main
+    with:
+      enabled: ${{ vars.AUTO_MERGE == 'on' }}
+      # Toujours un humain : relais (clés Ko-fi, webhooks Discord), extension
+      # publiée, compte et connexion, configuration, domaine, mentions légales.
+      sensitive-paths: |
+        relay/
+        tools/relay/
+        extension/
+        js/account.js
+        js/config.js
+        connexion.html
+        compte.html
+        legal.html
+        CNAME
+      ui-paths: |
+        *.html
+        css/
+        js/
+        overlays/
+        img/
+      pages-build: true
