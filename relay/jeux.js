@@ -205,7 +205,7 @@ async function defiCmd(cfg, G, P, ev, cmd, rest, isMod, now) {
     if (p.n < put) return `${name}, tu n’as que ${fmt(p.n)} ${C}.`;
     p.n -= put; await P.put(ev.userId, p);
     d.total += put; d.backers[ev.userId] = (d.backers[ev.userId] || 0) + put;
-    if (d.total >= d.goal) { d.status = 'atteint'; d.reachedAt = now; log(G, `🎯 Défi atteint : ${d.text}`, now); return `🎯 Défi n°${d.n} atteint grâce à ${Object.keys(d.backers).length} viewer(s) : « ${d.text} » ! À toi de jouer 💪`; }
+    if (d.total >= d.goal) { d.status = 'atteint'; d.reachedAt = now; log(G, `🎯 Défi atteint : ${d.text}`, now); const nb = Object.keys(d.backers).length; return nb === 1 ? `🎯 Défi n°${d.n} atteint grâce à 1 viewer : « ${d.text} » ! À toi de jouer 💪` : `🎯 Défi n°${d.n} atteint grâce à ${nb} viewers : « ${d.text} » ! À toi de jouer 💪`; }
     return null; // pas de message à chaque mise : l'overlay montre la cagnotte
   }
   const action = (rest[0] || '').toLowerCase(), target = find(rest[1]);
@@ -244,7 +244,8 @@ export async function resolvePred(cfg, G, P, i, now) {
   if (!winners.length) for (const [id, b] of Object.entries(p.bets)) { const u = await P.get(id); u.n += b.stake; await P.put(id, u); } // personne n'a gagné : on rembourse
   p.resolved = true; p.open = false; p.winner = i; p.resolvedAt = now;
   log(G, `🔮 « ${p.options[i].label} » l’emporte (${winners.length} gagnant${winners.length > 1 ? 's' : ''})`, now);
-  return winners.length ? `🔮 Résultat : « ${p.options[i].label} » ! ${winners.length} gagnant(s) se partagent ${fmt(pool)} ${cfg.currency}.` : `🔮 Résultat : « ${p.options[i].label} ». Personne n’avait parié dessus : tout le monde est remboursé.`;
+  if (winners.length === 1) return `🔮 Résultat : « ${p.options[i].label} » ! 1 gagnant remporte ${fmt(pool)} ${cfg.currency}.`;
+  return winners.length ? `🔮 Résultat : « ${p.options[i].label} » ! ${winners.length} gagnants se partagent ${fmt(pool)} ${cfg.currency}.` : `🔮 Résultat : « ${p.options[i].label} ». Personne n’avait parié dessus : tout le monde est remboursé.`;
 }
 export async function cancelPred(cfg, G, P, now) {
   const p = G.pred;
